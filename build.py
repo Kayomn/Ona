@@ -44,7 +44,14 @@ def link_executable(module_name: str, module_config: dict, object_paths: list) -
 
 	if ("dependencies" in module_config):
 		for dependency in module_config["dependencies"]:
-			args.append(path.join(output_path, (dependency + ".a")))
+			# Temporary fix for handling non-static depndencies. This needs to be fixed properly,
+			# by giving the script awareness of the dependency type and acting accordingly, but for
+			# now this will work.
+			dependency_path = path.join(output_path, dependency)
+			dependency_static_lib = (dependency_path + ".a")
+
+			if (path.exists(dependency_static_lib)):
+				args.append(dependency_static_lib)
 
 	args += (["-o" + path.join(output_path, module_name)] + common_flags)
 
