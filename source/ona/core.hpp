@@ -190,7 +190,7 @@ namespace Ona::Core {
 	/**
 	 * Reference-counted, UTF-8-encoded character sequence.
 	 */
-	class String {
+	class String final {
 		static constexpr size_t staticBufferSize = 24;
 
 		uint32_t size;
@@ -244,7 +244,7 @@ namespace Ona::Core {
 
 	Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size);
 
-	template<typename Type> class Array {
+	template<typename Type> class Array final {
 		Allocator * allocator;
 
 		size_t length;
