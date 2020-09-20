@@ -270,8 +270,6 @@ namespace Ona::Core {
 			} else {
 				Deallocate(this->values.pointer);
 			}
-
-			this->values = {};
 		}
 
 		constexpr Allocator* AllocatorOf() {
