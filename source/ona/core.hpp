@@ -70,6 +70,22 @@ namespace Ona::Core {
 			return Slice{length, pointer};
 		}
 
+		/**
+		 * Creates a new `Slice` from the `Slice`, granting access to elements from index `a` to
+		 * position `b`.
+		 */
+		constexpr Slice Sliced(size_t a, size_t b) {
+			return Slice::Of((this->pointer + a), b);
+		}
+
+		/**
+		 * Creates a new `Slice` of `const` `Type` from the `Slice`, granting access to elements
+		 * from index `a` to position `b`.
+		 */
+		constexpr Slice<Type const> Sliced(size_t a, size_t b) const {
+			return Slice<Type const>::Of((this->pointer + a), b);
+		}
+
 		constexpr Type * begin() {
 			return this->pointer;
 		}
