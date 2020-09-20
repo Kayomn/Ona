@@ -1,0 +1,15 @@
+{
+	"targetType": "executable",
+	"modules": [
+		"app",
+		"graphics"
+	],
+	"libraries": [
+		"dl",
+		"SDL2",
+		"GL"
+	],
+	"dependencies": [
+		"ona"
+	]
+}
