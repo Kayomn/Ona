@@ -288,7 +288,7 @@ namespace Ona::Core {
 			}
 		}
 
-		constexpr Allocator* AllocatorOf() {
+		constexpr Allocator * AllocatorOf() {
 			return this->allocator;
 		}
 
