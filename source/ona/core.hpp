@@ -261,7 +261,7 @@ namespace Ona::Core {
 		}
 
 		~Array() {
-			for (auto& value : this->values) {
+			for (auto & value : this->values) {
 				value.~Type();
 			}
 
