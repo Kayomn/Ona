@@ -3,8 +3,6 @@
 using Ona::Math::Vector4;
 
 namespace Ona::Graphics {
-	GraphicsServer::~GraphicsServer() { }
-
 	Vector4 NormalizeColor(Color const & color) {
 		return Vector4{
 			(color.r / (static_cast<float>(Color::channelMax))),

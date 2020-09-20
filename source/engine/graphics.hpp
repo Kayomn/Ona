@@ -19,7 +19,7 @@ namespace Ona::Graphics {
 
 	class GraphicsServer {
 		public:
-		virtual ~GraphicsServer() = 0;
+		virtual ~GraphicsServer() { }
 
 		virtual void Clear() = 0;
 
