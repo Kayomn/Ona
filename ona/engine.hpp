@@ -71,15 +71,6 @@ namespace Ona::Engine {
 
 	};
 
-	enum class ShaderError {
-		None,
-		Server,
-		Compilation,
-		Linking,
-		Validation,
-		BadSources
-	};
-
 	enum class RendererError {
 		None
 	};
