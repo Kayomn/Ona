@@ -88,7 +88,7 @@ def build(name: str) -> (bool, str):
 	needs_recompile = False
 
 	def compile_source(source_path: str, object_path: str) -> None:
-		print(source_path, "->", object_path)
+		print(source_path)
 
 		compilation_process_ids.append(Popen([
 			"clang++",
