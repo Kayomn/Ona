@@ -49,13 +49,13 @@ namespace Ona::Collections {
 			return bufferIndex;
 		}
 
-		Slice<Type> AppendAll(Slice<Type> const & elements) {
-			if (this->Reserve(elements.length)) {
+		Slice<Type> AppendAll(Slice<Type> const & values) {
+			if (this->Reserve(values.length)) {
 				Slice<Type> range = this->values.Sliced(this->count, (this->count + values.length));
 
-				for (size_t i = 0; i < range.length; i += 1) range[i] = elements[i];
+				for (size_t i = 0; i < range.length; i += 1) range[i] = values[i];
 
-				this->count += elements.length;
+				this->count += values.length;
 
 				return range;
 			}
@@ -111,6 +111,16 @@ namespace Ona::Collections {
 			}
 
 			return (this->values.pointer != nullptr);
+		}
+
+		void Truncate(size_t n) {
+			Assert((n < this->count), "Invalid range");
+
+			for (auto & value : this->values.Sliced((this->count - n), this->count)) {
+				value.~Type();
+			}
+
+			this->count -= n;
 		}
 
 		Slice<Type> Values() {
