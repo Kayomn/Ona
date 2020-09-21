@@ -153,6 +153,8 @@ def build(name: str) -> (bool, str):
 
 					if (path.getmtime(source_path) > path.getmtime(object_path)):
 						compile_source(source_path, object_path)
+
+						needs_recompile = True
 				else:
 					header_path = (folder_path + ".hpp")
 
@@ -193,14 +195,15 @@ def build(name: str) -> (bool, str):
 
 	return needs_recompile, binary_path
 
-arg_parser = ArgumentParser(
-	description = "Builds an Ona engine component and all of its dependencies."
-)
+# arg_parser = ArgumentParser(
+# 	description = "Builds an Ona engine component and all of its dependencies."
+# )
 
-arg_parser.add_argument("component", help = "Component to compile")
+# arg_parser.add_argument("component", help = "Component to compile")
 
-args = arg_parser.parse_args()
-component = args.component
+# args = arg_parser.parse_args()
+# component = args.component
+component = "engine"
 
 if (not build(component)[0]):
 	print("Nothing to be done")
