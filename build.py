@@ -5,6 +5,7 @@ from os import path, listdir
 from subprocess import Popen, call
 import json
 
+processed_dependencies = []
 common_flags = ["-g", "-fno-exceptions", "-std=c++17", "-I./source"]
 output_path = "output"
 input_path = "source"
@@ -121,10 +122,12 @@ def build(name: str) -> (bool, str):
 
 		if ("dependencies" in build_config):
 			for dependency in build_config["dependencies"]:
-				build_result, dependency_path = build(dependency)
-				needs_recompile |= build_result
+				if (not dependency in processed_dependencies):
+					build_result, dependency_path = build(dependency)
+					needs_recompile |= build_result
 
-				dependency_paths.append(dependency_path)
+					dependency_paths.append(dependency_path)
+					processed_dependencies.append(dependency)
 
 
 
