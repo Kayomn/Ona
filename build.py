@@ -9,6 +9,21 @@ common_flags = ["-g", "-fno-exceptions", "-std=c++17", "-I./source"]
 output_path = "output"
 input_path = "source"
 
+def name_static_lib(name: str) -> str:
+	return (name + ".a")
+
+def name_shared_lib(name: str) -> str:
+	return (name + ".so")
+
+def name_executable(name: str) -> str:
+	return name
+
+target_type_namers = {
+	"static-lib": name_static_lib,
+	"shared-lib": name_shared_lib,
+	"executable": name_executable
+}
+
 def to_object_path(source_path: str) -> str:
 	path_nodes = []
 
@@ -23,7 +38,7 @@ def to_object_path(source_path: str) -> str:
 
 		path_nodes.reverse()
 
-		if (path_nodes[0] == "modules"):
+		if (path_nodes[0] == "source"):
 			path_nodes.pop(0)
 
 		return path.join(output_path, ".".join(path_nodes))
@@ -43,15 +58,14 @@ def link_executable(module_name: str, module_config: dict, object_paths: list) -
 	args = (["clang++"] + object_paths)
 
 	if ("dependencies" in module_config):
-		for dependency in module_config["dependencies"]:
-			# Temporary fix for handling non-static depndencies. This needs to be fixed properly,
-			# by giving the script awareness of the dependency type and acting accordingly, but for
-			# now this will work.
-			dependency_path = path.join(output_path, dependency)
-			dependency_static_lib = (dependency_path + ".a")
+		for dependency, target_type in module_config["dependencies"].items():
+			if (target_type in target_type_namers):
+				dependency_path = target_type_namers[target_type](
+					path.join(output_path, dependency)
+				)
 
-			if (path.exists(dependency_static_lib)):
-				args.append(dependency_static_lib)
+				if (path.exists(dependency_path)):
+					args.append(dependency_path)
 
 	args += (["-o" + path.join(output_path, module_name)] + common_flags)
 
@@ -67,89 +81,113 @@ target_type_linkers = {
 	"executable": link_executable
 }
 
+target_types = [
+	"static-lib",
+	"shared-lib",
+	"executable"
+]
+
 def build(name: str) -> bool:
 	build_path = path.join(input_path, name)
 
 	with open(path.join(build_path, "build.json")) as build_file:
 		build_config = json.load(build_file)
 
-		if ("modules" in build_config):
-			def compile_module(source_path: str, header_path: str) -> bool:
-				object_path = to_object_path(source_path)
+		if (not "modules" in build_config):
+			print("No modules specified in build.json for", name)
+			exit(1)
 
-				if (not object_path):
-					print("Invalid object path")
-					exit(1)
+		if (not "targetType" in build_config):
+			print("No target type specified in build.json for", name)
+			exit(1)
 
-				recompile = False
+		target_type = build_config["targetType"]
 
-				if (path.exists(object_path)):
-					object_modtime = path.getmtime(object_path)
+		if (not target_type in target_types):
+			print("Invalid target type specified in build.json for", name)
+			exit(1)
 
-					if (path.exists(header_path) and (path.getmtime(header_path) > object_modtime)):
-						recompile = True
+		compilation_process_ids = []
+		object_paths = []
+		needs_recompile = False
 
-					if (path.getmtime(source_path) > object_modtime):
-						recompile = True
-				else:
-					recompile = True
+		def compile_source(source_path: str, object_path: str) -> None:
+			print(source_path, "->", object_path)
+			object_paths.append(object_path)
 
-				object_paths.append(object_path)
+			compilation_process_ids.append(Popen([
+				"clang++",
+				source_path,
+				("-o" + object_path),
+				"-c"
+			] + common_flags))
 
-				if (recompile):
-					print(source_path)
+		if ("dependencies" in build_config):
+			for dependency in build_config["dependencies"]:
+				needs_recompile |= build(dependency)
 
-					compilation_process_ids.append(Popen([
-						"clang++",
-						source_path,
-						("-o" + object_path),
-						"-c"
-					] + common_flags))
+		print("Building", (name + "..."))
 
-				return recompile
+		binary_path = target_type_namers[target_type](path.join(output_path, name))
 
-			compilation_process_ids = []
-			object_paths = []
-			has_recompiled = False
-
-			if ("dependencies" in build_config):
-				for dependency in build_config["dependencies"]:
-					if (build(dependency)):
-						has_recompiled = True
-
-			print("Building", (name + "..."))
-
+		if (needs_recompile):
+			# A dependency has changed so recompile the entire package.
 			for module in build_config["modules"]:
-				module_path = path.join(build_path, module)
-				header_path = (module_path + ".hpp")
+				folder_path = path.join(build_path, module)
+				source_path = (folder_path + ".cpp")
 
-				if (path.isdir(module_path) and path.isfile(header_path)):
-					for source_file in listdir(module_path):
-						if (compile_module(path.join(module_path, source_file), header_path)):
-							has_recompiled = True
+				if (path.exists(source_path)):
+					compile_source(source_path, to_object_path(source_path))
+
+				if (path.exists(folder_path)):
+					for source_file in listdir(folder_path):
+						source_path = path.join(folder_path, source_file)
+
+						compile_source(source_path, to_object_path(source_path))
+		else:
+			for module in build_config["modules"]:
+				folder_path = path.join(build_path, module)
+				source_path = (folder_path + ".cpp")
+
+				if (path.exists(source_path)):
+					object_path = to_object_path(source_path)
+
+					if (path.getmtime(source_path) > path.getmtime(object_path)):
+						compile_source(source_path, object_path)
 				else:
-					module_path += ".cpp"
+					header_path = (folder_path + ".hpp")
 
-					if (path.isfile(module_path) and compile_module(module_path, header_path)):
-						has_recompiled = True
+					if (
+						(not path.exists(binary_path)) or
+						(path.getmtime(header_path) > path.getmtime(binary_path))
+					):
+						# The module header file has been altered so recompile all source files in it.
+						needs_recompile = True
 
-			if (has_recompiled):
-				if (all((pid == 0) for pid in [pid.wait() for pid in compilation_process_ids])):
-					if ("targetType" in build_config):
-						target_type = build_config["targetType"]
+						if (path.exists(folder_path)):
+							for source_file in listdir(folder_path):
+								source_path = path.join(folder_path, source_file)
 
-						if (target_type in target_type_linkers):
-							target_type_linkers[target_type](name, build_config, object_paths)
-						else:
-							print("Invalid target type specified")
-							exit(1)
-					else:
-						link_executable(name, build_config, object_paths)
+								compile_source(source_path, to_object_path(source_path))
+					elif path.exists(folder_path):
+						for source_file in listdir(folder_path):
+							source_path = path.join(folder_path, source_file)
+							object_path = to_object_path(source_path)
 
-			return has_recompiled
+							if (
+								(not path.exists(object_path)) or
+								(path.getmtime(source_path) > path.getmtime(object_path))
+							):
+								# A module source file has been altered so recompile it.
+								needs_recompile = True
 
-	return False
+								compile_source(source_path, object_path)
 
+		if (needs_recompile):
+			if (all((pid == 0) for pid in [pid.wait() for pid in compilation_process_ids])):
+				target_type_linkers[target_type](name, build_config, object_paths)
+
+	return needs_recompile
 
 arg_parser = ArgumentParser(
 	description = "Builds an Ona engine component and all of its dependencies."
@@ -158,5 +196,7 @@ arg_parser = ArgumentParser(
 arg_parser.add_argument("component", help = "Component to compile")
 
 args = arg_parser.parse_args()
+component = args.component
 
-build(args.component)
+if (not build(component)):
+	print("Nothing to be done")

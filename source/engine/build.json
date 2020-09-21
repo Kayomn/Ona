@@ -9,7 +9,8 @@
 		"SDL2",
 		"GL"
 	],
-	"dependencies": [
-		"ona"
-	]
+	"dependencies": {
+		"ona": "static-lib",
+		"collections": "static-lib"
+	}
 }
