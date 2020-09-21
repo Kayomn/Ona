@@ -3,7 +3,8 @@
 	"libraries": [
 		"dl",
 		"SDL2",
-		"GL"
+		"GL",
+		"GLEW"
 	],
 	"dependencies": [
 		"core",
