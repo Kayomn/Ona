@@ -4,21 +4,17 @@
 #include "ona/core.hpp"
 
 namespace Ona::Collections {
-	using Ona::Core::Allocator;
-	using Ona::Core::Reallocate;
-	using Ona::Core::Slice;
-
 	template<typename Type> class Appender final {
-		Allocator * allocator;
+		Ona::Core::Allocator * allocator;
 
 		size_t count;
 
-		Slice<Type> values;
+		Ona::Core::Slice<Type> values;
 
 		public:
 		Appender() = default;
 
-		Appender(Allocator * allocator) : allocator{allocator} { }
+		Appender(Ona::Core::Allocator * allocator) : allocator{allocator} { }
 
 		~Appender() {
 			for (auto & value : this->Values()) value.~Type();
@@ -30,7 +26,7 @@ namespace Ona::Collections {
 			}
 		}
 
-		Allocator * AllocatorOf() {
+		Ona::Core::Allocator * AllocatorOf() {
 			return this->allocator;
 		}
 
@@ -49,9 +45,12 @@ namespace Ona::Collections {
 			return bufferIndex;
 		}
 
-		Slice<Type> AppendAll(Slice<Type> const & values) {
+		Ona::Core::Slice<Type> AppendAll(Ona::Core::Slice<Type> const & values) {
 			if (this->Reserve(values.length)) {
-				Slice<Type> range = this->values.Sliced(this->count, (this->count + values.length));
+				Ona::Core::Slice<Type> range = this->values.Sliced(
+					this->count,
+					(this->count + values.length)
+				);
 
 				for (size_t i = 0; i < range.length; i += 1) range[i] = values[i];
 
@@ -60,7 +59,7 @@ namespace Ona::Collections {
 				return range;
 			}
 
-			return Slice<Type>{};
+			return Ona::Core::Slice<Type>{};
 		}
 
 		Type & At(size_t index) {
@@ -92,7 +91,7 @@ namespace Ona::Collections {
 					(sizeof(Type) * this->count)
 				).template As<Type>();
 			} else {
-				this->elements = Reallocate(
+				this->elements = Ona::Core::Reallocate(
 					this->values.pointer,
 					(sizeof(Type) * this->count)
 				).template As<Type>();
@@ -108,7 +107,7 @@ namespace Ona::Collections {
 					(sizeof(Type) * (this->values.length + capacity)
 				)).template As<Type>();
 			} else {
-				this->values = Reallocate(
+				this->values = Ona::Core::Reallocate(
 					reinterpret_cast<uint8_t *>(this->values.pointer),
 					(sizeof(Type) * (this->values.length + capacity)
 				)).template As<Type>();
@@ -118,7 +117,7 @@ namespace Ona::Collections {
 		}
 
 		void Truncate(size_t n) {
-			Assert((n < this->count), "Invalid range");
+			Ona::Core::Assert((n < this->count), "Invalid range");
 
 			for (auto & value : this->values.Sliced((this->count - n), this->count)) {
 				value.~Type();
@@ -127,11 +126,11 @@ namespace Ona::Collections {
 			this->count -= n;
 		}
 
-		Slice<Type> Values() {
+		Ona::Core::Slice<Type> Values() {
 			return this->values.Sliced(0, this->values.length);
 		}
 
-		Slice<Type const> Values() const {
+		Ona::Core::Slice<Type const> Values() const {
 			return this->values.Sliced(0, this->values.length);
 		}
 	};
