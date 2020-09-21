@@ -86,7 +86,6 @@ def build(name: str) -> (bool, str):
 
 		def compile_source(source_path: str, object_path: str) -> None:
 			print(source_path, "->", object_path)
-			object_paths.append(object_path)
 
 			compilation_process_ids.append(Popen([
 				"clang++",
@@ -112,7 +111,11 @@ def build(name: str) -> (bool, str):
 				if (path_nodes[0] == "source"):
 					path_nodes.pop(0)
 
-				return path.join(output_path, ".".join(path_nodes))
+				object_path = path.join(output_path, ".".join(path_nodes))
+
+				object_paths.append(object_path)
+
+				return object_path
 
 			return ""
 
