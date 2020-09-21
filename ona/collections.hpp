@@ -1,5 +1,5 @@
-#ifndef COLLECTIONS_APPENDER_H
-#define COLLECTIONS_APPENDER_H
+#ifndef COLLECTIONS_H
+#define COLLECTIONS_H
 
 #include "ona/core.hpp"
 

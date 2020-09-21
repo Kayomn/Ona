@@ -1,13 +1,12 @@
-#ifndef ENGINE_GRAPHICS_H
-#define ENGINE_GRAPHICS_H
+#ifndef ENGINE_H
+#define ENGINE_H
 
 #include "ona/core.hpp"
-#include "ona/math.hpp"
 
 namespace Ona::Graphics {
 	using Ona::Core::Color;
 	using Ona::Core::String;
-	using Ona::Math::Vector4;
+	using Ona::Core::Vector4;
 
 	struct Events {
 		float deltaTime;
