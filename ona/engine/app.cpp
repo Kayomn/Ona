@@ -1,6 +1,7 @@
 #include "ona/engine.hpp"
 #include "ona/collections.hpp"
 
+using namespace Ona::Core;
 using namespace Ona::Engine;
 using namespace Ona::Collections;
 

@@ -1,6 +1,8 @@
 #include "ona/engine.hpp"
 
+using Ona::Core::Color;
 using Ona::Core::Vector4;
+using Ona::Core::Slice;
 
 namespace Ona::Engine {
 	size_t TypeDescriptorSize(TypeDescriptor typeDescriptor) {

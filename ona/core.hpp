@@ -8,6 +8,8 @@
 
 #define extends : public
 
+#define let auto
+
 namespace Ona::Core {
 	/**
 	 * Assertion function used to abort the process if `expression` does not evaluate to `true`,

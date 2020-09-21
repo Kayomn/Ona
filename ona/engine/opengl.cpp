@@ -4,6 +4,12 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 
+using Ona::Core::Color;
+using Ona::Core::Image;
+using Ona::Core::Slice;
+using Ona::Core::String;
+using Ona::Core::Vector4;
+
 namespace Ona::Engine {
 	struct Renderer {
 		GLuint shaderProgramHandle;
@@ -56,7 +62,72 @@ namespace Ona::Engine {
 
 			Appender<Poly> polys;
 
-			GLuint CompileShaderSources(Slice<ShaderSource> const & shaderSources) {
+			GLuint CompileShaderSources(Slice<ShaderSource> const & sources) {
+				static let compileObject = [](ShaderSource const & source) -> GLuint {
+					GLuint const shaderHandle = glCreateShader(source.type);
+
+					if (shaderHandle && (source.text.length < INT32_MAX)) {
+						GLint const sourceSize = static_cast<GLint>(source.text.length);
+						GLint isCompiled;
+
+						glShaderSource(shaderHandle, 1, (&source.text.pointer), (&sourceSize));
+						glCompileShader(shaderHandle);
+						glGetShaderiv(shaderHandle, GL_COMPILE_STATUS, (&isCompiled));
+
+						if (isCompiled) return shaderHandle;
+					}
+
+					return 0;
+				};
+
+				if ((sources.length > 1) && (sources.length < 5)) {
+					GLuint shaderObjectHandles[4] = {};
+
+					for (size_t i = 0; i < sources.length; i += 1) {
+						shaderObjectHandles[i] = compileObject(sources(i));
+
+						if (!shaderObjectHandles[i]) {
+							// A shader object failed to compile, time to unload all of them.
+							size_t const loadedShaders = (i + 1);
+
+							for (size_t j = 0; j < loadedShaders; j += 1) {
+								glDeleteShader(shaderObjectHandles[j]);
+							}
+
+							// Failed to compile object.
+
+							return 0;
+						}
+					}
+
+					GLuint const shaderProgramHandle = glCreateProgram();
+
+					if (shaderProgramHandle) {
+						GLint success;
+
+						for (size_t i = 0; i < sources.length; i += 1) {
+							glAttachShader(shaderProgramHandle, shaderObjectHandles[i]);
+						}
+
+						glLinkProgram(shaderProgramHandle);
+
+						for (size_t i = 0; i < sources.length; i += 1) {
+							glDetachShader(shaderProgramHandle, shaderObjectHandles[i]);
+						}
+
+						glGetProgramiv(shaderProgramHandle, GL_LINK_STATUS, (&success));
+
+						if (success) {
+							glValidateProgram(shaderProgramHandle);
+							glGetProgramiv(shaderProgramHandle, GL_LINK_STATUS, (&success));
+
+							if (success) return shaderProgramHandle;
+
+							// Failed to link program.
+						}
+					}
+				}
+
 				return 0;
 			}
 
@@ -66,7 +137,23 @@ namespace Ona::Engine {
 			SDL_Window * window;
 
 			void * context;
+
 			~OpenGlGraphicsServer() override {
+				for (let & renderer : this->renderers.Values()) {
+					glDeleteShader(renderer.shaderProgramHandle);
+				}
+
+				for (let & material : this->materials.Values()) {
+					glDeleteShader(material.shaderProgramHandle);
+					glDeleteTextures(1, (&material.textureHandle));
+					Ona::Core::Deallocate(material.uniformData.pointer);
+				}
+
+				for (let & poly : this->polys.Values()) {
+					glDeleteBuffers(1, (&poly.vertexBufferHandle));
+					glDeleteVertexArrays(1, (&poly.vertexArrayHandle));
+				}
+
 				SDL_GL_DeleteContext(this->context);
 				SDL_DestroyWindow(this->window);
 				SDL_GL_UnloadLibrary();
@@ -79,7 +166,7 @@ namespace Ona::Engine {
 			}
 
 			void ColoredClear(Color color) override {
-				Ona::Core::Vector4 const rgba = NormalizeColor(color);
+				Vector4 const rgba = NormalizeColor(color);
 
 				glClearColor(rgba.x, rgba.y, rgba.z, rgba.w);
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -134,7 +221,7 @@ namespace Ona::Engine {
 					if (renderer->vertexLayout.Validate(vertexData)) {
 						GLuint vertexBufferHandle;
 
-						glCreateBuffers(1, &vertexBufferHandle);
+						glCreateBuffers(1, (&vertexBufferHandle));
 
 						if (glGetError() == GL_NO_ERROR) {
 							glNamedBufferStorage(
@@ -148,7 +235,7 @@ namespace Ona::Engine {
 								case GL_NO_ERROR: {
 									GLuint vertexArrayHandle;
 
-									glCreateVertexArrays(1, &vertexArrayHandle);
+									glCreateVertexArrays(1, (&vertexArrayHandle));
 
 									if (glGetError() == GL_NO_ERROR) {
 										glVertexArrayVertexBuffer(
@@ -162,7 +249,7 @@ namespace Ona::Engine {
 										switch (glGetError()) {
 											case GL_NO_ERROR: {
 												for (
-													auto & attribute :
+													let & attribute :
 													renderer->vertexLayout.attributes
 												) {
 													glEnableVertexArrayAttrib(
