@@ -24,54 +24,26 @@ target_type_namers = {
 	"executable": name_executable
 }
 
-def to_object_path(source_path: str) -> str:
-	path_nodes = []
-
-	while (source_path):
-		split = path.split(source_path)
-		source_path = split[0]
-
-		path_nodes.append(split[1])
-
-	if (len(path_nodes)):
-		path_nodes[0] = (path.splitext(path_nodes[0])[0] + ".o")
-
-		path_nodes.reverse()
-
-		if (path_nodes[0] == "source"):
-			path_nodes.pop(0)
-
-		return path.join(output_path, ".".join(path_nodes))
-
-	return ""
-
-def link_shared_lib(module_name: str, module_config: dict, object_paths: list) -> None:
+def link_shared_lib(module_name: str, object_paths: list, dependency_paths: list, libraries: list) -> None:
 	print("Linking", module_name, "shared library...")
 
-def link_static_lib(module_name: str, module_config: dict, object_paths: list) -> None:
+def link_static_lib(module_name: str, object_paths: list, dependency_paths: list, libraries: list) -> None:
 	print("Linking", module_name, "static library...")
 	call(["llvm-ar", "rc", path.join(output_path, (module_name + ".a"))] + object_paths)
 
-def link_executable(module_name: str, module_config: dict, object_paths: list) -> None:
+def link_executable(module_name: str, object_paths: list, dependency_paths: list, libraries: list) -> None:
 	print("Linking", module_name, "executable...")
 
-	args = (["clang++"] + object_paths)
+	args = (
+		["clang++"] +
+		object_paths +
+		dependency_paths +
+		["-o" + path.join(output_path, module_name)] +
+		common_flags
+	)
 
-	if ("dependencies" in module_config):
-		for dependency, target_type in module_config["dependencies"].items():
-			if (target_type in target_type_namers):
-				dependency_path = target_type_namers[target_type](
-					path.join(output_path, dependency)
-				)
-
-				if (path.exists(dependency_path)):
-					args.append(dependency_path)
-
-	args += (["-o" + path.join(output_path, module_name)] + common_flags)
-
-	if ("libraries" in module_config):
-		for library in module_config["libraries"]:
-			args.append("-l" + library)
+	for library in libraries:
+		args.append("-l" + library)
 
 	call(args)
 
@@ -87,7 +59,7 @@ target_types = [
 	"executable"
 ]
 
-def build(name: str) -> bool:
+def build(name: str) -> (bool, str):
 	build_path = path.join(input_path, name)
 
 	with open(path.join(build_path, "build.json")) as build_file:
@@ -109,6 +81,7 @@ def build(name: str) -> bool:
 
 		compilation_process_ids = []
 		object_paths = []
+		dependency_paths = []
 		needs_recompile = False
 
 		def compile_source(source_path: str, object_path: str) -> None:
@@ -122,9 +95,35 @@ def build(name: str) -> bool:
 				"-c"
 			] + common_flags))
 
+		def to_object_path(source_path: str) -> str:
+			path_nodes = []
+
+			while (source_path):
+				split = path.split(source_path)
+				source_path = split[0]
+
+				path_nodes.append(split[1])
+
+			if (len(path_nodes)):
+				path_nodes[0] = (path.splitext(path_nodes[0])[0] + ".o")
+
+				path_nodes.reverse()
+
+				if (path_nodes[0] == "source"):
+					path_nodes.pop(0)
+
+				return path.join(output_path, ".".join(path_nodes))
+
+			return ""
+
 		if ("dependencies" in build_config):
 			for dependency in build_config["dependencies"]:
-				needs_recompile |= build(dependency)
+				build_result, dependency_path = build(dependency)
+				needs_recompile |= build_result
+
+				dependency_paths.append(dependency_path)
+
+
 
 		print("Building", (name + "..."))
 
@@ -185,9 +184,14 @@ def build(name: str) -> bool:
 
 		if (needs_recompile):
 			if (all((pid == 0) for pid in [pid.wait() for pid in compilation_process_ids])):
-				target_type_linkers[target_type](name, build_config, object_paths)
+				target_type_linkers[target_type](
+					name,
+					object_paths,
+					dependency_paths,
+					(build_config["libraries"] if "libraries" in build_config else [])
+				)
 
-	return needs_recompile
+	return needs_recompile, binary_path
 
 arg_parser = ArgumentParser(
 	description = "Builds an Ona engine component and all of its dependencies."
@@ -198,5 +202,5 @@ arg_parser.add_argument("component", help = "Component to compile")
 args = arg_parser.parse_args()
 component = args.component
 
-if (not build(component)):
+if (not build(component)[0]):
 	print("Nothing to be done")
