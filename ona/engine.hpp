@@ -37,6 +37,8 @@ namespace Ona::Engine {
 		uint16_t components;
 
 		Chars name;
+
+		uint32_t offset;
 	};
 
 	struct MaterialLayout {
@@ -66,13 +68,18 @@ namespace Ona::Engine {
 	};
 
 	enum class PolyError {
-		None
+		None,
+		Server,
+		BadLayout,
+		BadRenderer,
+		BadVertices
 	};
 
 	enum class MaterialError {
 		None,
 		Server,
-		Layout,
+		BadLayout,
+		BadRenderer,
 		BadImage
 	};
 
@@ -116,7 +123,7 @@ namespace Ona::Engine {
 
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height);
 
-	void UnloadGraphics(GraphicsServer *& graphicsServer);
+	void UnloadGraphics(GraphicsServer * & graphicsServer);
 
 	Vector4 NormalizeColor(Color const & color);
 }
