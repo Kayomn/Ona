@@ -72,6 +72,7 @@ namespace Ona::Engine {
 	enum class MaterialError {
 		None,
 		Server,
+		Layout,
 		BadImage
 	};
 

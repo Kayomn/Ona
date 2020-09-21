@@ -203,8 +203,8 @@ namespace Ona::Engine {
 								if (error) (*error) = MaterialError::Server;
 							} break;
 						}
-					}
-				}
+					} else if (error) (*error) = MaterialError::Server;
+				} else if (error) (*error) = MaterialError::Layout;
 
 				return 0;
 			}
