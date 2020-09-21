@@ -6,7 +6,7 @@
 
 namespace Ona::Engine {
 	struct Renderer {
-		uint32_t shaderProgramHandle;
+		GLuint shaderProgramHandle;
 
 		MaterialLayout materialLayout;
 
@@ -16,7 +16,7 @@ namespace Ona::Engine {
 	struct Material {
 		ResourceId rendererId;
 
-		ResourceId shaderId;
+		GLuint shaderProgramHandle;
 
 		GLuint textureHandle;
 
@@ -50,19 +50,22 @@ namespace Ona::Engine {
 		using Ona::Collections::Appender;
 
 		thread_local class OpenGlGraphicsServer extends GraphicsServer {
-			public:
-			uint64_t timeNow, timeLast;
-
-			SDL_Window * window;
-
-			void * context;
-
 			Appender<Renderer> renderers;
 
 			Appender<Material> materials;
 
 			Appender<Poly> polys;
 
+			GLuint CompileShaderSources(Slice<ShaderSource> const & shaderSources) {
+				return 0;
+			}
+
+			public:
+			uint64_t timeNow, timeLast;
+
+			SDL_Window * window;
+
+			void * context;
 			~OpenGlGraphicsServer() override {
 				SDL_GL_DeleteContext(this->context);
 				SDL_DestroyWindow(this->window);
@@ -88,6 +91,13 @@ namespace Ona::Engine {
 
 			bool ReadEvents(Events & events) override {
 				thread_local SDL_Event sdlEvent;
+				this->timeLast = this->timeNow;
+				this->timeNow = SDL_GetPerformanceCounter();
+
+				events.deltaTime = (
+					(this->timeNow - this->timeLast) *
+					(1000 / static_cast<float>(SDL_GetPerformanceFrequency()))
+				);
 
 				while (SDL_PollEvent(&sdlEvent)) {
 					switch (sdlEvent.type) {
@@ -104,12 +114,8 @@ namespace Ona::Engine {
 				SDL_GL_SwapWindow(this->window);
 			}
 
-			ResourceId CreateShader(Chars const & sourceCode, ShaderError * error) override {
-				return 0;
-			}
-
 			ResourceId CreateRenderer(
-				ResourceId shaderId,
+				Slice<ShaderSource> const & shaderSources,
 				MaterialLayout const & materialLayout,
 				VertexLayout const & vertexLayout,
 				RendererError * error
@@ -219,10 +225,10 @@ namespace Ona::Engine {
 			}
 
 			ResourceId CreateMaterial(
+				Slice<ShaderSource> const & shaderSources,
 				ResourceId rendererId,
 				Slice<uint8_t const> const & materialData,
 				Image const & texture,
-				ResourceId shaderId,
 				MaterialError * error
 			) override {
 				if (rendererId) {
@@ -294,7 +300,7 @@ namespace Ona::Engine {
 
 											if (this->materials.Append(Material{
 												rendererId,
-												shaderId,
+												CompileShaderSources(shaderSources),
 												textureHandle,
 												uniformData
 											})) return id;
@@ -340,6 +346,8 @@ namespace Ona::Engine {
 				height,
 				windowFlags
 			);
+
+			graphicsServer.timeNow = SDL_GetPerformanceCounter();
 
 			if (graphicsServer.window) {
 				if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4) != 0) return nullptr;

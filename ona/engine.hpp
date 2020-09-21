@@ -41,6 +41,18 @@ namespace Ona::Engine {
 		uint32_t offset;
 	};
 
+	enum ShaderType {
+		ShaderTypeEmpty = 0,
+		ShaderTypeVertex = 0x1,
+		ShaderTypeFragment = 0x2
+	};
+
+	struct ShaderSource {
+		ShaderType type;
+
+		Chars text;
+	};
+
 	struct MaterialLayout {
 		Slice<Attribute> properties;
 
@@ -60,7 +72,12 @@ namespace Ona::Engine {
 	};
 
 	enum class ShaderError {
-		None
+		None,
+		Server,
+		Compilation,
+		Linking,
+		Validation,
+		BadSources
 	};
 
 	enum class RendererError {
@@ -97,10 +114,8 @@ namespace Ona::Engine {
 
 		virtual void Update() = 0;
 
-		virtual ResourceId CreateShader(Chars const & sourceCode, ShaderError * error) = 0;
-
 		virtual ResourceId CreateRenderer(
-			ResourceId shaderId,
+			Slice<ShaderSource> const & shaderSources,
 			MaterialLayout const & materialLayout,
 			VertexLayout const & vertexLayout,
 			RendererError * error
@@ -113,10 +128,10 @@ namespace Ona::Engine {
 		) = 0;
 
 		virtual ResourceId CreateMaterial(
+			Slice<ShaderSource> const & shaderSources,
 			ResourceId rendererId,
 			Slice<uint8_t const> const & materialData,
 			Image const & texture,
-			ResourceId shaderId,
 			MaterialError * error
 		) = 0;
 	};
