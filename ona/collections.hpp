@@ -81,6 +81,10 @@ namespace Ona::Collections {
 			this->count = 0;
 		}
 
+		size_t Count() const {
+			return this->count;
+		}
+
 		bool Compress() {
 			if (this->allocator) {
 				this->values = this->allocator->Reallocate(
