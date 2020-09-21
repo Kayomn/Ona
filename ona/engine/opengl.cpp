@@ -3,7 +3,7 @@
 #include <SDL2/SDL.h>
 #include <GL/gl.h>
 
-namespace Ona::Graphics {
+namespace Ona::Engine {
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height) {
 		thread_local class OpenGlGraphicsServer extends GraphicsServer {
 			public:

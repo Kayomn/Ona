@@ -3,7 +3,7 @@
 
 #include "ona/core.hpp"
 
-namespace Ona::Graphics {
+namespace Ona::Engine {
 	using Ona::Core::Color;
 	using Ona::Core::String;
 	using Ona::Core::Vector4;

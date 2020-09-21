@@ -2,7 +2,7 @@
 
 using Ona::Core::Vector4;
 
-namespace Ona::Graphics {
+namespace Ona::Engine {
 	Vector4 NormalizeColor(Color const & color) {
 		return Vector4{
 			(color.r / (static_cast<float>(Color::channelMax))),

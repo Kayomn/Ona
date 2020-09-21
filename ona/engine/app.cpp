@@ -1,7 +1,7 @@
 #include "ona/engine.hpp"
 #include "ona/collections.hpp"
 
-using namespace Ona::Graphics;
+using namespace Ona::Engine;
 using namespace Ona::Collections;
 
 int main(int argv, char const * const * argc) {
