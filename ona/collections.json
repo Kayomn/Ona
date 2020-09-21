@@ -1,7 +1,6 @@
 {
 	"targetType": "static-lib",
-	"modules": [
-		"core",
-		"math"
+	"dependencies": [
+		"core"
 	]
 }

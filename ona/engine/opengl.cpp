@@ -1,4 +1,4 @@
-#include "engine/graphics.hpp"
+#include "ona/engine.hpp"
 
 #include <SDL2/SDL.h>
 #include <GL/gl.h>
@@ -26,7 +26,7 @@ namespace Ona::Graphics {
 			}
 
 			void ColoredClear(Color color) override {
-				Ona::Math::Vector4 const rgba = NormalizeColor(color);
+				Ona::Core::Vector4 const rgba = NormalizeColor(color);
 
 				glClearColor(rgba.x, rgba.y, rgba.z, rgba.w);
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

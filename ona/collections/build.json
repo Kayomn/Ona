@@ -1,9 +1,0 @@
-{
-	"targetType": "static-lib",
-	"modules": [
-		"appender"
-	],
-	"dependencies": {
-		"ona": "static-lib"
-	}
-}

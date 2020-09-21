@@ -1,6 +1,6 @@
-#include "engine/graphics.hpp"
+#include "ona/engine.hpp"
 
-using Ona::Math::Vector4;
+using Ona::Core::Vector4;
 
 namespace Ona::Graphics {
 	Vector4 NormalizeColor(Color const & color) {

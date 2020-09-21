@@ -1,0 +1,12 @@
+{
+	"targetType": "executable",
+	"libraries": [
+		"dl",
+		"SDL2",
+		"GL"
+	],
+	"dependencies": [
+		"core",
+		"collections"
+	]
+}
