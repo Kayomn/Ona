@@ -23,11 +23,16 @@ namespace Ona::Engine {
 	}
 
 	size_t MaterialLayout::BufferSize() const {
+		constexpr size_t propertyAlignment = 4;
 		size_t size = 0;
 
 		// This needs to be aligned as per the standards that OpenGL and similar APIs conform to.
 		for (let & property : this->properties) {
-			size += (TypeDescriptorSize(property.type) * property.components);
+			size_t const propertySize = (TypeDescriptorSize(property.type) * property.components);
+			size_t const remainder = (propertySize % propertyAlignment);
+			// Avoid branching where possible. This will blast through the loop with a more
+			// consistent speed if its just straight arithmetic operations.
+			size += (propertySize + ((propertyAlignment - remainder) * (remainder != 0)));
 		}
 
 		return size;
