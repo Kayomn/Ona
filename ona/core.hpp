@@ -327,7 +327,13 @@ namespace Ona::Core {
 	 * such, memory that is not zero-terminated may overrun when being read, as the function cannot
 	 * determine the end of the character sequence.
 	 */
-	Chars CharsFrom(char * const pointer);
+	constexpr Chars CharsFrom(char const * pointer) {
+		size_t length = 0;
+
+		while (*(pointer + length)) length += 1;
+
+		return Chars::Of(pointer, length);
+	}
 
 	/**
 	 * Reference-counted, UTF-8-encoded character sequence.
