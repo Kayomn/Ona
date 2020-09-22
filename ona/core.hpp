@@ -99,6 +99,49 @@ namespace Ona::Core {
 		}
 	};
 
+	template<typename ValueType, typename ErrorType> class Result final {
+		union {
+			ValueType value;
+
+			ErrorType error;
+		} data;
+
+		bool isOk;
+
+		public:
+		ErrorType & Error() {
+			Assert((!this->isOk), "Result is ok");
+
+			return this->data.error;
+		}
+
+		bool IsOk() const {
+			return this->isOk;
+		}
+
+		ValueType & Value() {
+			Assert(this->isOk, "Result is erroneous");
+
+			return this->data.value;
+		}
+
+		static Result Ok(ValueType const & value) {
+			Result result;
+			result.isOk = true;
+			result.data.value = value;
+
+			return result;
+		}
+
+		static Result Fail(ErrorType const & error) {
+			Result result;
+			result.isOk = false;
+			result.data.error = error;
+
+			return result;
+		}
+	};
+
 	/**
 	 * A non-owning view, as defined by an address and length, into a particular region of memory.
 	 *
