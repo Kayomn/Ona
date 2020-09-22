@@ -40,6 +40,14 @@ namespace Ona::Engine {
 		uint32_t vertexCount;
 	};
 
+	GLenum ShaderTypeToGl(ShaderType shaderType) {
+		switch (shaderType) {
+			case ShaderType::Empty: return GL_ZERO;
+			case ShaderType::Vertex: return GL_VERTEX_SHADER;
+			case ShaderType::Fragment: return GL_FRAGMENT_SHADER;
+		}
+	}
+
 	GLenum TypeDescriptorToGl(TypeDescriptor typeDescriptor) {
 		switch (typeDescriptor) {
 			case TypeDescriptor::Byte: return GL_BYTE;
@@ -65,17 +73,21 @@ namespace Ona::Engine {
 
 			GLuint CompileShaderSources(Slice<ShaderSource> const & sources) {
 				static let compileObject = [](ShaderSource const & source) -> GLuint {
-					GLuint const shaderHandle = glCreateShader(source.type);
+					GLenum const shaderType = ShaderTypeToGl(source.type);
 
-					if (shaderHandle && (source.text.length < INT32_MAX)) {
-						GLint const sourceSize = static_cast<GLint>(source.text.length);
-						GLint isCompiled;
+					if (shaderType != GL_ZERO) {
+						GLuint const shaderHandle = glCreateShader(shaderType);
 
-						glShaderSource(shaderHandle, 1, (&source.text.pointer), (&sourceSize));
-						glCompileShader(shaderHandle);
-						glGetShaderiv(shaderHandle, GL_COMPILE_STATUS, (&isCompiled));
+						if (shaderHandle && (source.text.length < INT32_MAX)) {
+							GLint const sourceSize = static_cast<GLint>(source.text.length);
+							GLint isCompiled;
 
-						if (isCompiled) return shaderHandle;
+							glShaderSource(shaderHandle, 1, (&source.text.pointer), (&sourceSize));
+							glCompileShader(shaderHandle);
+							glGetShaderiv(shaderHandle, GL_COMPILE_STATUS, (&isCompiled));
+
+							if (isCompiled) return shaderHandle;
+						}
 					}
 
 					return 0;
