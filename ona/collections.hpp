@@ -52,7 +52,7 @@ namespace Ona::Collections {
 					(this->count + values.length)
 				);
 
-				for (size_t i = 0; i < range.length; i += 1) range[i] = values[i];
+				CopyMemory(range.AsBytes(), values.AsBytes());
 
 				this->count += values.length;
 
@@ -109,8 +109,8 @@ namespace Ona::Collections {
 			} else {
 				this->values = Ona::Core::Reallocate(
 					reinterpret_cast<uint8_t *>(this->values.pointer),
-					(sizeof(Type) * (this->values.length + capacity)
-				)).template As<Type>();
+					(sizeof(Type) * (this->values.length + capacity))
+				).template As<Type>();
 			}
 
 			return (this->values.pointer != nullptr);
@@ -119,9 +119,7 @@ namespace Ona::Collections {
 		void Truncate(size_t n) {
 			Ona::Core::Assert((n < this->count), "Invalid range");
 
-			for (auto & value : this->values.Sliced((this->count - n), this->count)) {
-				value.~Type();
-			}
+			for (auto & value : this->values.Sliced((this->count - n), this->count)) value.~Type();
 
 			this->count -= n;
 		}
