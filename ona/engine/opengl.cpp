@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 
+using Ona::Core::Chars;
 using Ona::Core::Color;
 using Ona::Core::Image;
 using Ona::Core::Result;
@@ -40,14 +41,6 @@ namespace Ona::Engine {
 		uint32_t vertexCount;
 	};
 
-	GLenum ShaderTypeToGl(ShaderType shaderType) {
-		switch (shaderType) {
-			case ShaderType::Empty: return GL_ZERO;
-			case ShaderType::Vertex: return GL_VERTEX_SHADER;
-			case ShaderType::Fragment: return GL_FRAGMENT_SHADER;
-		}
-	}
-
 	GLenum TypeDescriptorToGl(TypeDescriptor typeDescriptor) {
 		switch (typeDescriptor) {
 			case TypeDescriptor::Byte: return GL_BYTE;
@@ -71,72 +64,53 @@ namespace Ona::Engine {
 
 			Appender<Poly> polys;
 
-			GLuint CompileShaderSources(Slice<ShaderSource> const & sources) {
-				static let compileObject = [](ShaderSource const & source) -> GLuint {
-					GLenum const shaderType = ShaderTypeToGl(source.type);
+			GLuint CompileShaderSources(Chars const & vertexSource, Chars const & fragmentSource) {
+				static let compileObject = [](Chars const & source, GLenum shaderType) -> GLuint {
+					GLuint const shaderHandle = glCreateShader(shaderType);
 
-					if (shaderType != GL_ZERO) {
-						GLuint const shaderHandle = glCreateShader(shaderType);
+					if (shaderHandle && (source.length < INT32_MAX)) {
+						GLint const sourceSize = static_cast<GLint>(source.length);
+						GLint isCompiled;
 
-						if (shaderHandle && (source.text.length < INT32_MAX)) {
-							GLint const sourceSize = static_cast<GLint>(source.text.length);
-							GLint isCompiled;
+						glShaderSource(shaderHandle, 1, (&source.pointer), (&sourceSize));
+						glCompileShader(shaderHandle);
+						glGetShaderiv(shaderHandle, GL_COMPILE_STATUS, (&isCompiled));
 
-							glShaderSource(shaderHandle, 1, (&source.text.pointer), (&sourceSize));
-							glCompileShader(shaderHandle);
-							glGetShaderiv(shaderHandle, GL_COMPILE_STATUS, (&isCompiled));
-
-							if (isCompiled) return shaderHandle;
-						}
+						if (isCompiled) return shaderHandle;
 					}
 
 					return 0;
 				};
 
-				if ((sources.length > 1) && (sources.length < 5)) {
-					GLuint shaderObjectHandles[4] = {};
+				GLuint const vertexObjectHandle = compileObject(vertexSource, GL_VERTEX_SHADER);
 
-					for (size_t i = 0; i < sources.length; i += 1) {
-						shaderObjectHandles[i] = compileObject(sources(i));
+				if (vertexObjectHandle) {
+					GLuint const fragmentObjectHandle = compileObject(
+						fragmentSource,
+						GL_FRAGMENT_SHADER
+					);
 
-						if (!shaderObjectHandles[i]) {
-							// A shader object failed to compile, time to unload all of them.
-							size_t const loadedShaders = (i + 1);
+					if (fragmentObjectHandle) {
+						GLuint const shaderHandle = glCreateProgram();
 
-							for (size_t j = 0; j < loadedShaders; j += 1) {
-								glDeleteShader(shaderObjectHandles[j]);
+						if (shaderHandle) {
+							GLint success;
+
+							glAttachShader(shaderHandle, vertexObjectHandle);
+							glAttachShader(shaderHandle, fragmentObjectHandle);
+							glLinkProgram(shaderHandle);
+							glDetachShader(shaderHandle, vertexObjectHandle);
+							glDetachShader(shaderHandle, fragmentObjectHandle);
+							glGetProgramiv(shaderHandle, GL_LINK_STATUS, (&success));
+
+							if (success) {
+								glValidateProgram(shaderHandle);
+								glGetProgramiv(shaderHandle, GL_LINK_STATUS, (&success));
+
+								if (success) return shaderHandle;
+
+								// Failed to link program.
 							}
-
-							// Failed to compile object.
-
-							return 0;
-						}
-					}
-
-					GLuint const shaderProgramHandle = glCreateProgram();
-
-					if (shaderProgramHandle) {
-						GLint success;
-
-						for (size_t i = 0; i < sources.length; i += 1) {
-							glAttachShader(shaderProgramHandle, shaderObjectHandles[i]);
-						}
-
-						glLinkProgram(shaderProgramHandle);
-
-						for (size_t i = 0; i < sources.length; i += 1) {
-							glDetachShader(shaderProgramHandle, shaderObjectHandles[i]);
-						}
-
-						glGetProgramiv(shaderProgramHandle, GL_LINK_STATUS, (&success));
-
-						if (success) {
-							glValidateProgram(shaderProgramHandle);
-							glGetProgramiv(shaderProgramHandle, GL_LINK_STATUS, (&success));
-
-							if (success) return shaderProgramHandle;
-
-							// Failed to link program.
 						}
 					}
 				}
@@ -215,7 +189,8 @@ namespace Ona::Engine {
 			}
 
 			Result<ResourceId, RendererError> CreateRenderer(
-				Slice<ShaderSource> const & shaderSources,
+				Chars const & vertexSource,
+				Chars const & fragmentSource,
 				MaterialLayout const & materialLayout,
 				VertexLayout const & vertexLayout
 			) override {
@@ -238,7 +213,8 @@ namespace Ona::Engine {
 						switch (glGetError()) {
 							case GL_NO_ERROR: {
 								GLuint const shaderHandle = this->CompileShaderSources(
-									shaderSources
+									vertexSource,
+									fragmentSource
 								);
 
 								if (shaderHandle) {
@@ -404,7 +380,8 @@ namespace Ona::Engine {
 			}
 
 			Result<ResourceId, MaterialError> CreateMaterial(
-				Slice<ShaderSource> const & shaderSources,
+				Chars const & vertexSource,
+				Chars const & fragmentSource,
 				ResourceId rendererId,
 				Slice<uint8_t const> const & materialData,
 				Image const & texture
@@ -473,7 +450,8 @@ namespace Ona::Engine {
 											}
 
 											GLuint const shaderHandle = this->CompileShaderSources(
-												shaderSources
+												vertexSource,
+												fragmentSource
 											);
 
 											if (shaderHandle) {

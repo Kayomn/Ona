@@ -34,18 +34,6 @@ namespace Ona::Engine {
 		uint32_t offset;
 	};
 
-	enum class ShaderType {
-		Empty = 0,
-		Vertex = 0x1,
-		Fragment = 0x2
-	};
-
-	struct ShaderSource {
-		ShaderType type;
-
-		Ona::Core::Chars text;
-	};
-
 	struct MaterialLayout {
 		Ona::Core::Slice<Attribute> properties;
 
@@ -100,7 +88,8 @@ namespace Ona::Engine {
 		virtual void Update() = 0;
 
 		virtual Ona::Core::Result<ResourceId, RendererError> CreateRenderer(
-			Ona::Core::Slice<ShaderSource> const & shaderSources,
+			Ona::Core::Chars const & vertexSource,
+			Ona::Core::Chars const & fragmentSource,
 			MaterialLayout const & materialLayout,
 			VertexLayout const & vertexLayout
 		) = 0;
@@ -111,7 +100,8 @@ namespace Ona::Engine {
 		) = 0;
 
 		virtual Ona::Core::Result<ResourceId, MaterialError> CreateMaterial(
-			Ona::Core::Slice<ShaderSource> const & shaderSources,
+			Ona::Core::Chars const & vertexSource,
+			Ona::Core::Chars const & fragmentSource,
 			ResourceId rendererId,
 			Ona::Core::Slice<uint8_t const> const & materialData,
 			Ona::Core::Image const & texture
@@ -123,6 +113,14 @@ namespace Ona::Engine {
 	void UnloadGraphics(GraphicsServer * & graphicsServer);
 
 	Ona::Core::Vector4 NormalizeColor(Ona::Core::Color const & color);
+
+	struct SpriteRenderer {
+		ResourceId rendererId;
+	};
+
+	Ona::Core::Result<SpriteRenderer, RendererError> CreateSpriteRenderer(
+		GraphicsServer * graphicsServer
+	);
 }
 
 #endif
