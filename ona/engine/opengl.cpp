@@ -207,6 +207,7 @@ namespace Ona::Engine {
 				VertexLayout const & vertexLayout,
 				RendererError * error
 			) override {
+
 				return 0;
 			}
 
@@ -381,16 +382,22 @@ namespace Ona::Engine {
 												}
 											}
 
-											ResourceId const id = static_cast<ResourceId>(
-												this->materials.Count()
+											GLuint const shaderHandle = CompileShaderSources(
+												shaderSources
 											);
 
-											if (this->materials.Append(Material{
-												rendererId,
-												CompileShaderSources(shaderSources),
-												textureHandle,
-												uniformData
-											})) return id;
+											if (shaderHandle) {
+												ResourceId const id = static_cast<ResourceId>(
+													this->materials.Count()
+												);
+
+												if (this->materials.Append(Material{
+													rendererId,
+													shaderHandle,
+													textureHandle,
+													uniformData
+												})) return id;
+											} else if (error) (*error) = MaterialError::BadShader;
 										} else if (error) (*error) = MaterialError::BadImage;
 									}
 								} break;

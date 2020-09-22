@@ -73,7 +73,6 @@ namespace Ona::Engine {
 	enum class PolyError {
 		None,
 		Server,
-		BadShader,
 		BadLayout,
 		BadRenderer,
 		BadVertices
@@ -84,6 +83,7 @@ namespace Ona::Engine {
 		Server,
 		BadLayout,
 		BadRenderer,
+		BadShader,
 		BadImage
 	};
 
