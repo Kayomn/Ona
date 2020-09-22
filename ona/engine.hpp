@@ -75,7 +75,6 @@ namespace Ona::Engine {
 	enum class PolyError {
 		None,
 		Server,
-		BadLayout,
 		BadRenderer,
 		BadVertices
 	};
@@ -83,8 +82,8 @@ namespace Ona::Engine {
 	enum class MaterialError {
 		None,
 		Server,
-		BadLayout,
 		BadRenderer,
+		BadData,
 		BadShader,
 		BadImage
 	};
@@ -103,25 +102,22 @@ namespace Ona::Engine {
 
 		virtual void Update() = 0;
 
-		virtual ResourceId CreateRenderer(
+		virtual Ona::Core::Result<ResourceId, RendererError> CreateRenderer(
 			Ona::Core::Slice<ShaderSource> const & shaderSources,
 			MaterialLayout const & materialLayout,
-			VertexLayout const & vertexLayout,
-			RendererError * error
+			VertexLayout const & vertexLayout
 		) = 0;
 
-		virtual ResourceId CreatePoly(
+		virtual Ona::Core::Result<ResourceId, PolyError> CreatePoly(
 			ResourceId rendererId,
-			Ona::Core::Slice<uint8_t const> const & vertexData,
-			PolyError * error
+			Ona::Core::Slice<uint8_t const> const & vertexData
 		) = 0;
 
-		virtual ResourceId CreateMaterial(
+		virtual Ona::Core::Result<ResourceId, MaterialError> CreateMaterial(
 			Ona::Core::Slice<ShaderSource> const & shaderSources,
 			ResourceId rendererId,
 			Ona::Core::Slice<uint8_t const> const & materialData,
-			Ona::Core::Image const & texture,
-			MaterialError * error
+			Ona::Core::Image const & texture
 		) = 0;
 	};
 

@@ -6,6 +6,7 @@
 
 using Ona::Core::Color;
 using Ona::Core::Image;
+using Ona::Core::Result;
 using Ona::Core::Slice;
 using Ona::Core::String;
 using Ona::Core::Vector4;
@@ -201,12 +202,12 @@ namespace Ona::Engine {
 				SDL_GL_SwapWindow(this->window);
 			}
 
-			ResourceId CreateRenderer(
+			Result<ResourceId, RendererError> CreateRenderer(
 				Slice<ShaderSource> const & shaderSources,
 				MaterialLayout const & materialLayout,
-				VertexLayout const & vertexLayout,
-				RendererError * error
+				VertexLayout const & vertexLayout
 			) override {
+				using Res = Result<ResourceId, RendererError>;
 				size_t const bufferSize = materialLayout.BufferSize();
 
 				if (bufferSize < PTRDIFF_MAX) {
@@ -214,63 +215,84 @@ namespace Ona::Engine {
 
 					glCreateBuffers(1, (&bufferId));
 
-					glNamedBufferData(
-						bufferId,
-						static_cast<GLsizeiptr>(bufferSize),
-						nullptr,
-						GL_DYNAMIC_DRAW
-					);
+					if (glGetError() == GL_NO_ERROR) {
+							glNamedBufferData(
+							bufferId,
+							static_cast<GLsizeiptr>(bufferSize),
+							nullptr,
+							GL_DYNAMIC_DRAW
+						);
 
-					switch (glGetError()) {
-						case GL_NO_ERROR: {
-							GLuint const shaderHandle = this->CompileShaderSources(shaderSources);
-
-							if (shaderHandle) {
-								using Ona::Core::AllocatedCopy;
-
-								MaterialLayout newMaterialLayout = materialLayout;
-								VertexLayout newVertexLayout = vertexLayout;
-
-								newMaterialLayout.properties = AllocatedCopy(
-									nullptr,
-									materialLayout.properties
+						switch (glGetError()) {
+							case GL_NO_ERROR: {
+								GLuint const shaderHandle = this->CompileShaderSources(
+									shaderSources
 								);
 
-								if (newMaterialLayout.properties) {
-									newVertexLayout.attributes = AllocatedCopy(
+								if (shaderHandle) {
+									using Ona::Core::AllocatedCopy;
+
+									MaterialLayout newMaterialLayout = materialLayout;
+									VertexLayout newVertexLayout = vertexLayout;
+
+									newMaterialLayout.properties = AllocatedCopy(
 										nullptr,
-										newVertexLayout.attributes
+										materialLayout.properties
 									);
 
-									if (newVertexLayout.attributes) {
-										ResourceId const id = this->renderers.Count();
+									if (newMaterialLayout.properties) {
+										newVertexLayout.attributes = AllocatedCopy(
+											nullptr,
+											newVertexLayout.attributes
+										);
 
-										if (this->renderers.Append(Renderer{
-											shaderHandle,
-											materialLayout,
-											vertexLayout
-										})) return id;
-									} else if (error) (*error) = RendererError::Server;
-								} else if (error) (*error) = RendererError::Server;
-							} else if (error) (*error) = RendererError::BadShader;
-						} break;
+										if (newVertexLayout.attributes) {
+											ResourceId const id = this->renderers.Count();
 
-						default: {
-							if (error) (*error) = RendererError::Server;
-						} break;
+											if (this->renderers.Append(Renderer{
+												shaderHandle,
+												materialLayout,
+												vertexLayout
+											})) return Res::Ok(id);
+
+											// Out of memory.
+											return Res::Fail(RendererError::Server);
+										}
+
+										// Out of memory.
+										return Res::Fail(RendererError::Server);
+									}
+
+									// Out of memory.
+									return Res::Fail(RendererError::Server);
+								}
+
+								// Failed to compile shader sources into a valid shader.
+								return Res::Fail(RendererError::BadShader);
+							}
+
+							default: {
+								glDeleteBuffers(1, (&bufferId));
+
+								return Res::Fail(RendererError::Server);
+							}
+						}
 					}
 
-					glDeleteBuffers(1, (&bufferId));
-				} else if (error) (*error) = RendererError::Server;
+					// Could not create uniform buffer object.
+					return Res::Fail(RendererError::Server);
+				}
 
-				return 0;
+				// Renderer ID is 0.
+				return Res::Fail(RendererError::Server);
 			}
 
-			ResourceId CreatePoly(
+			Result<ResourceId, PolyError> CreatePoly(
 				ResourceId rendererId,
-				Slice<uint8_t const> const & vertexData,
-				PolyError * error
+				Slice<uint8_t const> const & vertexData
 			) override {
+				using Res = Result<ResourceId, PolyError>;
+
 				if (rendererId) {
 					Renderer * renderer = (&this->renderers.At(rendererId - 1));
 
@@ -336,44 +358,47 @@ namespace Ona::Engine {
 												if (this->polys.Append(Poly{
 													vertexBufferHandle,
 													vertexArrayHandle
-												})) return id;
+												})) return Res::Ok(id);
 
-												if (error) (*error) = PolyError::Server;
+												// Out of memory.
+												return Res::Fail(PolyError::Server);
 											} break;
 
 											case GL_INVALID_VALUE: {
-												if (error) (*error) = PolyError::BadVertices;
-											} break;
+												return Res::Fail(PolyError::BadVertices);
+											}
 
-											default: {
-												if (error) (*error) = PolyError::Server;
-											} break;
+											default: return Res::Fail(PolyError::Server);
 										}
 									}
 								} break;
 
-								case GL_OUT_OF_MEMORY: {
-									if (error) (*error) = PolyError::Server;
-								} break;
+								case GL_OUT_OF_MEMORY: return Res::Fail(PolyError::Server);
 
-								default: {
-									if (error) (*error) = PolyError::BadVertices;
-								} break;
+								default: return Res::Fail(PolyError::BadVertices);
 							}
-						} else if (error) (*error) = PolyError::Server;
-					} else if (error) (*error) = PolyError::BadLayout;
-				} else if (error) (*error) = PolyError::BadRenderer;
+						}
 
-				return 0;
+						// Could not create vertex buffer object.
+						return Res::Fail(PolyError::Server);
+					}
+
+					// Vertex data is not valid.
+					return Res::Fail(PolyError::BadVertices);
+				}
+
+				// Renderer ID is 0.
+				return Res::Fail(PolyError::BadRenderer);
 			}
 
-			ResourceId CreateMaterial(
+			Result<ResourceId, MaterialError> CreateMaterial(
 				Slice<ShaderSource> const & shaderSources,
 				ResourceId rendererId,
 				Slice<uint8_t const> const & materialData,
-				Image const & texture,
-				MaterialError * error
+				Image const & texture
 			) override {
+				using Res = Result<ResourceId, MaterialError>;
+
 				if (rendererId) {
 					if (this->renderers.At(rendererId - 1).materialLayout.Validate(materialData)) {
 						Slice<uint8_t> uniformData = Ona::Core::Allocate(materialData.length);
@@ -431,9 +456,7 @@ namespace Ona::Engine {
 												);
 
 												if (glGetError() != GL_NO_ERROR) {
-													if (error) (*error) = MaterialError::Server;
-
-													return 0;
+													return Res::Fail(MaterialError::Server);
 												}
 											}
 
@@ -451,25 +474,40 @@ namespace Ona::Engine {
 													shaderHandle,
 													textureHandle,
 													uniformData
-												})) return id;
-											} else if (error) (*error) = MaterialError::BadShader;
-										} else if (error) (*error) = MaterialError::BadImage;
+												})) return Res::Ok(id);
+
+												// Out of memory.
+												return Res::Fail(MaterialError::Server);
+											}
+
+											// Could not compile shader sources into a valid shader.
+											return Res::Fail(MaterialError::BadShader);
+										}
+
+										// Could not create texture from image data.
+										return Res::Fail(MaterialError::BadImage);
 									}
-								} break;
 
-								case GL_INVALID_VALUE: {
-									if (error) (*error) = MaterialError::BadImage;
-								} break;
+									// Image data is null.
+									return Res::Fail(MaterialError::BadImage);
+								}
 
-								default: {
-									if (error) (*error) = MaterialError::Server;
-								} break;
+								case GL_INVALID_VALUE: return Res::Fail(MaterialError::BadImage);
+
+								default: return Res::Fail(MaterialError::Server);
 							}
-						} else if (error) (*error) = MaterialError::Server;
-					} else if (error) (*error) = MaterialError::BadLayout;
-				} else if (error) (*error) = MaterialError::BadRenderer;
+						}
 
-				return 0;
+						// Failed to allocate uniform buffer object.
+						return Res::Fail(MaterialError::Server);
+					}
+
+					// Provided material data is not valid.
+					return Res::Fail(MaterialError::BadData);
+				}
+
+				// Renderer ID is 0.
+				return Res::Fail(MaterialError::BadRenderer);
 			}
 		} graphicsServer = {};
 
