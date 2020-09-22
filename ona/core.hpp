@@ -343,6 +343,21 @@ namespace Ona::Core {
 
 	Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size);
 
+	template<typename Type> Slice<Type> AllocatedCopy(
+		Allocator * allocator,
+		Slice<Type> const & source
+	) {
+		Slice<uint8_t> allocation = (
+			allocator ?
+			allocator->Allocate(sizeof(Type)) :
+			Allocate(sizeof(Type) * source.length)
+		);
+
+		CopyMemory(allocation, source.AsBytes());
+
+		return allocation.template As<Type>();
+	}
+
 	template<typename Type> class Array final {
 		Allocator * allocator;
 
