@@ -34,10 +34,10 @@ namespace Ona::Engine {
 		uint32_t offset;
 	};
 
-	enum ShaderType {
-		ShaderTypeEmpty = 0,
-		ShaderTypeVertex = 0x1,
-		ShaderTypeFragment = 0x2
+	enum class ShaderType {
+		Empty = 0,
+		Vertex = 0x1,
+		Fragment = 0x2
 	};
 
 	struct ShaderSource {
@@ -67,20 +67,17 @@ namespace Ona::Engine {
 	};
 
 	enum class RendererError {
-		None,
 		Server,
 		BadShader
 	};
 
 	enum class PolyError {
-		None,
 		Server,
 		BadRenderer,
 		BadVertices
 	};
 
 	enum class MaterialError {
-		None,
 		Server,
 		BadRenderer,
 		BadData,
