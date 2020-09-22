@@ -49,6 +49,8 @@ namespace Ona::Engine {
 	struct MaterialLayout {
 		Ona::Core::Slice<Attribute> properties;
 
+		size_t BufferSize() const;
+
 		bool Validate(Ona::Core::Slice<uint8_t const> const & data) const;
 	};
 

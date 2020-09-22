@@ -207,6 +207,61 @@ namespace Ona::Engine {
 				VertexLayout const & vertexLayout,
 				RendererError * error
 			) override {
+				size_t const bufferSize = materialLayout.BufferSize();
+
+				if (bufferSize < PTRDIFF_MAX) {
+					GLuint bufferId;
+
+					glCreateBuffers(1, (&bufferId));
+
+					glNamedBufferData(
+						bufferId,
+						static_cast<GLsizeiptr>(bufferSize),
+						nullptr,
+						GL_DYNAMIC_DRAW
+					);
+
+					switch (glGetError()) {
+						case GL_NO_ERROR: {
+							GLuint const shaderHandle = this->CompileShaderSources(shaderSources);
+
+							if (shaderHandle) {
+								using Ona::Core::AllocatedCopy;
+
+								MaterialLayout newMaterialLayout = materialLayout;
+								VertexLayout newVertexLayout = vertexLayout;
+
+								newMaterialLayout.properties = AllocatedCopy(
+									nullptr,
+									materialLayout.properties
+								);
+
+								if (newMaterialLayout.properties) {
+									newVertexLayout.attributes = AllocatedCopy(
+										nullptr,
+										newVertexLayout.attributes
+									);
+
+									if (newVertexLayout.attributes) {
+										ResourceId const id = this->renderers.Count();
+
+										if (this->renderers.Append(Renderer{
+											shaderHandle,
+											materialLayout,
+											vertexLayout
+										})) return id;
+									} else if (error) (*error) = RendererError::Server;
+								} else if (error) (*error) = RendererError::Server;
+							} else if (error) (*error) = RendererError::BadShader;
+						} break;
+
+						default: {
+							if (error) (*error) = RendererError::Server;
+						} break;
+					}
+
+					glDeleteBuffers(1, (&bufferId));
+				} else if (error) (*error) = RendererError::Server;
 
 				return 0;
 			}
@@ -382,7 +437,7 @@ namespace Ona::Engine {
 												}
 											}
 
-											GLuint const shaderHandle = CompileShaderSources(
+											GLuint const shaderHandle = this->CompileShaderSources(
 												shaderSources
 											);
 

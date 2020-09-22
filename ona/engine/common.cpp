@@ -22,6 +22,17 @@ namespace Ona::Engine {
 		}
 	}
 
+	size_t MaterialLayout::BufferSize() const {
+		size_t size = 0;
+
+		// This needs to be aligned as per the standards that OpenGL and similar APIs conform to.
+		for (let & property : this->properties) {
+			size += (TypeDescriptorSize(property.type) * property.components);
+		}
+
+		return size;
+	}
+
 	bool MaterialLayout::Validate(Slice<uint8_t const> const & data) const {
 		size_t propertiesSize = 0;
 
