@@ -16,9 +16,13 @@ namespace Ona::Engine {
 	struct Renderer {
 		GLuint shaderProgramHandle;
 
-		MaterialLayout materialLayout;
+		GLuint materialBufferHandle;
 
-		VertexLayout vertexLayout;
+		size_t materialBufferSize;
+
+		Layout materialLayout;
+
+		Layout vertexLayout;
 	};
 
 	struct Material {
@@ -57,7 +61,7 @@ namespace Ona::Engine {
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height) {
 		using Ona::Collections::Appender;
 
-		thread_local class OpenGlGraphicsServer extends GraphicsServer {
+		thread_local class OpenGlGraphicsServer final extends GraphicsServer {
 			Appender<Renderer> renderers;
 
 			Appender<Material> materials;
@@ -191,21 +195,21 @@ namespace Ona::Engine {
 			Result<ResourceId, RendererError> CreateRenderer(
 				Chars const & vertexSource,
 				Chars const & fragmentSource,
-				MaterialLayout const & materialLayout,
-				VertexLayout const & vertexLayout
+				Layout const & materialLayout,
+				Layout const & vertexLayout
 			) override {
 				using Res = Result<ResourceId, RendererError>;
-				size_t const bufferSize = materialLayout.BufferSize();
+				size_t const materialSize = materialLayout.MaterialSize();
 
-				if (bufferSize < PTRDIFF_MAX) {
-					GLuint bufferId;
+				if (materialSize < PTRDIFF_MAX) {
+					GLuint materialBufferHandle;
 
-					glCreateBuffers(1, (&bufferId));
+					glCreateBuffers(1, (&materialBufferHandle));
 
 					if (glGetError() == GL_NO_ERROR) {
 							glNamedBufferData(
-							bufferId,
-							static_cast<GLsizeiptr>(bufferSize),
+							materialBufferHandle,
+							static_cast<GLsizeiptr>(materialSize),
 							nullptr,
 							GL_DYNAMIC_DRAW
 						);
@@ -218,38 +222,15 @@ namespace Ona::Engine {
 								);
 
 								if (shaderHandle) {
-									using Ona::Core::AllocatedCopy;
+									ResourceId const id = this->renderers.Count();
 
-									MaterialLayout newMaterialLayout = materialLayout;
-									VertexLayout newVertexLayout = vertexLayout;
-
-									newMaterialLayout.properties = AllocatedCopy(
-										nullptr,
-										materialLayout.properties
-									);
-
-									if (newMaterialLayout.properties) {
-										newVertexLayout.attributes = AllocatedCopy(
-											nullptr,
-											newVertexLayout.attributes
-										);
-
-										if (newVertexLayout.attributes) {
-											ResourceId const id = this->renderers.Count();
-
-											if (this->renderers.Append(Renderer{
-												shaderHandle,
-												materialLayout,
-												vertexLayout
-											})) return Res::Ok(id);
-
-											// Out of memory.
-											return Res::Fail(RendererError::Server);
-										}
-
-										// Out of memory.
-										return Res::Fail(RendererError::Server);
-									}
+									if (this->renderers.Append(Renderer{
+										shaderHandle,
+										materialBufferHandle,
+										materialSize,
+										materialLayout,
+										vertexLayout
+									})) return Res::Ok(id);
 
 									// Out of memory.
 									return Res::Fail(RendererError::Server);
@@ -260,7 +241,7 @@ namespace Ona::Engine {
 							}
 
 							default: {
-								glDeleteBuffers(1, (&bufferId));
+								glDeleteBuffers(1, (&materialBufferHandle));
 
 								return Res::Fail(RendererError::Server);
 							}
@@ -284,7 +265,7 @@ namespace Ona::Engine {
 				if (rendererId) {
 					Renderer * renderer = (&this->renderers.At(rendererId - 1));
 
-					if (renderer->vertexLayout.Validate(vertexData)) {
+					if (renderer->vertexLayout.ValidateVertexData(vertexData)) {
 						GLuint vertexBufferHandle;
 
 						glCreateBuffers(1, (&vertexBufferHandle));
@@ -309,34 +290,47 @@ namespace Ona::Engine {
 											0,
 											vertexBufferHandle,
 											0,
-											static_cast<GLsizei>(renderer->vertexLayout.vertexSize)
+											static_cast<GLsizei>(
+												renderer->vertexLayout.VertexSize()
+											)
 										);
 
 										switch (glGetError()) {
 											case GL_NO_ERROR: {
-												for (
-													let & attribute :
-													renderer->vertexLayout.attributes
-												) {
+												GLuint offset = 0;
+
+												Slice<Attribute const> const attributes =
+													renderer->vertexLayout.Attributes();
+
+												for (size_t i = 0; i < attributes.length; i += 1) {
+													size_t const size = attributes(i).ByteSize();
+
+													if (size >= UINT32_MAX) {
+														// Vertex too big for graphics API.
+														return Res::Fail(PolyError::BadVertices);
+													}
+
 													glEnableVertexArrayAttrib(
 														vertexArrayHandle,
-														attribute.location
+														i
 													);
 
 													glVertexArrayAttribFormat(
 														vertexArrayHandle,
-														attribute.location,
-														attribute.components,
-														TypeDescriptorToGl(attribute.type),
+														i,
+														attributes(i).components,
+														TypeDescriptorToGl(attributes(i).type),
 														false,
-														attribute.offset
+														offset
 													);
 
 													glVertexArrayAttribBinding(
 														vertexArrayHandle,
-														attribute.location,
+														i,
 														0
 													);
+
+													offset += static_cast<GLuint>(size);
 												}
 
 												ResourceId const id = static_cast<ResourceId>(
@@ -359,6 +353,9 @@ namespace Ona::Engine {
 											default: return Res::Fail(PolyError::Server);
 										}
 									}
+
+									// Could not create vertex array object.
+									return Res::Fail(PolyError::Server);
 								} break;
 
 								case GL_OUT_OF_MEMORY: return Res::Fail(PolyError::Server);
@@ -389,7 +386,9 @@ namespace Ona::Engine {
 				using Res = Result<ResourceId, MaterialError>;
 
 				if (rendererId) {
-					if (this->renderers.At(rendererId - 1).materialLayout.Validate(materialData)) {
+					if (this->renderers.At(
+						rendererId - 1
+					).materialLayout.ValidateMaterialData(materialData)) {
 						Slice<uint8_t> uniformData = Ona::Core::Allocate(materialData.length);
 
 						if (uniformData) {
@@ -498,6 +497,39 @@ namespace Ona::Engine {
 
 				// Renderer ID is 0.
 				return Res::Fail(MaterialError::BadRenderer);
+			}
+
+			void UpdateRendererMaterial(ResourceId rendererId, ResourceId materialId) override {
+				if (rendererId) {
+					Renderer * renderer = (&this->renderers.At(rendererId - 1));
+
+					if (materialId) {
+						Material * material = (&this->materials.At(materialId - 1));
+
+						if (material->rendererId == rendererId) {
+							GLuint const bufferHandle = renderer->materialBufferHandle;
+
+							uint8_t * mappedBuffer = static_cast<uint8_t *>(glMapNamedBuffer(
+								bufferHandle,
+								GL_READ_WRITE
+							));
+
+							if (mappedBuffer) {
+								CopyMemory(
+									Slice<uint8_t>::Of(mappedBuffer, renderer->materialBufferSize),
+									material->uniformData
+								);
+
+								glUnmapNamedBuffer(bufferHandle);
+							}
+							// GPU memory buffer failed to map to native memory for a variety of
+							// platform-specific reasons.
+						}
+						// Material cannot be used with this renderer.
+					}
+					// Material ID is zero.
+				}
+				// Renderer ID is zero.
 			}
 		} graphicsServer = {};
 

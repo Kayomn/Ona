@@ -11,7 +11,7 @@ namespace Ona::Engine {
 		float deltaTime;
 	};
 
-	enum class TypeDescriptor : uint16_t {
+	enum class TypeDescriptor : uint8_t {
 		Byte,
 		UnsignedByte,
 		Short,
@@ -23,31 +23,31 @@ namespace Ona::Engine {
 	};
 
 	struct Attribute {
-		uint8_t location;
-
 		TypeDescriptor type;
 
 		uint16_t components;
 
 		Ona::Core::Chars name;
 
-		uint32_t offset;
+		size_t ByteSize() const;
 	};
 
-	struct MaterialLayout {
-		Ona::Core::Slice<Attribute> properties;
+	struct Layout {
+		size_t count;
 
-		size_t BufferSize() const;
+		Attribute const * attributes;
 
-		bool Validate(Ona::Core::Slice<uint8_t const> const & data) const;
-	};
+		constexpr Ona::Core::Slice<Attribute const> Attributes() const {
+			return Ona::Core::Slice<Attribute const>::Of(this->attributes, this->count);
+		}
 
-	struct VertexLayout {
-		uint32_t vertexSize;
+		size_t MaterialSize() const;
 
-		Ona::Core::Slice<Attribute> attributes;
+		size_t VertexSize() const;
 
-		bool Validate(Ona::Core::Slice<uint8_t const> const & data) const;
+		bool ValidateMaterialData(Ona::Core::Slice<uint8_t const> const & data) const;
+
+		bool ValidateVertexData(Ona::Core::Slice<uint8_t const> const & data) const;
 	};
 
 	struct GraphicsCommands {
@@ -90,8 +90,8 @@ namespace Ona::Engine {
 		virtual Ona::Core::Result<ResourceId, RendererError> CreateRenderer(
 			Ona::Core::Chars const & vertexSource,
 			Ona::Core::Chars const & fragmentSource,
-			MaterialLayout const & materialLayout,
-			VertexLayout const & vertexLayout
+			Layout const & materialLayout,
+			Layout const & vertexLayout
 		) = 0;
 
 		virtual Ona::Core::Result<ResourceId, PolyError> CreatePoly(
@@ -106,6 +106,8 @@ namespace Ona::Engine {
 			Ona::Core::Slice<uint8_t const> const & materialData,
 			Ona::Core::Image const & texture
 		) = 0;
+
+		virtual void UpdateRendererMaterial(ResourceId rendererId, ResourceId materialId) = 0;
 	};
 
 	GraphicsServer * LoadOpenGl(Ona::Core::String const & title, int32_t width, int32_t height);

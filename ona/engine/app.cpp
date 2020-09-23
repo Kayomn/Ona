@@ -9,6 +9,7 @@ int main(int argv, char const * const * argc) {
 	GraphicsServer * graphics = LoadOpenGl(String::From("Ona"), 640, 480);
 
 	if (graphics) {
+		Result<SpriteRenderer, RendererError> spriteRenderer = CreateSpriteRenderer(graphics);
 		Events events = {};
 
 		while (graphics->ReadEvents(events)) {
