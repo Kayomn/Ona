@@ -80,7 +80,25 @@ namespace Ona::Engine {
 						glCompileShader(shaderHandle);
 						glGetShaderiv(shaderHandle, GL_COMPILE_STATUS, (&isCompiled));
 
-						if (isCompiled) return shaderHandle;
+						if (isCompiled) {
+							return shaderHandle;
+						} else {
+							constexpr size_t errorBufferSize = 1024;
+							thread_local GLchar errorBuffer[errorBufferSize] = {};
+							GLsizei errorBufferLength;
+
+							glGetShaderInfoLog(
+								shaderHandle,
+								errorBufferSize,
+								(&errorBufferLength),
+								errorBuffer
+							);
+
+							Ona::Core::OutFile().Write(
+								Slice<GLchar>::Of(errorBuffer, errorBufferLength).AsBytes(),
+								nullptr
+							);
+						}
 					}
 
 					return 0;
@@ -222,15 +240,17 @@ namespace Ona::Engine {
 								);
 
 								if (shaderHandle) {
-									ResourceId const id = this->renderers.Count();
-
 									if (this->renderers.Append(Renderer{
 										shaderHandle,
 										materialBufferHandle,
 										materialSize,
 										materialLayout,
 										vertexLayout
-									})) return Res::Ok(id);
+									})) {
+										return Res::Ok(
+											static_cast<ResourceId>(this->renderers.Count())
+										);
+									}
 
 									// Out of memory.
 									return Res::Fail(RendererError::Server);
@@ -333,14 +353,14 @@ namespace Ona::Engine {
 													offset += static_cast<GLuint>(size);
 												}
 
-												ResourceId const id = static_cast<ResourceId>(
-													this->polys.Count()
-												);
-
 												if (this->polys.Append(Poly{
 													vertexBufferHandle,
 													vertexArrayHandle
-												})) return Res::Ok(id);
+												})) {
+													return Res::Ok(
+														static_cast<ResourceId>(this->polys.Count())
+													);
+												}
 
 												// Out of memory.
 												return Res::Fail(PolyError::Server);
@@ -454,16 +474,16 @@ namespace Ona::Engine {
 											);
 
 											if (shaderHandle) {
-												ResourceId const id = static_cast<ResourceId>(
-													this->materials.Count()
-												);
-
 												if (this->materials.Append(Material{
 													rendererId,
 													shaderHandle,
 													textureHandle,
 													uniformData
-												})) return Res::Ok(id);
+												})) {
+													return Res::Ok(static_cast<ResourceId>(
+														this->materials.Count()
+													));
+												}
 
 												// Out of memory.
 												return Res::Fail(MaterialError::Server);
