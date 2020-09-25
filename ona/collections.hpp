@@ -132,6 +132,71 @@ namespace Ona::Collections {
 			return this->values.Sliced(0, this->values.length);
 		}
 	};
+
+	template<typename KeyType, typename ValueType> class Table final {
+		public:
+		struct Entry {
+			KeyType key;
+
+			ValueType value;
+		};
+
+		private:
+		struct Bucket {
+			Entry entry;
+
+			Bucket * next;
+		};
+
+		static constexpr size_t defaultBufferSize = 256;
+
+		Ona::Core::Allocator * allocator;
+
+		size_t count;
+
+		Ona::Core::Slice<Bucket *> buckets;
+
+		public:
+		Table() = default;
+
+		Table(Ona::Core::Allocator * allocator) : allocator{allocator} { }
+
+		size_t Count() const {
+			return this->count;
+		}
+
+		template<typename CallableType> void ForEach(CallableType const & action) {
+			size_t indexPointer = 0;
+
+			if (indexPointer < this->buckets.length) {
+				Bucket * bucket = this->buckets(indexPointer);
+
+				while (bucket) {
+					action(bucket->entry.key, bucket->entry.value);
+
+					bucket = bucket->next;
+				}
+
+				indexPointer += 1;
+			}
+		}
+
+		void Insert(KeyType const & key, ValueType const & value) {
+
+		}
+
+		bool Remove(KeyType const & key) {
+			return false;
+		}
+
+		ValueType * Lookup(KeyType const & key) {
+			Bucket * bucket = this->buckets(key.Hash() % this->buckets.length);
+
+			if (bucket) while (bucket->entry.key != key) bucket = bucket->next;
+
+			return bucket;
+		}
+	};
 }
 
 #endif
