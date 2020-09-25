@@ -330,6 +330,14 @@ namespace Ona::Core {
 		virtual void Deallocate(uint8_t * allocation) = 0;
 
 		virtual Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size) = 0;
+
+		template<typename Type, typename... Args> Type * New(Args... args) {
+			uint8_t * allocation = this->Allocate(sizeof(Type)).pointer;
+
+			new (allocation) Type{args...};
+
+			return reinterpret_cast<Type *>(allocation);
+		}
 	};
 
 	/**
@@ -428,6 +436,14 @@ namespace Ona::Core {
 	void Deallocate(uint8_t * allocation);
 
 	Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size);
+
+	template<typename Type, typename... Args> Type * New(Args... args) {
+		uint8_t * allocation = Allocate(sizeof(Type)).pointer;
+
+		new (allocation) Type{args...};
+
+		return reinterpret_cast<Type *>(allocation);
+	}
 
 	template<typename Type> class Array final {
 		Allocator * allocator;
