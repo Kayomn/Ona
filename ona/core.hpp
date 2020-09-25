@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <type_traits>
+#include <new>
 #include <cmath>
 
 #define extends : public
@@ -18,6 +19,10 @@ namespace Ona::Core {
 	 * This function may be optimized out when optimization flags are used.
 	 */
 	void Assert(bool expression, char const * message);
+
+	struct Matrix {
+		float elements[4 * 4];
+	};
 
 	struct Vector2 {
 		float x, y;
@@ -96,49 +101,6 @@ namespace Ona::Core {
 				(this->z / that.z),
 				(this->w / that.w)
 			};
-		}
-	};
-
-	template<typename ValueType, typename ErrorType> class Result final {
-		union {
-			ValueType value;
-
-			ErrorType error;
-		} data;
-
-		bool isOk;
-
-		public:
-		ErrorType & Error() {
-			Assert((!this->isOk), "Result is ok");
-
-			return this->data.error;
-		}
-
-		bool IsOk() const {
-			return this->isOk;
-		}
-
-		ValueType & Value() {
-			Assert(this->isOk, "Result is erroneous");
-
-			return this->data.value;
-		}
-
-		static Result Ok(ValueType const & value) {
-			Result result;
-			result.isOk = true;
-			result.data.value = value;
-
-			return result;
-		}
-
-		static Result Fail(ErrorType const & error) {
-			Result result;
-			result.isOk = false;
-			result.data.error = error;
-
-			return result;
 		}
 	};
 
@@ -273,6 +235,77 @@ namespace Ona::Core {
 		 */
 		constexpr operator bool() const {
 			return (this->pointer != nullptr);
+		}
+	};
+
+	template<typename ValueType, typename ErrorType> class Result final {
+		static constexpr size_t storeSize = (
+			(sizeof(ValueType) > sizeof(ErrorType)) ?
+			sizeof(ValueType) :
+			sizeof(ErrorType)
+		);
+
+		uint8_t store[storeSize];
+
+		bool isOk;
+
+		public:
+		Result() = default;
+
+		Result(Result const & that) {
+			this->isOk = that.isOk;
+
+			if (this->isOk) {
+				this->Value() = that.Value();
+			} else {
+				this->Error() = that.Error();
+			}
+		}
+
+		ErrorType & Error() {
+			Assert((!this->isOk), "Result is ok");
+
+			return (*reinterpret_cast<ErrorType *>(this->store));
+		}
+
+		ErrorType const & Error() const {
+			Assert((!this->isOk), "Result is ok");
+
+			return (*reinterpret_cast<ErrorType const *>(this->store));
+		}
+
+		bool IsOk() const {
+			return this->isOk;
+		}
+
+		ValueType & Value() {
+			Assert(this->isOk, "Result is erroneous");
+
+			return (*reinterpret_cast<ValueType *>(this->store));
+		}
+
+		ValueType const & Value() const {
+			Assert(this->isOk, "Result is erroneous");
+
+			return (*reinterpret_cast<ValueType const *>(this->store));
+		}
+
+		static Result Ok(ValueType const & value) {
+			Result result;
+			result.isOk = true;
+
+			new (result.store) ValueType{value};
+
+			return result;
+		}
+
+		static Result Fail(ErrorType const & error) {
+			Result result;
+			result.isOk = false;
+
+			new (result.store) ErrorType{error};
+
+			return result;
 		}
 	};
 
