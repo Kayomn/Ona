@@ -348,6 +348,10 @@ namespace Ona::Core {
 		}
 	}
 
+	template<typename Type> Slice<uint8_t const> BytesOf(Type & value) {
+		return Slice<Type>::Of(&value, 1).AsBytes();
+	}
+
 	/**
 	 * Zeroes the memory contents of `destination`.
 	 */
