@@ -6,7 +6,7 @@ from subprocess import Popen, call
 import json
 
 processed_dependencies = []
-common_flags = ["-g", "-fno-exceptions", "-std=c++17", "-I."]
+common_flags = ["-g", "-fno-exceptions", "-std=c++20", "-I."]
 output_path = "output"
 input_path = "ona"
 
