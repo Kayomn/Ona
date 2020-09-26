@@ -194,7 +194,7 @@ namespace Ona::Collections {
 
 			if (bucket) while (bucket->entry.key != key) bucket = bucket->next;
 
-			return bucket;
+			return (bucket ? (&bucket->entry.value) : nullptr);
 		}
 	};
 }
