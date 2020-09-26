@@ -119,8 +119,6 @@ namespace Ona::Engine {
 
 	GraphicsServer * LoadOpenGl(Ona::Core::String const & title, int32_t width, int32_t height);
 
-	void UnloadGraphics(GraphicsServer * & graphicsServer);
-
 	Ona::Core::Vector4 NormalizeColor(Ona::Core::Color const & color);
 
 	class RendererCommands {
