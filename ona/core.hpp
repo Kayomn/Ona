@@ -21,6 +21,8 @@ namespace Ona::Core {
 	struct Vector2 {
 		float x, y;
 
+		constexpr auto operator<=>(Vector2 const &) const = default;
+
 		constexpr Vector2 operator+(Vector2 const & that) const {
 			return Vector2{(this->x + that.x), (this->y + that.y)};
 		}
@@ -41,6 +43,8 @@ namespace Ona::Core {
 	struct Vector3 {
 		float x, y, z;
 
+		constexpr auto operator<=>(Vector3 const &) const = default;
+
 		constexpr Vector3 operator+(Vector3 const & that) const {
 			return Vector3{(this->x + that.x), (this->y + that.y), (this->z + that.z)};
 		}
@@ -60,6 +64,8 @@ namespace Ona::Core {
 
 	struct Vector4 {
 		float x, y, z, w;
+
+		constexpr auto operator<=>(Vector4 const &) const = default;
 
 		constexpr Vector4 operator+(Vector4 const & that) const {
 			return Vector4{
@@ -208,19 +214,7 @@ namespace Ona::Core {
 			return this->pointer[index];
 		}
 
-		/**
-		 * Checks for member-wise equality between the `Slice` and `that`.
-		 */
-		constexpr bool operator==(Slice const & that) const {
-			return ((this->pointer == that.pointer) && (this->length == that.length));
-		}
-
-		/**
-		 * Checks for member-wise inequality between the `Slice` and `that`.
-		 */
-		constexpr bool operator!=(Slice const & that) const {
-			return ((this->pointer != that.pointer) && (this->length != that.length));
-		}
+		constexpr auto operator<=>(Slice const &) const = default;
 
 		/**
 		 * Provides casting to a version of `Slice` with a `const` `Type`.
