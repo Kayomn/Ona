@@ -195,8 +195,8 @@ namespace Ona::Engine {
 				}
 
 				SDL_GL_DeleteContext(this->context);
-				SDL_DestroyWindow(this->window);
 				SDL_GL_UnloadLibrary();
+				SDL_DestroyWindow(this->window);
 				SDL_Quit();
 			}
 
@@ -646,11 +646,5 @@ namespace Ona::Engine {
 		}
 
 		return nullptr;
-	}
-
-	void UnloadGraphics(GraphicsServer * & graphicsServer) {
-		if (graphicsServer) {
-			graphicsServer->~GraphicsServer();
-		}
 	}
 }
