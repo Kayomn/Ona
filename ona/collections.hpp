@@ -117,7 +117,7 @@ namespace Ona::Collections {
 		}
 
 		void Truncate(size_t n) {
-			Ona::Core::Assert((n < this->count), "Invalid range");
+			Ona::Core::Assert((n < this->count), Ona::Core::CharsFrom("Invalid range"));
 
 			for (auto & value : this->values.Sliced((this->count - n), this->count)) value.~Type();
 
