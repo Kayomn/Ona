@@ -255,14 +255,19 @@ namespace Ona::Core {
 	void Assert(bool expression, Chars const & message);
 
 	template<typename Type> class Optional final {
-		uint8_t store[sizeof(Type) + 1];
+		static constexpr bool isNotPointer = (!std::is_pointer<Type>::value);
+
+		uint8_t store[sizeof(Type) + static_cast<size_t>(isNotPointer)];
 
 		public:
 		Optional() = default;
 
 		Optional(Type const & value) {
 			this->Value() = value;
-			this->store[sizeof(Type)] = 1;
+
+			if constexpr (isNotPointer) {
+				this->store[sizeof(Type)] = 1;
+			}
 		}
 
 		Optional(Optional const & that) {
@@ -270,7 +275,11 @@ namespace Ona::Core {
 		}
 
 		bool HasValue() const {
-			return static_cast<bool>(this->store[sizeof(Type)]);
+			if constexpr (isNotPointer) {
+				return static_cast<bool>(this->store[sizeof(Type)]);
+			} else {
+				return (this->Value() != nullptr);
+			}
 		}
 
 		Type & Value() {
