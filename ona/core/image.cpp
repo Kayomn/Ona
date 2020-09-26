@@ -22,11 +22,11 @@ namespace Ona::Core {
 			Image image = {allocator, dimensions};
 			size_t const imageSize = static_cast<size_t>(dimensions.x * dimensions.y);
 
-			// image.pixels = (
-			// 	allocator ?
-			// 	allocator->NewArray<Color>(imageSize).As<Color>() :
-			// 	NewArray<Color>(imageSize).As<Color>()
-			// );
+			image.pixels = (
+				allocator ?
+				allocator->Allocate(imageSize * sizeof(Color)).As<Color>() :
+				Allocate(imageSize * sizeof(Color)).As<Color>()
+			);
 
 			if (image.pixels) {
 				CopyMemory(image.pixels.AsBytes(), SliceOf(pixels, imageSize).AsBytes());
@@ -46,13 +46,19 @@ namespace Ona::Core {
 		Color color
 	) {
 		if ((dimensions.x > 0) && (dimensions.y > 0)) {
-			// Slice<Color> pixels = (
-			// 	allocator ?
-			// 	allocator->NewArray<Color>(dimensions.x * dimensions.y)) :
-			// 	NewArray<Color>(static_cast<size_t>(dimensions.x * dimensions.y))
-			// );
+			Slice<Color> pixels = (
+				allocator ?
 
-			Slice<Color> pixels = {};
+				allocator->Allocate(
+					static_cast<size_t>(dimensions.x * dimensions.y) *
+					sizeof(Color)
+				).As<Color>() :
+
+				Allocate(
+					static_cast<size_t>(dimensions.x * dimensions.y) *
+					sizeof(Color)
+				).As<Color>()
+			);
 
 			if (pixels.length) {
 				WriteMemory(pixels, color);

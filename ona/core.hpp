@@ -115,9 +115,11 @@ namespace Ona::Core {
 		>;
 
 		template<typename CastType> Slice<Casted<CastType>> As() const {
-			return Slice<Casted<CastType>>{
-				(this->length * sizeof(Type)),
-				reinterpret_cast<Casted<CastType> *>(this->pointer)
+			using ToType = Casted<CastType>;
+
+			return Slice<ToType>{
+				(this->length / sizeof(ToType)),
+				reinterpret_cast<ToType *>(this->pointer)
 			};
 		}
 
