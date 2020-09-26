@@ -240,6 +240,36 @@ namespace Ona::Core {
 		}
 	};
 
+	template<typename Type> class Optional final {
+		uint8_t store[sizeof(Type) + 1];
+
+		public:
+		Optional() = default;
+
+		Optional(Type const & value) {
+			this->Value() = value;
+			this->store[sizeof(Type)] = 1;
+		}
+
+		Optional(Optional const & that) {
+			if (this->HasValue()) this->Value() = that.Value();
+		}
+
+		bool HasValue() const {
+			return static_cast<bool>(this->store[sizeof(Type)]);
+		}
+
+		Type & Value() {
+			Assert(this->HasValue(), "Optional is empty");
+
+			return (*reinterpret_cast<Type *>(this->store));
+		}
+
+		Type const & Value() const {
+			return (*reinterpret_cast<Type const *>(this->store));
+		}
+	};
+
 	template<typename ValueType, typename ErrorType> class Result final {
 		static constexpr size_t storeSize = (
 			(sizeof(ValueType) > sizeof(ErrorType)) ?
