@@ -67,7 +67,20 @@ namespace Ona::Engine {
 		BadImage
 	};
 
+	class GraphicsServer;
+
+	class GraphicsCommands {
+		public:
+		virtual ~GraphicsCommands() { }
+
+		virtual void Dispatch(GraphicsServer * graphicsServer) = 0;
+
+		virtual bool Load(GraphicsServer * graphicsServer) = 0;
+	};
+
 	class GraphicsServer {
+		Ona::Collections::Appender<GraphicsCommands *> commandBuffers;
+
 		public:
 		virtual ~GraphicsServer() { }
 
@@ -78,6 +91,20 @@ namespace Ona::Engine {
 		virtual bool ReadEvents(Events * events) = 0;
 
 		virtual void Update() = 0;
+
+		template<typename Type> Ona::Core::Optional<Type *> CreateCommandBuffer() {
+			Ona::Core::Optional<Type *> createdCommandBuffer = Ona::Core::New<Type>();
+
+			if (createdCommandBuffer.HasValue()) {
+				Type * commandBuffer = createdCommandBuffer.Value();
+
+				if (commandBuffer->Load(this)) {
+					this->commandBuffers.Append(commandBuffer);
+				}
+			}
+
+			return createdCommandBuffer;
+		}
 
 		virtual Ona::Core::Result<ResourceId, RendererError> CreateRenderer(
 			Ona::Core::Chars const & vertexSource,
@@ -117,16 +144,13 @@ namespace Ona::Engine {
 		) = 0;
 	};
 
-	GraphicsServer * LoadOpenGl(Ona::Core::String const & title, int32_t width, int32_t height);
+	Ona::Core::Optional<GraphicsServer *> LoadOpenGl(
+		Ona::Core::String const & title,
+		int32_t width,
+		int32_t height
+	);
 
 	Ona::Core::Vector4 NormalizeColor(Ona::Core::Color const & color);
-
-	class RendererCommands {
-		public:
-		virtual ~RendererCommands() { }
-
-		virtual void Dispatch(GraphicsServer * graphicsServer) = 0;
-	};
 
 	struct Sprite {
 		ResourceId polyId;
@@ -151,7 +175,7 @@ namespace Ona::Engine {
 		Ona::Core::Image const & image
 	);
 
-	class SpriteRenderCommands final extends RendererCommands {
+	class SpriteCommands final extends GraphicsCommands {
 		struct Chunk {
 			static constexpr size_t max = 128;
 
@@ -177,13 +201,11 @@ namespace Ona::Engine {
 		Ona::Collections::Table<Sprite, BatchSet> batches;
 
 		public:
-		SpriteRenderCommands() = default;
-
-		SpriteRenderCommands(GraphicsServer * graphics);
-
 		void Dispatch(GraphicsServer * graphics) override;
 
 		void Draw(Sprite sprite, Ona::Core::Vector2 position);
+
+		bool Load(GraphicsServer * graphicsServer) override;
 	};
 }
 

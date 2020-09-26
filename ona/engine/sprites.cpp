@@ -25,7 +25,7 @@ internal ResourceId spriteRendererId;
 
 internal ResourceId spriteRectId;
 
-internal void LazyInitSpriteRenderer(Ona::Engine::GraphicsServer * graphics) {
+internal bool LazyInitSpriteRenderer(Ona::Engine::GraphicsServer * graphics) {
 	static Chars const vertexSource = CharsFrom(
 		"#version 430 core\n"
 		"#define INSTANCE_COUNT 128\n"
@@ -105,19 +105,33 @@ internal void LazyInitSpriteRenderer(Ona::Engine::GraphicsServer * graphics) {
 			Vertex2D{Vector2{0.f, 1.f}, Vector2{0.f, 1.f}}
 		};
 
-		spriteRendererId = graphics->CreateRenderer(
+		let createdRendererId = graphics->CreateRenderer(
 			vertexSource,
 			fragmentSource,
 			Layout{2, vertexAttributes},
 			Layout{2, userdataAttributes},
 			Layout{1, materialAttributes}
-		).Expect(CharsFrom("Sprite renderer failed to lazily initialize"));
+		);
 
-		spriteRectId = graphics->CreatePoly(
-			spriteRendererId,
-			Ona::Core::SliceOf(quadPoly, 6).AsBytes()
-		).Expect(CharsFrom("Sprite rect polygon failed to lazily initialize"));
+		if (createdRendererId.IsOk()) {
+			spriteRendererId = createdRendererId.Value();
+
+			let createdPolyId = graphics->CreatePoly(
+				spriteRendererId,
+				Ona::Core::SliceOf(quadPoly, 6).AsBytes()
+			);
+
+			if (createdPolyId.IsOk()) {
+				spriteRectId = createdPolyId.Value();
+
+				return true;
+			}
+		}
+
+		return false;
 	}
+
+	return true;
 }
 
 struct Material {
@@ -156,11 +170,7 @@ namespace Ona::Engine {
 				static_cast<uint64_t>(this->materialId));
 	}
 
-	SpriteRenderCommands::SpriteRenderCommands(GraphicsServer * graphics) : batches{} {
-		LazyInitSpriteRenderer(graphics);
-	}
-
-	void SpriteRenderCommands::Dispatch(GraphicsServer * graphics) {
+	void SpriteCommands::Dispatch(GraphicsServer * graphics) {
 		this->batches.ForEach([this, &graphics](Sprite & sprite, BatchSet & batchSet) {
 			Batch * batch = (&batchSet.head);
 
@@ -181,7 +191,7 @@ namespace Ona::Engine {
 		});
 	}
 
-	void SpriteRenderCommands::Draw(Sprite sprite, Vector2 position) {
+	void SpriteCommands::Draw(Sprite sprite, Vector2 position) {
 		Optional<BatchSet *> batchSet = this->batches.LookupOrInsert(sprite, []() {
 			BatchSet batchSet = {};
 			batchSet.current = (&batchSet.head);
@@ -193,8 +203,12 @@ namespace Ona::Engine {
 			Batch * currentBatch = batchSet.Value()->current;
 
 			if (currentBatch->count == Chunk::max) {
-				currentBatch->next = Ona::Core::New<Batch>();
-				currentBatch = currentBatch->next;
+				let allocation = Ona::Core::New<Batch>();
+
+				if (allocation.HasValue()) {
+					currentBatch->next = allocation.Value();
+					currentBatch = currentBatch->next;
+				}
 			}
 
 			// TODO: Assign these fuckers.
@@ -204,5 +218,9 @@ namespace Ona::Engine {
 		}
 
 		// TODO: Record failed render.
+	}
+
+	bool SpriteCommands::Load(GraphicsServer * graphics) {
+		return LazyInitSpriteRenderer(graphics);
 	}
 }

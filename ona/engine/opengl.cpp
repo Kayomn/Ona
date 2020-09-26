@@ -57,8 +57,13 @@ namespace Ona::Engine {
 		}
 	}
 
-	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height) {
+	Ona::Core::Optional<GraphicsServer *> LoadOpenGl(
+		String const & title,
+		int32_t width,
+		int32_t height
+	) {
 		using Ona::Collections::Appender;
+		using Opt = Ona::Core::Optional<GraphicsServer *>;
 
 		thread_local class OpenGlGraphicsServer final extends GraphicsServer {
 			Appender<Renderer> renderers;
@@ -114,8 +119,7 @@ namespace Ona::Engine {
 							);
 
 							Ona::Core::OutFile().Write(
-								SliceOf(errorBuffer, errorBufferLength).AsBytes(),
-								nullptr
+								SliceOf(errorBuffer, errorBufferLength).AsBytes()
 							);
 						}
 					}
@@ -449,7 +453,7 @@ namespace Ona::Engine {
 
 							switch (glGetError()) {
 								case GL_NO_ERROR: {
-									if (texture.pixels) {
+									if (texture.pixels.HasValue()) {
 										glTextureSubImage2D(
 											textureHandle,
 											0,
@@ -597,7 +601,7 @@ namespace Ona::Engine {
 		constexpr int32_t initFlags = SDL_INIT_EVERYTHING;
 
 		if (SDL_WasInit(initFlags) == initFlags) {
-			return &graphicsServer;
+			return Opt{&graphicsServer};
 		}
 
 		if (SDL_Init(initFlags) == 0) {
@@ -620,13 +624,13 @@ namespace Ona::Engine {
 			graphicsServer.timeNow = SDL_GetPerformanceCounter();
 
 			if (graphicsServer.window) {
-				if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4) != 0) return nullptr;
+				if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4) != 0) return Opt{};
 
-				if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3) != 0) return nullptr;
+				if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3) != 0) return Opt{};
 
-				if (SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1) != 0) return nullptr;
+				if (SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1) != 0) return Opt{};
 
-				if (SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24) != 0) return nullptr;
+				if (SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24) != 0) return Opt{};
 
 				graphicsServer.context = SDL_GL_CreateContext(graphicsServer.window);
 				glewExperimental = true;
@@ -638,13 +642,13 @@ namespace Ona::Engine {
 						glViewport(0, 0, width, height);
 
 						if (glGetError() == GL_NO_ERROR) {
-							return &graphicsServer;
+							return Opt{&graphicsServer};
 						}
 					}
 				}
 			}
 		}
 
-		return nullptr;
+		return Opt{};
 	}
 }

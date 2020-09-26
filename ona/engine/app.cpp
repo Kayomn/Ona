@@ -6,11 +6,16 @@ using namespace Ona::Engine;
 using namespace Ona::Collections;
 
 int main(int argv, char const * const * argc) {
-	GraphicsServer * graphics = LoadOpenGl(String::From("Ona"), 640, 480);
-	SpriteRenderCommands * spriteCommands = New<SpriteRenderCommands>(graphics);
+	let graphics = LoadOpenGl(String::From("Ona"), 640, 480).Value();
+	let spriteCommands = graphics->CreateCommandBuffer<SpriteCommands>().Value();
 
 	if (graphics && spriteCommands) {
-		Image image = Image::Solid(nullptr, Point2{32, 32}, Color{255, 255, 255, 255}).Value();
+		Image image = Image::Solid(
+			Optional<Allocator *>{},
+			Point2{32, 32},
+			Color{255, 255, 255, 255}
+		).Value();
+
 		Sprite sprite = CreateSprite(graphics, image).Value();
 		Events events = {};
 

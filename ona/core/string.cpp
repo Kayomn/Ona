@@ -67,7 +67,7 @@ namespace Ona::Core {
 		String string = {};
 		Slice<uint8_t> buffer = string.CreateBuffer(data.length);
 
-		if (buffer) {
+		if (buffer.HasValue()) {
 			for (size_t i = 0; (i < data.length); i += 1) {
 				string.length += ((data(i) & 0xC0) != 0x80);
 			}
@@ -82,7 +82,7 @@ namespace Ona::Core {
 		String sentineledString = {};
 		Slice<uint8_t> buffer = sentineledString.CreateBuffer(string.Length() + 1);
 
-		if (buffer) {
+		if (buffer.HasValue()) {
 			sentineledString.length = string.length;
 
 			CopyMemory(buffer.AsBytes(), string.AsBytes());

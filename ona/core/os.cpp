@@ -15,42 +15,23 @@ namespace Ona::Core {
 		[](
 			FileDescriptor descriptor,
 			FileOperations::SeekBase seekBase,
-			int64_t offset,
-			FileIoError * error
+			int64_t offset
 		) -> int64_t {
 			int64_t const bytesSought = lseek(descriptor.unixHandle, offset, seekBase);
 
-			if (bytesSought > -1) {
-				return bytesSought;
-			} else if (error) {
-				(*error) = FileIoError::BadAccess;
-			}
-
-			return 0;
+			return ((bytesSought > -1) ? static_cast<size_t>(bytesSought) : 0);
 		},
 
-		[](FileDescriptor descriptor, Slice<uint8_t> output, FileIoError * error) -> size_t {
+		[](FileDescriptor descriptor, Slice<uint8_t> output) -> size_t {
 			ssize_t const bytesRead = read(descriptor.unixHandle, output.pointer, output.length);
 
-			if (bytesRead > -1) {
-				return static_cast<size_t>(bytesRead);
-			} else if (error) {
-				(*error) = FileIoError::BadAccess;
-			}
-
-			return 0;
+			return ((bytesRead > -1) ? static_cast<size_t>(bytesRead) : 0);
 		},
 
-		[](FileDescriptor descriptor, Slice<uint8_t const> input, FileIoError * error) -> size_t {
+		[](FileDescriptor descriptor, Slice<uint8_t const> input) -> size_t {
 			ssize_t const bytesWritten = write(descriptor.unixHandle, input.pointer, input.length);
 
-			if (bytesWritten > -1) {
-				return static_cast<size_t>(bytesWritten);
-			} else if (error) {
-				(*error) = FileIoError::BadAccess;
-			}
-
-			return 0;
+			return ((bytesWritten > -1) ? static_cast<size_t>(bytesWritten) : 0);
 		},
 	};
 
@@ -63,7 +44,7 @@ namespace Ona::Core {
 
 	void Assert(bool expression, Chars const & message) {
 		if (!expression) {
-			OutFile().Write(message.AsBytes(), nullptr);
+			OutFile().Write(message.AsBytes());
 			std::abort();
 		}
 	}
@@ -72,60 +53,36 @@ namespace Ona::Core {
 		free(allocation);
 	}
 
-	Array<uint8_t> LoadFile(Allocator * allocator, String const & filePath, FileLoadError * error) {
-		static auto readToLoadError = [](FileIoError readError, FileLoadError * error) {
-			if (error) switch (readError) {
-				case FileIoError::None: break;
-
-				case FileIoError::BadAccess: {
-					(*error) = FileLoadError::BadAccess;
-				} break;
-			}
-		};
-
+	Result<Array<uint8_t>, FileLoadError> LoadFile(
+		Optional<Allocator *> allocator,
+		String const & filePath
+	) {
+		using Res = Result<Array<uint8_t>, FileLoadError>;
 		FileOpenError openError = {};
-		File file = OpenFile(filePath, File::OpenRead, &openError);
+		let openedFile = OpenFile(filePath, File::OpenRead);
 
-		if (openError == FileOpenError::None) {
-			FileIoError readError = {};
-			int64_t const fileSize = file.SeekTail(0, &readError);
+		if (openedFile.IsOk()) {
+			let file = openedFile.Value();
+			int64_t const fileSize = file.SeekTail(0);
 
-			file.SeekHead(0, &readError);
+			file.SeekHead(0);
 
-			if (readError == FileIoError::None) {
-				readToLoadError(readError, error);
-			} else if (fileSize > SIZE_MAX) {
-				// Handles 32-bit platforms where files can be bigger than addressable memory.
-				if (error) (*error) = FileLoadError::Resources;
-			} else {
-				auto fileContents = Array<uint8_t>::New(allocator, static_cast<size_t>(fileSize));
+			let fileContents = Array<uint8_t>::Init(allocator, static_cast<size_t>(fileSize));
 
-				if (fileContents.Count()) {
-					file.Read(fileContents.Values(), &readError);
-
-					if (readError == FileIoError::None) {
-						return fileContents;
-					}
-
-					readToLoadError(readError, error);
-				} else if (error) (*error) = FileLoadError::Resources;
+			if (fileContents.Count() == fileSize) {
+				return Res::Ok(fileContents);
 			}
-		} else if (error) switch (openError) {
-			case FileOpenError::None: break;
 
-			case FileOpenError::NotFound: {
-				(*error) = FileLoadError::NotFound;
-			} break;
+			return Res::Fail(FileLoadError::Resources);
+		} else switch (openedFile.Error()) {
+			case FileOpenError::NotFound: return Res::Fail(FileLoadError::NotFound);
 
-			case FileOpenError::BadAccess: {
-				(*error) = FileLoadError::BadAccess;
-			} break;
+			case FileOpenError::BadAccess: return Res::Fail(FileLoadError::BadAccess);
 		}
-
-		return Array<uint8_t>{};
 	}
 
-	File OpenFile(String const & filePath, File::OpenFlags flags, FileOpenError * error) {
+	Result<File, FileOpenError> OpenFile(String const & filePath, File::OpenFlags flags) {
+		using Res = Result<File, FileOpenError>;
 		int unixAccessFlags = 0;
 
 		if (flags & File::OpenRead) {
@@ -149,21 +106,15 @@ namespace Ona::Core {
 			(S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR)
 		);
 
-		if ((handle == -1) || error) {
+		if (handle == -1) {
 			switch (errno) {
-				case ENOENT: {
-					(*error) = FileOpenError::NotFound;
-				} break;
+				case ENOENT: return Res::Fail(FileOpenError::NotFound);
 
-				default: {
-					(*error) = FileOpenError::BadAccess;
-				} break;
+				default: return Res::Fail(FileOpenError::BadAccess);
 			}
-		} else {
-			return File{&osFileOperations, FileDescriptor{handle}};
 		}
 
-		return File::Bad();
+		return Res::Ok(File{&osFileOperations, FileDescriptor{handle}});
 	}
 
 	Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size) {
@@ -196,52 +147,32 @@ namespace Ona::Core {
 		this->operations->closer(this->descriptor);
 	}
 
-	void File::Print(String const & string, FileIoError * error) {
-		this->operations->writer(this->descriptor, string.AsBytes(), error);
+	void File::Print(String const & string) {
+		this->operations->writer(this->descriptor, string.AsBytes());
 	}
 
-	size_t File::Read(Slice<uint8_t> const & output, FileIoError * error) {
-		return this->operations->reader(this->descriptor, output, error);
+	size_t File::Read(Slice<uint8_t> const & output) {
+		return this->operations->reader(this->descriptor, output);
 	}
 
-	int64_t File::SeekHead(int64_t offset, FileIoError * error) {
-		return this->operations->seeker(
-			this->descriptor,
-			FileOperations::SeekBaseHead,
-			offset,
-			error
-		);
+	int64_t File::SeekHead(int64_t offset) {
+		return this->operations->seeker(this->descriptor, FileOperations::SeekBaseHead, offset);
 	}
 
-	int64_t File::SeekTail(int64_t offset, FileIoError * error) {
-		return this->operations->seeker(
-			this->descriptor,
-			FileOperations::SeekBaseTail,
-			offset,
-			error
-		);
+	int64_t File::SeekTail(int64_t offset) {
+		return this->operations->seeker(this->descriptor, FileOperations::SeekBaseTail, offset);
 	}
 
-	int64_t File::Skip(int64_t offset, FileIoError * error) {
-		return this->operations->seeker(
-			this->descriptor,
-			FileOperations::SeekBaseCurrent,
-			offset,
-			error
-		);
+	int64_t File::Skip(int64_t offset) {
+		return this->operations->seeker(this->descriptor, FileOperations::SeekBaseCurrent, offset);
 	}
 
-	int64_t File::Tell(FileIoError * error) {
-		return this->operations->seeker(
-			this->descriptor,
-			FileOperations::SeekBaseCurrent,
-			0,
-			error
-		);
+	int64_t File::Tell() {
+		return this->operations->seeker(this->descriptor, FileOperations::SeekBaseCurrent, 0);
 	}
 
-	size_t File::Write(Slice<uint8_t const> const & input, FileIoError * error) {
-		return this->operations->writer(this->descriptor, input, error);
+	size_t File::Write(Slice<uint8_t const> const & input) {
+		return this->operations->writer(this->descriptor, input);
 	}
 
 	void * Library::FindSymbol(String const & symbolName) {

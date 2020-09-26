@@ -147,6 +147,15 @@ namespace Ona::Core {
 		}
 
 		/**
+		 * Returns `true` if the `Slice` references data, otherwise `false`.
+		 *
+		 * Note that a `Slice` may have a length of `0` but still reference data.
+		 */
+		constexpr bool HasValue() const {
+			return (this->pointer != nullptr);
+		}
+
+		/**
 		 * Creates a new `Slice` from the `Slice`, granting access to elements from index `a` to
 		 * position `b`.
 		 */
@@ -219,14 +228,6 @@ namespace Ona::Core {
 		constexpr operator Slice<Type const>() const {
 			return (*reinterpret_cast<Slice<Type const> const *>(this));
 		}
-
-		/**
-		 * Provides casting to a `bool` value based on whether or not the `Slice` points to
-		 * `nullptr` memory.
-		 */
-		constexpr operator bool() const {
-			return (this->pointer != nullptr);
-		}
 	};
 
 	/**
@@ -262,8 +263,8 @@ namespace Ona::Core {
 		public:
 		Optional() = default;
 
-		Optional(Type const & value) {
-			this->Value() = value;
+		explicit Optional(Type const & value) {
+			(*reinterpret_cast<Type *>(this->store)) = value;
 
 			if constexpr (isNotPointer) {
 				this->store[sizeof(Type)] = 1;
@@ -271,14 +272,18 @@ namespace Ona::Core {
 		}
 
 		Optional(Optional const & that) {
-			if (this->HasValue()) this->Value() = that.Value();
+			if (this->HasValue()) {
+				(*reinterpret_cast<Type *>(this->store)) = (
+					*reinterpret_cast<Type const *>(that.store)
+				);
+			}
 		}
 
 		bool HasValue() const {
 			if constexpr (isNotPointer) {
 				return static_cast<bool>(this->store[sizeof(Type)]);
 			} else {
-				return (this->Value() != nullptr);
+				return ((*reinterpret_cast<Type const *>(this->store)) != nullptr);
 			}
 		}
 
@@ -308,6 +313,10 @@ namespace Ona::Core {
 
 		public:
 		Result() = default;
+
+		explicit Result(ValueType const & value) : isOk{true} {
+			new (this->store) ValueType{value};
+		}
 
 		Result(Result const & that) {
 			this->isOk = that.isOk;
@@ -356,12 +365,7 @@ namespace Ona::Core {
 		}
 
 		static Result Ok(ValueType const & value) {
-			Result result;
-			result.isOk = true;
-
-			new (result.store) ValueType{value};
-
-			return result;
+			return Result{value};
 		}
 
 		static Result Fail(ErrorType const & error) {
@@ -382,12 +386,17 @@ namespace Ona::Core {
 
 		virtual Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size) = 0;
 
-		template<typename Type, typename... Args> Type * New(Args... args) {
+		template<typename Type, typename... Args> Optional<Type *> New(Args... args) {
+			using Opt = Optional<Type *>;
 			uint8_t * allocation = this->Allocate(sizeof(Type)).pointer;
 
-			new (allocation) Type{args...};
+			if (allocation) {
+				new (allocation) Type{args...};
 
-			return reinterpret_cast<Type *>(allocation);
+				return Opt{reinterpret_cast<Type *>(allocation)};
+			}
+
+			return Opt{};
 		}
 	};
 
@@ -473,16 +482,21 @@ namespace Ona::Core {
 
 	Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size);
 
-	template<typename Type, typename... Args> Type * New(Args... args) {
+	template<typename Type, typename... Args> Optional<Type *> New(Args... args) {
+		using Opt = Optional<Type *>;
 		uint8_t * allocation = Allocate(sizeof(Type)).pointer;
 
-		new (allocation) Type{args...};
+		if (allocation) {
+			new (allocation) Type{args...};
 
-		return reinterpret_cast<Type *>(allocation);
+			return Opt{reinterpret_cast<Type *>(allocation)};
+		}
+
+		return Opt{};
 	}
 
 	template<typename Type> class Array final {
-		Allocator * allocator;
+		Optional<Allocator *> allocator;
 
 		size_t length;
 
@@ -491,25 +505,13 @@ namespace Ona::Core {
 		public:
 		Array() = default;
 
-		constexpr Array(Allocator * allocator) : allocator{allocator}, length{}, values{}  { }
+		constexpr Array(Optional<Allocator *> allocator) : allocator{allocator}, length{}, values{}  { }
 
 		Array(Array const & that) {
 			(*this) = Of(this->allocator, this->values);
 		}
 
-		~Array() {
-			for (auto & value : this->values) {
-				value.~Type();
-			}
-
-			if (this->allocator) {
-				this->allocator->Deallocate(this->values.pointer);
-			} else {
-				Deallocate(this->values.pointer);
-			}
-		}
-
-		constexpr Allocator * AllocatorOf() {
+		constexpr Optional<Allocator *> AllocatorOf() {
 			return this->allocator;
 		}
 
@@ -517,11 +519,23 @@ namespace Ona::Core {
 			return this->length;
 		}
 
-		static Array New(Allocator * allocator, size_t size) {
+		void Free() {
+			for (auto & value : this->values) {
+				value.~Type();
+			}
+
+			if (this->allocator) {
+				this->allocator.Value()->Deallocate(this->values.pointer);
+			} else {
+				Deallocate(this->values.pointer);
+			}
+		}
+
+		static Array Init(Optional<Allocator *> allocator, size_t size) {
 			Array array = {allocator};
 
-			if (allocator) {
-				array.values = allocator->Allocate(sizeof(Type) * size).template As<Type>();
+			if (allocator.HasValue()) {
+				array.values = allocator.Value()->Allocate(sizeof(Type) * size).template As<Type>();
 			} else {
 				array.values = Allocate(sizeof(Type) * size).As<Type>();
 			}
@@ -531,11 +545,11 @@ namespace Ona::Core {
 			return array;
 		}
 
-		static Array Of(Allocator * allocator, Slice<Type> const & elements) {
+		static Array Of(Optional<Allocator *> allocator, Slice<Type> const & elements) {
 			Array array = {allocator};
 
-			if (allocator) {
-				array.values = allocator->Allocate(
+			if (allocator.HasValue()) {
+				array.values = allocator.Value()->Allocate(
 					sizeof(Type) * elements.length
 				).template As<Type>();
 			} else {
@@ -554,19 +568,12 @@ namespace Ona::Core {
 
 	bool CheckFile(String const & filePath);
 
-	enum class FileIoError {
-		None,
-		BadAccess
-	};
-
 	enum class FileOpenError {
-		None,
 		BadAccess,
 		NotFound
 	};
 
 	enum class FileLoadError {
-		None,
 		NotFound,
 		BadAccess,
 		Resources
@@ -575,7 +582,7 @@ namespace Ona::Core {
 	union FileDescriptor {
 		int unixHandle;
 
-		void* userdata;
+		void * userdata;
 
 		void Clear();
 
@@ -593,20 +600,11 @@ namespace Ona::Core {
 
 		void (*closer)(FileDescriptor descriptor);
 
-		int64_t (*seeker)(
-			FileDescriptor descriptor,
-			SeekBase seekBase,
-			int64_t offset,
-			FileIoError * error
-		);
+		int64_t (*seeker)(FileDescriptor descriptor, SeekBase seekBase, int64_t offset);
 
-		size_t (*reader)(FileDescriptor descriptor, Slice<uint8_t> output, FileIoError * error);
+		size_t (*reader)(FileDescriptor descriptor, Slice<uint8_t> output);
 
-		size_t (*writer)(
-			FileDescriptor descriptor,
-			Slice<uint8_t const> input,
-			FileIoError * error
-		);
+		size_t (*writer)(FileDescriptor descriptor, Slice<uint8_t const> input);
 	};
 
 	struct File {
@@ -620,32 +618,28 @@ namespace Ona::Core {
 
 		FileDescriptor descriptor;
 
-		static constexpr File Bad() {
-			return File{nullptr, FileDescriptor{0}};
-		}
-
 		void Free();
 
-		void Print(String const & string, FileIoError * error);
+		void Print(String const & string);
 
-		size_t Read(Slice<uint8_t> const & output, FileIoError * error);
+		size_t Read(Slice<uint8_t> const & output);
 
-		int64_t SeekHead(int64_t offset, FileIoError * error);
+		int64_t SeekHead(int64_t offset);
 
-		int64_t SeekTail(int64_t offset, FileIoError * error);
+		int64_t SeekTail(int64_t offset);
 
-		int64_t Skip(int64_t offset, FileIoError * error);
+		int64_t Skip(int64_t offset);
 
-		int64_t Tell(FileIoError * error);
+		int64_t Tell();
 
-		size_t Write(Slice<uint8_t const> const & input, FileIoError * error);
+		size_t Write(Slice<uint8_t const> const & input);
 	};
 
 	File & OutFile();
 
-	File OpenFile(String const & filePath, File::OpenFlags flags, FileOpenError * error);
+	Result<File, FileOpenError> OpenFile(String const & filePath, File::OpenFlags flags);
 
-	Array<uint8_t> LoadFile(Allocator * allocator, String const & filePath, FileLoadError * error);
+	Result<Array<uint8_t>, FileLoadError> LoadFile(Optional<Allocator *> allocator, String const & filePath);
 
 	struct Library {
 		void * context;
@@ -694,8 +688,9 @@ namespace Ona::Core {
 		OutOfMemory
 	};
 
-	struct Image {
-		Allocator * allocator;
+	class Image {
+		public:
+		Optional<Allocator *> allocator;
 
 		Point2 dimensions;
 
@@ -704,13 +699,13 @@ namespace Ona::Core {
 		void Free();
 
 		static Result<Image, ImageError> From(
-			Allocator * allocator,
+			Optional<Allocator *> allocator,
 			Point2 dimensions,
 			Color * pixels
 		);
 
 		static Result<Image, ImageError> Solid(
-			Allocator * allocator,
+			Optional<Allocator *> allocator,
 			Point2 dimensions,
 			Color color
 		);

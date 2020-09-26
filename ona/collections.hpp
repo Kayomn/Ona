@@ -5,7 +5,7 @@
 
 namespace Ona::Collections {
 	template<typename Type> class Appender final {
-		Ona::Core::Allocator * allocator;
+		Ona::Core::Optional<Ona::Core::Allocator *> allocator;
 
 		size_t count;
 
@@ -14,9 +14,9 @@ namespace Ona::Collections {
 		public:
 		Appender() = default;
 
-		Appender(Ona::Core::Allocator * allocator) : allocator{allocator} { }
+		Appender(Ona::Core::Optional<Ona::Core::Allocator *> allocator) : allocator{allocator} { }
 
-		Ona::Core::Allocator * AllocatorOf() {
+		Ona::Core::Optional<Ona::Core::Allocator *> AllocatorOf() {
 			return this->allocator;
 		}
 
@@ -89,22 +89,22 @@ namespace Ona::Collections {
 				).template As<Type>();
 			}
 
-			return (this->values.pointer != nullptr);
+			return (this->values.HasValue());
 		}
 
 		void Free() {
 			for (auto & value : this->Values()) value.~Type();
 
-			if (this->allocator) {
-				this->allocator->Deallocate(reinterpret_cast<uint8_t *>(this->values.pointer));
+			if (this->allocator.HasValue()) {
+				this->allocator.Value()->Deallocate(reinterpret_cast<uint8_t *>(this->values.pointer));
 			} else {
 				Ona::Core::Deallocate(reinterpret_cast<uint8_t *>(this->values.pointer));
 			}
 		}
 
 		bool Reserve(size_t capacity) {
-			if (this->allocator) {
-				this->values = this->allocator->Reallocate(
+			if (this->allocator.HasValue()) {
+				this->values = this->allocator.Value()->Reallocate(
 					reinterpret_cast<uint8_t *>(this->values.pointer),
 					(sizeof(Type) * (this->values.length + capacity)
 				)).template As<Type>();
@@ -115,7 +115,7 @@ namespace Ona::Collections {
 				).template As<Type>();
 			}
 
-			return (this->values.pointer != nullptr);
+			return (this->values.HasValue());
 		}
 
 		void Truncate(size_t n) {
@@ -164,6 +164,10 @@ namespace Ona::Collections {
 		Table() = default;
 
 		Table(Ona::Core::Optional<Ona::Core::Allocator *> allocator) : allocator{allocator} { }
+
+		Ona::Core::Optional<Ona::Core::Allocator *> AllocatorOf() {
+			return this->allocator;
+		}
 
 		size_t Count() const {
 			return this->count;
@@ -215,7 +219,7 @@ namespace Ona::Collections {
 		) {
 			TableValue lookupValue = this->Lookup(key);
 
-			if (lookupValue.HasValue()) return lookupValue.Value();
+			if (lookupValue.HasValue()) return lookupValue;
 
 			this->Insert(key, callable());
 
