@@ -298,6 +298,14 @@ namespace Ona::Core {
 
 			return (*reinterpret_cast<Type const *>(this->store));
 		}
+
+		Type & operator->() {
+			return this->Value();
+		}
+
+		Type const & operator->() const {
+			return this->Value();
+		}
 	};
 
 	template<typename ValueType, typename ErrorType> class Result final {
