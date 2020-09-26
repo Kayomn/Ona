@@ -423,7 +423,7 @@ namespace Ona::Core {
 	/**
 	 * Zeroes the memory contents of `destination`.
 	 */
-	void ZeroMemory(Slice<uint8_t> & destination);
+	void ZeroMemory(Slice<uint8_t> destination);
 
 	/**
 	 * Reference-counted, UTF-8-encoded character sequence.

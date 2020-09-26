@@ -15,7 +15,7 @@ namespace Ona::Core {
 		return size;
 	}
 
-	void ZeroMemory(Slice<uint8_t> & destination) {
+	void ZeroMemory(Slice<uint8_t> destination) {
 		for (size_t i = 0; i < destination.length; i += 1) {
 			destination(i) = 0;
 		}
