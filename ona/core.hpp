@@ -11,6 +11,8 @@
 
 #define let auto
 
+#define internal static
+
 namespace Ona::Core {
 	/**
 	 * Assertion function used to abort the process if `expression` does not evaluate to `true`,
