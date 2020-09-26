@@ -1,5 +1,7 @@
 #include "ona/core.hpp"
 
+using ImageResult = Ona::Core::Result<Ona::Core::Image, Ona::Core::ImageError>;
+
 namespace Ona::Core {
 	void Image::Free() {
 		if (this->pixels) {
@@ -11,53 +13,60 @@ namespace Ona::Core {
 		}
 	}
 
-	Image Image::From(
+	Result<Image, ImageError> Image::From(
 		Allocator * allocator,
 		Point2 dimensions,
-		Color * pixels,
-		ImageError * error
+		Color * pixels
 	) {
 		if (pixels && (dimensions.x > 0) && (dimensions.y > 0)) {
 			Image image = {allocator, dimensions};
 			size_t const imageSize = static_cast<size_t>(dimensions.x * dimensions.y);
 
-			if (allocator) {
-				image.pixels = allocator->Allocate(imageSize).As<Color>();
-			} else {
-				image.pixels = Allocate(imageSize).As<Color>();
+			// image.pixels = (
+			// 	allocator ?
+			// 	allocator->NewArray<Color>(imageSize).As<Color>() :
+			// 	NewArray<Color>(imageSize).As<Color>()
+			// );
+
+			if (image.pixels) {
+				CopyMemory(image.pixels.AsBytes(), SliceOf(pixels, imageSize).AsBytes());
+
+				return ImageResult::Ok(image);
 			}
 
-			if ((CopyMemory(
-				image.pixels.AsBytes(),
-				SliceOf(pixels, imageSize).AsBytes()
-			) != imageSize) && error) (*error) = ImageError::OutOfMemory;
+			return ImageResult::Fail(ImageError::OutOfMemory);
+		}
 
-			return image;
-		} else if (error) (*error) = ImageError::UnsupportedFormat;
-
-		return Image{};
+		return ImageResult::Fail(ImageError::UnsupportedFormat);
 	}
 
-	Image Image::Solid(
+	Result<Image, ImageError> Image::Solid(
 		Allocator * allocator,
-		Point2 const & dimensions,
-		Color color,
-		ImageError * error
+		Point2 dimensions,
+		Color color
 	) {
 		if ((dimensions.x > 0) && (dimensions.y > 0)) {
-			Slice<Color> pixels = (
-				allocator ?
-				allocator->Allocate(static_cast<size_t>(dimensions.x * dimensions.y)).As<Color>() :
-				Allocate(static_cast<size_t>(dimensions.x * dimensions.y)).As<Color>()
-			);
+			// Slice<Color> pixels = (
+			// 	allocator ?
+			// 	allocator->NewArray<Color>(dimensions.x * dimensions.y)) :
+			// 	NewArray<Color>(static_cast<size_t>(dimensions.x * dimensions.y))
+			// );
+
+			Slice<Color> pixels = {};
 
 			if (pixels.length) {
 				WriteMemory(pixels, color);
 
-				return Image{allocator, dimensions, pixels};
-			} else if (error) (*error) = ImageError::OutOfMemory;
-		} else if (error) (*error) = ImageError::UnsupportedFormat;
+				return ImageResult::Ok(Image{
+					allocator,
+					dimensions,
+					pixels
+				});
+			}
 
-		return Image{};
+			return ImageResult::Fail(ImageError::OutOfMemory);
+		}
+
+		return ImageResult::Fail(ImageError::UnsupportedFormat);
 	}
 }

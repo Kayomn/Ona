@@ -692,18 +692,16 @@ namespace Ona::Core {
 
 		void Free();
 
-		static Image From(
+		static Result<Image, ImageError> From(
 			Allocator * allocator,
 			Point2 dimensions,
-			Color * pixels,
-			ImageError * error
+			Color * pixels
 		);
 
-		static Image Solid(
+		static Result<Image, ImageError> Solid(
 			Allocator * allocator,
-			Point2 const & dimensions,
-			Color color,
-			ImageError * error
+			Point2 dimensions,
+			Color color
 		);
 	};
 }
