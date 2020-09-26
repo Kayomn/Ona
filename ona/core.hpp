@@ -123,20 +123,20 @@ namespace Ona::Core {
 		>;
 
 		template<typename CastType> Slice<Casted<CastType>> As() const {
-			return Slice<Casted<CastType>>::Of(
-				reinterpret_cast<Casted<CastType> *>(this->pointer),
-				(this->length * sizeof(Type))
-			);
+			return Slice<Casted<CastType>>{
+				(this->length * sizeof(Type)),
+				reinterpret_cast<Casted<CastType> *>(this->pointer)
+			};
 		}
 
 		/**
 		 * Reinterprets the `Slice` as a `Slice` of raw, unsigned bytes.
 		 */
 		constexpr Slice<Casted<uint8_t>> AsBytes() const {
-			return Slice<Casted<uint8_t>>::Of(
-				reinterpret_cast<Casted<uint8_t> *>(this->pointer),
-				(this->length * sizeof(Type))
-			);
+			return Slice<Casted<uint8_t>>{
+				(this->length * sizeof(Type)),
+				reinterpret_cast<Casted<uint8_t> *>(this->pointer)
+			};
 		}
 
 		/**
@@ -153,19 +153,14 @@ namespace Ona::Core {
 		}
 
 		/**
-		 * Creates a `Slice` from `pointer` that provides a view into the memory for `length`
-		 * elements.
-		 */
-		static constexpr Slice Of(Type * pointer, size_t const length) {
-			return Slice{length, pointer};
-		}
-
-		/**
 		 * Creates a new `Slice` from the `Slice`, granting access to elements from index `a` to
 		 * position `b`.
 		 */
 		constexpr Slice Sliced(size_t a, size_t b) {
-			return Slice::Of((this->pointer + a), b);
+			return Slice{
+				b,
+				(this->pointer + a)
+			};
 		}
 
 		/**
@@ -173,7 +168,7 @@ namespace Ona::Core {
 		 * from index `a` to position `b`.
 		 */
 		constexpr Slice<Type const> Sliced(size_t a, size_t b) const {
-			return Slice<Type const>::Of((this->pointer + a), b);
+			return SliceOf((this->pointer + a), b);
 		}
 
 		constexpr Type * begin() {
@@ -239,6 +234,13 @@ namespace Ona::Core {
 			return (this->pointer != nullptr);
 		}
 	};
+
+	/**
+	 * Creates a `Slice` from `pointer` that provides a view into the memory for `length` elements.
+	 */
+	template<typename Type> constexpr Slice<Type> SliceOf(Type * pointer, size_t const length) {
+		return Slice<Type>{length, pointer};
+	}
 
 	template<typename Type> class Optional final {
 		uint8_t store[sizeof(Type) + 1];
@@ -389,7 +391,7 @@ namespace Ona::Core {
 	}
 
 	template<typename Type> Slice<uint8_t const> BytesOf(Type & value) {
-		return Slice<Type>::Of(&value, 1).AsBytes();
+		return SliceOf(&value, 1).AsBytes();
 	}
 
 	/**
@@ -409,7 +411,7 @@ namespace Ona::Core {
 
 		while (*(pointer + length)) length += 1;
 
-		return Chars::Of(pointer, length);
+		return SliceOf(pointer, length);
 	}
 
 	/**
@@ -440,7 +442,7 @@ namespace Ona::Core {
 		Chars AsChars() const;
 
 		constexpr Slice<uint8_t const> AsBytes() const {
-			return Slice<uint8_t const>::Of(
+			return SliceOf(
 				(this->IsDynamic() ? this->buffer.dynamic : this->buffer.static_),
 				this->size
 			);

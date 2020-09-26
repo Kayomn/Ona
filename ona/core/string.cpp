@@ -22,7 +22,7 @@ namespace Ona::Core {
 	}
 
 	Chars String::AsChars() const {
-		return Chars::Of(
+		return SliceOf(
 			reinterpret_cast<char const *>(
 				this->IsDynamic() ?
 				this->buffer.dynamic :
@@ -40,12 +40,12 @@ namespace Ona::Core {
 				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
 				this->size = size;
 
-				return Slice<uint8_t>::Of((this->buffer.dynamic + sizeof(size_t)), size);
+				return SliceOf((this->buffer.dynamic + sizeof(size_t)), size);
 			}
 		} else {
 			this->size = size;
 
-			return Slice<uint8_t>::Of(this->buffer.static_, size);
+			return SliceOf(this->buffer.static_, size);
 		}
 
 		return Slice<uint8_t>{};
@@ -60,7 +60,7 @@ namespace Ona::Core {
 
 		while (*(data + size)) size += 1;
 
-		return From(Chars::Of(data, size));
+		return From(SliceOf(data, size));
 	}
 
 	String String::From(Chars const & data) {

@@ -29,7 +29,7 @@ namespace Ona::Core {
 
 			if ((CopyMemory(
 				image.pixels.AsBytes(),
-				Slice<Color>::Of(pixels, imageSize).AsBytes()
+				SliceOf(pixels, imageSize).AsBytes()
 			) != imageSize) && error) (*error) = ImageError::OutOfMemory;
 
 			return image;

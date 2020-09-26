@@ -58,7 +58,7 @@ namespace Ona::Core {
 		uint8_t * allocationAddress = reinterpret_cast<uint8_t *>(malloc(size));
 		size *= (allocationAddress != nullptr);
 
-		return Slice<uint8_t>::Of(allocationAddress, size);
+		return SliceOf(allocationAddress, size);
 	}
 
 	void Assert(bool expression, char const * message) {
@@ -67,7 +67,7 @@ namespace Ona::Core {
 
 			while (*(message + length)) length += 1;
 
-			OutFile().Write(Chars::Of(message, length).AsBytes(), nullptr);
+			OutFile().Write(SliceOf(message, length).AsBytes(), nullptr);
 			std::abort();
 		}
 	}
@@ -174,11 +174,11 @@ namespace Ona::Core {
 		uint8_t * allocationAddress = reinterpret_cast<uint8_t *>(realloc(allocation, size));
 		size *= (allocationAddress != nullptr);
 
-		return Slice<uint8_t>::Of(allocationAddress, size);
+		return SliceOf(allocationAddress, size);
 	}
 
 	void FileDescriptor::Clear() {
-		Slice<uint8_t> memory = Slice<uint8_t>::Of(
+		Slice<uint8_t> memory = SliceOf(
 			reinterpret_cast<uint8_t *>(this),
 			sizeof(FileDescriptor)
 		);
