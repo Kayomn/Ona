@@ -14,14 +14,6 @@
 #define internal static
 
 namespace Ona::Core {
-	/**
-	 * Assertion function used to abort the process if `expression` does not evaluate to `true`,
-	 * with `message` as the error message.
-	 *
-	 * This function may be optimized out when optimization flags are used.
-	 */
-	void Assert(bool expression, char const * message);
-
 	struct Matrix {
 		float elements[4 * 4];
 	};
@@ -191,7 +183,7 @@ namespace Ona::Core {
 		 * Provides mutable access to the value at index `index` of the `Slice.
 		 */
 		constexpr Type & operator()(size_t index) {
-			Assert((index < this->length), "Index out of range");
+			// Assert((index < this->length));
 
 			return this->pointer[index];
 		}
@@ -200,7 +192,7 @@ namespace Ona::Core {
 		 * Provides non-mutable access to the value at index `index` of the `Slice.
 		 */
 		constexpr Type const & operator()(size_t index) const {
-			Assert((index < this->length), "Index out of range");
+			// Assert((index < this->length));
 
 			return this->pointer[index];
 		}
@@ -242,6 +234,24 @@ namespace Ona::Core {
 		return Slice<Type>{length, pointer};
 	}
 
+	using Chars = Slice<char const>;
+
+	constexpr Chars CharsFrom(char const * pointer) {
+		size_t length = 0;
+
+		while (*(pointer + length)) length += 1;
+
+		return SliceOf(pointer, length);
+	}
+
+	/**
+	 * Assertion function used to abort the process if `expression` does not evaluate to `true`,
+	 * with `message` as the error message.
+	 *
+	 * This function may be optimized out when optimization flags are used.
+	 */
+	void Assert(bool expression, Chars const & message);
+
 	template<typename Type> class Optional final {
 		uint8_t store[sizeof(Type) + 1];
 
@@ -262,12 +272,14 @@ namespace Ona::Core {
 		}
 
 		Type & Value() {
-			Assert(this->HasValue(), "Optional is empty");
+			Assert(this->HasValue(), CharsFrom("Optional is empty"));
 
 			return (*reinterpret_cast<Type *>(this->store));
 		}
 
 		Type const & Value() const {
+			Assert(this->HasValue(), CharsFrom("Optional is empty"));
+
 			return (*reinterpret_cast<Type const *>(this->store));
 		}
 	};
@@ -297,15 +309,27 @@ namespace Ona::Core {
 		}
 
 		ErrorType & Error() {
-			Assert((!this->isOk), "Result is ok");
+			Assert((!this->isOk), CharsFrom("Result is ok"));
 
 			return (*reinterpret_cast<ErrorType *>(this->store));
 		}
 
 		ErrorType const & Error() const {
-			Assert((!this->isOk), "Result is ok");
+			Assert((!this->isOk), CharsFrom("Result is ok"));
 
 			return (*reinterpret_cast<ErrorType const *>(this->store));
+		}
+
+		ValueType & Expect(Chars const & message) {
+			Assert(this->isOk, message);
+
+			return (*reinterpret_cast<ValueType *>(this->store));
+		}
+
+		ValueType const & Expect(Chars const & message) const {
+			Assert(this->isOk, message);
+
+			return (*reinterpret_cast<ValueType const *>(this->store));
 		}
 
 		bool IsOk() const {
@@ -313,15 +337,11 @@ namespace Ona::Core {
 		}
 
 		ValueType & Value() {
-			Assert(this->isOk, "Result is erroneous");
-
-			return (*reinterpret_cast<ValueType *>(this->store));
+			return this->Expect(CharsFrom("Result is erroneous"));
 		}
 
 		ValueType const & Value() const {
-			Assert(this->isOk, "Result is erroneous");
-
-			return (*reinterpret_cast<ValueType const *>(this->store));
+			return this->Expect(CharsFrom("Result is erroneous"));
 		}
 
 		static Result Ok(ValueType const & value) {
@@ -342,20 +362,6 @@ namespace Ona::Core {
 			return result;
 		}
 	};
-
-	/**
-	 * Convenience alias for a `Slice` of integer values capable of being used to encode text.
-	 *
-	 * `Chars` does not care about the kind of encoding used, and will therefore accept anything
-	 * that can be represented as 8-bit values - most typically, ASCII and UTF-8.
-	 *
-	 * It should be noted that `Chars::length` is only representative of the number of bytes used by
-	 * the character encoding, and may not be equivalent to the number of encoded characters in all
-	 * circumstances.
-	 *
-	 * For more complex text manipulation, the use of `String` is recommended instead.
-	 */
-	using Chars = Slice<char const>;
 
 	class Allocator {
 		public:
@@ -398,21 +404,6 @@ namespace Ona::Core {
 	 * Zeroes the memory contents of `destination`.
 	 */
 	void ZeroMemory(Slice<uint8_t> & destination);
-
-	/**
-	 * Creates a `Chars` from the memory contents at `pointer`.
-	 *
-	 * The length of the `Chars` is determined by the position of the null terminator character. As
-	 * such, memory that is not zero-terminated may overrun when being read, as the function cannot
-	 * determine the end of the character sequence.
-	 */
-	constexpr Chars CharsFrom(char const * pointer) {
-		size_t length = 0;
-
-		while (*(pointer + length)) length += 1;
-
-		return SliceOf(pointer, length);
-	}
 
 	/**
 	 * Reference-counted, UTF-8-encoded character sequence.
