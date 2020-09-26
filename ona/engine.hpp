@@ -38,7 +38,7 @@ namespace Ona::Engine {
 		Attribute const * attributes;
 
 		constexpr Ona::Core::Slice<Attribute const> Attributes() const {
-			return Ona::Core::Slice<Attribute const>::Of(this->attributes, this->count);
+			return Ona::Core::SliceOf(this->attributes, this->count);
 		}
 
 		size_t MaterialSize() const;
@@ -48,10 +48,6 @@ namespace Ona::Engine {
 		bool ValidateMaterialData(Ona::Core::Slice<uint8_t const> const & data) const;
 
 		bool ValidateVertexData(Ona::Core::Slice<uint8_t const> const & data) const;
-	};
-
-	struct GraphicsCommands {
-
 	};
 
 	enum class RendererError {
@@ -68,8 +64,6 @@ namespace Ona::Engine {
 	enum class MaterialError {
 		Server,
 		BadRenderer,
-		BadData,
-		BadShader,
 		BadImage
 	};
 
@@ -81,17 +75,16 @@ namespace Ona::Engine {
 
 		virtual void ColoredClear(Ona::Core::Color color) = 0;
 
-		virtual void SubmitCommands(GraphicsCommands const & commands) = 0;
-
-		virtual bool ReadEvents(Events & events) = 0;
+		virtual bool ReadEvents(Events * events) = 0;
 
 		virtual void Update() = 0;
 
 		virtual Ona::Core::Result<ResourceId, RendererError> CreateRenderer(
 			Ona::Core::Chars const & vertexSource,
 			Ona::Core::Chars const & fragmentSource,
-			Layout const & materialLayout,
-			Layout const & vertexLayout
+			Layout const & vertexLayout,
+			Layout const & userdataLayout,
+			Layout const & materialLayout
 		) = 0;
 
 		virtual Ona::Core::Result<ResourceId, PolyError> CreatePoly(
@@ -100,14 +93,28 @@ namespace Ona::Engine {
 		) = 0;
 
 		virtual Ona::Core::Result<ResourceId, MaterialError> CreateMaterial(
-			Ona::Core::Chars const & vertexSource,
-			Ona::Core::Chars const & fragmentSource,
 			ResourceId rendererId,
-			Ona::Core::Slice<uint8_t const> const & materialData,
 			Ona::Core::Image const & texture
 		) = 0;
 
+		virtual void UpdateMaterialUserdata(
+			ResourceId materialId,
+			Ona::Core::Slice<uint8_t const> const & userdata
+		) = 0;
+
+		virtual void UpdateRendererUserdata(
+			ResourceId rendererId,
+			Ona::Core::Slice<uint8_t const> const & userdata
+		) = 0;
+
 		virtual void UpdateRendererMaterial(ResourceId rendererId, ResourceId materialId) = 0;
+
+		virtual void RenderPolyInstanced(
+			ResourceId rendererId,
+			ResourceId polyId,
+			ResourceId materialId,
+			size_t count
+		) = 0;
 	};
 
 	GraphicsServer * LoadOpenGl(Ona::Core::String const & title, int32_t width, int32_t height);
@@ -116,13 +123,50 @@ namespace Ona::Engine {
 
 	Ona::Core::Vector4 NormalizeColor(Ona::Core::Color const & color);
 
-	struct SpriteRenderer {
-		ResourceId rendererId;
+	class RendererCommands {
+		public:
+		virtual ~RendererCommands() { }
+
+		virtual void Dispatch(GraphicsServer * graphicsServer) = 0;
 	};
 
-	Ona::Core::Result<SpriteRenderer, RendererError> CreateSpriteRenderer(
-		GraphicsServer * graphicsServer
+	struct Sprite {
+		ResourceId polyId;
+
+		ResourceId materialId;
+	};
+
+	Ona::Core::Optional<Sprite> CreateSprite(
+		GraphicsServer * graphics,
+		Ona::Core::Image const & image
 	);
+
+	class SpriteRenderCommands final extends RendererCommands {
+		struct Batch {
+			static constexpr size_t max = 128;
+
+			Ona::Core::Matrix transforms[max];
+
+			Ona::Core::Vector4 viewports[max];
+		};
+
+		struct RenderChunk {
+			RenderChunk * next;
+
+			size_t count;
+
+			Batch batch;
+		};
+
+		Ona::Collections::Table<Sprite, RenderChunk> renderChunks;
+
+		public:
+		SpriteRenderCommands() = default;
+
+		SpriteRenderCommands(GraphicsServer * graphics);
+
+		void Dispatch(GraphicsServer * graphics) override;
+	};
 }
 
 #endif

@@ -9,10 +9,10 @@ int main(int argv, char const * const * argc) {
 	GraphicsServer * graphics = LoadOpenGl(String::From("Ona"), 640, 480);
 
 	if (graphics) {
-		Result<SpriteRenderer, RendererError> spriteRenderer = CreateSpriteRenderer(graphics);
+		SpriteRenderCommands * spriteCommands = New<SpriteRenderCommands>(graphics);
 		Events events = {};
 
-		while (graphics->ReadEvents(events)) {
+		while (graphics->ReadEvents(&events)) {
 			graphics->Clear();
 			graphics->Update();
 		}

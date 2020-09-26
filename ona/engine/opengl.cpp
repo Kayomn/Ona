@@ -9,6 +9,7 @@ using Ona::Core::Color;
 using Ona::Core::Image;
 using Ona::Core::Result;
 using Ona::Core::Slice;
+using Ona::Core::SliceOf;
 using Ona::Core::String;
 using Ona::Core::Vector4;
 
@@ -16,23 +17,21 @@ namespace Ona::Engine {
 	struct Renderer {
 		GLuint shaderProgramHandle;
 
-		GLuint materialBufferHandle;
-
-		size_t materialBufferSize;
-
-		Layout materialLayout;
+		GLuint userdataBufferHandle;
 
 		Layout vertexLayout;
+
+		Layout userdataLayout;
+
+		Layout materialLayout;
 	};
 
 	struct Material {
 		ResourceId rendererId;
 
-		GLuint shaderProgramHandle;
-
 		GLuint textureHandle;
 
-		Slice<uint8_t> uniformData;
+		GLuint userdataBufferHandle;
 	};
 
 	struct Poly {
@@ -68,6 +67,26 @@ namespace Ona::Engine {
 
 			Appender<Poly> polys;
 
+			bool UpdateUniformBuffer(
+				GLuint uniformBufferHandle,
+				size_t uniformBufferSize,
+				Slice<uint8_t const> const & data
+			) {
+				uint8_t * mappedBuffer = static_cast<uint8_t *>(glMapNamedBuffer(
+					uniformBufferHandle,
+					GL_READ_WRITE
+				));
+
+				if (mappedBuffer) {
+					CopyMemory(SliceOf(mappedBuffer, uniformBufferSize), data);
+					glUnmapNamedBuffer(uniformBufferHandle);
+
+					return true;
+				}
+
+				return false;
+			}
+
 			GLuint CompileShaderSources(Chars const & vertexSource, Chars const & fragmentSource) {
 				static let compileObject = [](Chars const & source, GLenum shaderType) -> GLuint {
 					GLuint const shaderHandle = glCreateShader(shaderType);
@@ -95,7 +114,7 @@ namespace Ona::Engine {
 							);
 
 							Ona::Core::OutFile().Write(
-								Slice<GLchar>::Of(errorBuffer, errorBufferLength).AsBytes(),
+								SliceOf(errorBuffer, errorBufferLength).AsBytes(),
 								nullptr
 							);
 						}
@@ -140,6 +159,18 @@ namespace Ona::Engine {
 				return 0;
 			}
 
+			Renderer * GetRenderer(ResourceId resourceId) {
+				return (&this->renderers.At(resourceId - 1));
+			}
+
+			Material * GetMaterial(ResourceId resourceId) {
+				return (&this->materials.At(resourceId - 1));
+			}
+
+			Poly * GetPoly(ResourceId resourceId) {
+				return (&this->polys.At(resourceId - 1));
+			}
+
 			public:
 			uint64_t timeNow, timeLast;
 
@@ -150,12 +181,12 @@ namespace Ona::Engine {
 			~OpenGlGraphicsServer() override {
 				for (let & renderer : this->renderers.Values()) {
 					glDeleteShader(renderer.shaderProgramHandle);
+					glDeleteBuffers(1, (&renderer.userdataBufferHandle));
 				}
 
 				for (let & material : this->materials.Values()) {
-					glDeleteShader(material.shaderProgramHandle);
 					glDeleteTextures(1, (&material.textureHandle));
-					Ona::Core::Deallocate(material.uniformData.pointer);
+					glDeleteBuffers(1, (&material.userdataBufferHandle));
 				}
 
 				for (let & poly : this->polys.Values()) {
@@ -181,16 +212,12 @@ namespace Ona::Engine {
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			}
 
-			void SubmitCommands(GraphicsCommands const & commands) override {
-
-			}
-
-			bool ReadEvents(Events & events) override {
+			bool ReadEvents(Events * events) override {
 				thread_local SDL_Event sdlEvent;
 				this->timeLast = this->timeNow;
 				this->timeNow = SDL_GetPerformanceCounter();
 
-				events.deltaTime = (
+				events->deltaTime = (
 					(this->timeNow - this->timeLast) *
 					(1000 / static_cast<float>(SDL_GetPerformanceFrequency()))
 				);
@@ -213,67 +240,58 @@ namespace Ona::Engine {
 			Result<ResourceId, RendererError> CreateRenderer(
 				Chars const & vertexSource,
 				Chars const & fragmentSource,
-				Layout const & materialLayout,
-				Layout const & vertexLayout
+				Layout const & vertexLayout,
+				Layout const & userdataLayout,
+				Layout const & materialLayout
 			) override {
 				using Res = Result<ResourceId, RendererError>;
 				size_t const materialSize = materialLayout.MaterialSize();
+				size_t const userdataSize = materialLayout.MaterialSize();
+				RendererError error = RendererError::Server;
 
-				if (materialSize < PTRDIFF_MAX) {
-					GLuint materialBufferHandle;
+				if ((userdataSize < PTRDIFF_MAX) && (materialSize < PTRDIFF_MAX)) {
+					GLuint userdataBufferHandle;
 
-					glCreateBuffers(1, (&materialBufferHandle));
+					glCreateBuffers(1, (&userdataBufferHandle));
 
+					// Were the buffers allocated.
 					if (glGetError() == GL_NO_ERROR) {
-							glNamedBufferData(
-							materialBufferHandle,
+						glNamedBufferData(
+							userdataBufferHandle,
 							static_cast<GLsizeiptr>(materialSize),
 							nullptr,
 							GL_DYNAMIC_DRAW
 						);
 
-						switch (glGetError()) {
-							case GL_NO_ERROR: {
-								GLuint const shaderHandle = this->CompileShaderSources(
-									vertexSource,
-									fragmentSource
-								);
+						// Has the userdata buffer been initialized?
+						if (glGetError() == GL_NO_ERROR) {
+							GLuint const shaderHandle = this->CompileShaderSources(
+								vertexSource,
+								fragmentSource
+							);
 
-								if (shaderHandle) {
-									if (this->renderers.Append(Renderer{
-										shaderHandle,
-										materialBufferHandle,
-										materialSize,
-										materialLayout,
-										vertexLayout
-									})) {
-										return Res::Ok(
-											static_cast<ResourceId>(this->renderers.Count())
-										);
-									}
-
-									// Out of memory.
-									return Res::Fail(RendererError::Server);
+							if (shaderHandle) {
+								if (this->renderers.Append(Renderer{
+									shaderHandle,
+									userdataBufferHandle,
+									vertexLayout,
+									userdataLayout,
+									materialLayout
+								})) {
+									return Res::Ok(
+										static_cast<ResourceId>(this->renderers.Count())
+									);
 								}
-
-								// Failed to compile shader sources into a valid shader.
-								return Res::Fail(RendererError::BadShader);
 							}
 
-							default: {
-								glDeleteBuffers(1, (&materialBufferHandle));
-
-								return Res::Fail(RendererError::Server);
-							}
+							error = RendererError::BadShader;
 						}
-					}
 
-					// Could not create uniform buffer object.
-					return Res::Fail(RendererError::Server);
+						glDeleteBuffers(1, (&userdataBufferHandle));
+					}
 				}
 
-				// Renderer ID is 0.
-				return Res::Fail(RendererError::Server);
+				return Res::Fail(error);
 			}
 
 			Result<ResourceId, PolyError> CreatePoly(
@@ -283,7 +301,7 @@ namespace Ona::Engine {
 				using Res = Result<ResourceId, PolyError>;
 
 				if (rendererId) {
-					Renderer * renderer = (&this->renderers.At(rendererId - 1));
+					Renderer * renderer = this->GetRenderer(rendererId);
 
 					if (renderer->vertexLayout.ValidateVertexData(vertexData)) {
 						GLuint vertexBufferHandle;
@@ -397,25 +415,29 @@ namespace Ona::Engine {
 			}
 
 			Result<ResourceId, MaterialError> CreateMaterial(
-				Chars const & vertexSource,
-				Chars const & fragmentSource,
 				ResourceId rendererId,
-				Slice<uint8_t const> const & materialData,
 				Image const & texture
 			) override {
 				using Res = Result<ResourceId, MaterialError>;
 
 				if (rendererId) {
-					if (this->renderers.At(
-						rendererId - 1
-					).materialLayout.ValidateMaterialData(materialData)) {
-						Slice<uint8_t> uniformData = Ona::Core::Allocate(materialData.length);
+					Renderer * renderer = this->GetRenderer(rendererId);
+					GLuint userdataBufferHandle;
 
-						if (uniformData) {
-							GLuint textureHandle;
+					glCreateBuffers(1, (&userdataBufferHandle));
 
-							Ona::Core::CopyMemory(uniformData, materialData);
-							glCreateTextures(GL_TEXTURE_2D, 1, &textureHandle);
+					if (userdataBufferHandle) {
+						GLuint textureHandle;
+
+						glNamedBufferData(
+							userdataBufferHandle,
+							renderer->materialLayout.MaterialSize(),
+							nullptr,
+							GL_DYNAMIC_DRAW
+						);
+
+						if (glGetError() == GL_NO_ERROR) {
+							glCreateTextures(GL_TEXTURE_2D, 1, (&textureHandle));
 
 							glTextureStorage2D(
 								textureHandle,
@@ -444,7 +466,7 @@ namespace Ona::Engine {
 											constexpr struct {
 												GLenum property;
 
-												int32_t value;
+												GLint value;
 											} settings[] = {
 												{GL_TEXTURE_MIN_FILTER, GL_LINEAR},
 												{GL_TEXTURE_MAG_FILTER, GL_LINEAR},
@@ -468,29 +490,18 @@ namespace Ona::Engine {
 												}
 											}
 
-											GLuint const shaderHandle = this->CompileShaderSources(
-												vertexSource,
-												fragmentSource
-											);
-
-											if (shaderHandle) {
-												if (this->materials.Append(Material{
-													rendererId,
-													shaderHandle,
-													textureHandle,
-													uniformData
-												})) {
-													return Res::Ok(static_cast<ResourceId>(
-														this->materials.Count()
-													));
-												}
-
-												// Out of memory.
-												return Res::Fail(MaterialError::Server);
+											if (this->materials.Append(Material{
+												rendererId,
+												textureHandle,
+												userdataBufferHandle
+											})) {
+												return Res::Ok(static_cast<ResourceId>(
+													this->materials.Count()
+												));
 											}
 
-											// Could not compile shader sources into a valid shader.
-											return Res::Fail(MaterialError::BadShader);
+											// Out of memory.
+											return Res::Fail(MaterialError::Server);
 										}
 
 										// Could not create texture from image data.
@@ -506,50 +517,80 @@ namespace Ona::Engine {
 								default: return Res::Fail(MaterialError::Server);
 							}
 						}
-
-						// Failed to allocate uniform buffer object.
-						return Res::Fail(MaterialError::Server);
+						// Failed to write to uniform buffer object.
 					}
 
-					// Provided material data is not valid.
-					return Res::Fail(MaterialError::BadData);
+					// Failed to allocate uniform buffer object.
+					return Res::Fail(MaterialError::Server);
 				}
 
 				// Renderer ID is 0.
 				return Res::Fail(MaterialError::BadRenderer);
 			}
 
-			void UpdateRendererMaterial(ResourceId rendererId, ResourceId materialId) override {
-				if (rendererId) {
-					Renderer * renderer = (&this->renderers.At(rendererId - 1));
+			void UpdateMaterialUserdata(
+				ResourceId materialId,
+				Slice<uint8_t const> const & userdata
+			) override {
+				if (materialId) {
+					Material * material = this->GetMaterial(materialId);
+					ResourceId const rendererId = material->rendererId;
 
-					if (materialId) {
-						Material * material = (&this->materials.At(materialId - 1));
+					if (rendererId) {
+						Renderer * renderer = this->GetRenderer(rendererId);
 
-						if (material->rendererId == rendererId) {
-							GLuint const bufferHandle = renderer->materialBufferHandle;
-
-							uint8_t * mappedBuffer = static_cast<uint8_t *>(glMapNamedBuffer(
-								bufferHandle,
-								GL_READ_WRITE
-							));
-
-							if (mappedBuffer) {
-								CopyMemory(
-									Slice<uint8_t>::Of(mappedBuffer, renderer->materialBufferSize),
-									material->uniformData
-								);
-
-								glUnmapNamedBuffer(bufferHandle);
+						if (renderer->materialLayout.ValidateMaterialData(userdata)) {
+							if (this->UpdateUniformBuffer(
+								material->userdataBufferHandle,
+								userdata.length,
+								userdata
+							)) {
+								// TODO: Error codes?
 							}
 							// GPU memory buffer failed to map to native memory for a variety of
 							// platform-specific reasons.
 						}
-						// Material cannot be used with this renderer.
+						// Invalid material data.
 					}
-					// Material ID is zero.
+					// Renderer ID is zero.
+				}
+				// Material ID is zero.
+			}
+
+			void UpdateRendererUserdata(
+				ResourceId rendererId,
+				Slice<uint8_t const> const & userdata
+			) override {
+				if (rendererId) {
+					Renderer * renderer = this->GetRenderer(rendererId);
+
+					if (renderer->userdataLayout.ValidateMaterialData(userdata)) {
+						if (this->UpdateUniformBuffer(
+							renderer->userdataBufferHandle,
+							renderer->materialLayout.MaterialSize(),
+							userdata
+						)) {
+							// TODO: Error codes?
+						}
+						// GPU memory buffer failed to map to native memory for a variety of
+						// platform-specific reasons.
+					}
+					// Invalid material data.
 				}
 				// Renderer ID is zero.
+			}
+
+			void UpdateRendererMaterial(ResourceId rendererId, ResourceId materialId) override {
+
+			}
+
+			void RenderPolyInstanced(
+				ResourceId rendererId,
+				ResourceId polyId,
+				ResourceId materialId,
+				size_t count
+			) override {
+
 			}
 		} graphicsServer = {};
 
