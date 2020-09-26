@@ -61,13 +61,9 @@ namespace Ona::Core {
 		return SliceOf(allocationAddress, size);
 	}
 
-	void Assert(bool expression, char const * message) {
+	void Assert(bool expression, Chars const & message) {
 		if (!expression) {
-			size_t length = 0;
-
-			while (*(message + length)) length += 1;
-
-			OutFile().Write(SliceOf(message, length).AsBytes(), nullptr);
+			OutFile().Write(message.AsBytes(), nullptr);
 			std::abort();
 		}
 	}
