@@ -277,7 +277,7 @@ namespace Ona::Engine {
 									vertexLayout,
 									userdataLayout,
 									materialLayout
-								})) {
+								}).HasValue()) {
 									return Res::Ok(
 										static_cast<ResourceId>(this->renderers.Count())
 									);
@@ -374,7 +374,7 @@ namespace Ona::Engine {
 												if (this->polys.Append(Poly{
 													vertexBufferHandle,
 													vertexArrayHandle
-												})) {
+												}).HasValue()) {
 													return Res::Ok(
 														static_cast<ResourceId>(this->polys.Count())
 													);
@@ -494,7 +494,7 @@ namespace Ona::Engine {
 												rendererId,
 												textureHandle,
 												userdataBufferHandle
-											})) {
+											}).HasValue()) {
 												return Res::Ok(static_cast<ResourceId>(
 													this->materials.Count()
 												));

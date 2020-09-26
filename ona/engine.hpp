@@ -132,6 +132,18 @@ namespace Ona::Engine {
 		ResourceId polyId;
 
 		ResourceId materialId;
+
+		void Free();
+
+		uint64_t Hash() const;
+
+		constexpr bool operator==(Sprite const & that) {
+			return ((this->polyId == that.polyId) && (this->materialId == that.materialId));
+		}
+
+		constexpr bool operator!=(Sprite const & that) {
+			return false;
+		}
 	};
 
 	Ona::Core::Optional<Sprite> CreateSprite(
@@ -140,7 +152,7 @@ namespace Ona::Engine {
 	);
 
 	class SpriteRenderCommands final extends RendererCommands {
-		struct Batch {
+		struct Chunk {
 			static constexpr size_t max = 128;
 
 			Ona::Core::Matrix transforms[max];
@@ -148,15 +160,21 @@ namespace Ona::Engine {
 			Ona::Core::Vector4 viewports[max];
 		};
 
-		struct RenderChunk {
-			RenderChunk * next;
+		struct Batch {
+			Batch * next;
 
 			size_t count;
 
-			Batch batch;
+			Chunk chunk;
 		};
 
-		Ona::Collections::Table<Sprite, RenderChunk> renderChunks;
+		struct BatchSet {
+			Batch * current;
+
+			Batch head;
+		};
+
+		Ona::Collections::Table<Sprite, BatchSet> batches;
 
 		public:
 		SpriteRenderCommands() = default;
@@ -164,6 +182,8 @@ namespace Ona::Engine {
 		SpriteRenderCommands(GraphicsServer * graphics);
 
 		void Dispatch(GraphicsServer * graphics) override;
+
+		void Draw(Sprite sprite, Ona::Core::Vector2 position);
 	};
 }
 

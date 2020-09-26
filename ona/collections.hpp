@@ -16,25 +16,17 @@ namespace Ona::Collections {
 
 		Appender(Ona::Core::Allocator * allocator) : allocator{allocator} { }
 
-		~Appender() {
-			for (auto & value : this->Values()) value.~Type();
-
-			if (this->allocator) {
-				this->allocator->Deallocate(reinterpret_cast<uint8_t *>(this->values.pointer));
-			} else {
-				Ona::Core::Deallocate(reinterpret_cast<uint8_t *>(this->values.pointer));
-			}
-		}
-
 		Ona::Core::Allocator * AllocatorOf() {
 			return this->allocator;
 		}
 
-		Type * Append(Type const & value) {
+		Ona::Core::Optional<Type *> Append(Type const & value) {
+			using Opt = Ona::Core::Optional<Type *>;
+
 			if (this->count >= this->values.length) {
 				if (!this->Reserve(this->count ? this->count : 2)) {
 					// Allocation failure.
-					return nullptr;
+					return Opt{};
 				}
 			}
 
@@ -42,7 +34,7 @@ namespace Ona::Collections {
 			this->count += 1;
 			(*bufferIndex) = value;
 
-			return bufferIndex;
+			return Opt{bufferIndex};
 		}
 
 		Ona::Core::Slice<Type> AppendAll(Ona::Core::Slice<Type> const & values) {
@@ -100,6 +92,16 @@ namespace Ona::Collections {
 			return (this->values.pointer != nullptr);
 		}
 
+		void Free() {
+			for (auto & value : this->Values()) value.~Type();
+
+			if (this->allocator) {
+				this->allocator->Deallocate(reinterpret_cast<uint8_t *>(this->values.pointer));
+			} else {
+				Ona::Core::Deallocate(reinterpret_cast<uint8_t *>(this->values.pointer));
+			}
+		}
+
 		bool Reserve(size_t capacity) {
 			if (this->allocator) {
 				this->values = this->allocator->Reallocate(
@@ -150,7 +152,9 @@ namespace Ona::Collections {
 
 		static constexpr size_t defaultBufferSize = 256;
 
-		Ona::Core::Allocator * allocator;
+		using TableValue = Ona::Core::Optional<ValueType *>;
+
+		Ona::Core::Optional<Ona::Core::Allocator *> allocator;
 
 		size_t count;
 
@@ -159,7 +163,7 @@ namespace Ona::Collections {
 		public:
 		Table() = default;
 
-		Table(Ona::Core::Allocator * allocator) : allocator{allocator} { }
+		Table(Ona::Core::Optional<Ona::Core::Allocator *> allocator) : allocator{allocator} { }
 
 		size_t Count() const {
 			return this->count;
@@ -181,20 +185,41 @@ namespace Ona::Collections {
 			}
 		}
 
-		void Insert(KeyType const & key, ValueType const & value) {
+		void Free() {
 
+		}
+
+		TableValue Insert(KeyType const & key, ValueType const & value) {
+			return TableValue{};
 		}
 
 		bool Remove(KeyType const & key) {
 			return false;
 		}
 
-		ValueType * Lookup(KeyType const & key) {
-			Bucket * bucket = this->buckets(key.Hash() % this->buckets.length);
+		TableValue Lookup(KeyType const & key) {
+			if (this->buckets.length) {
+				Bucket * bucket = this->buckets(key.Hash() % this->buckets.length);
 
-			if (bucket) while (bucket->entry.key != key) bucket = bucket->next;
+				if (bucket) while (bucket->entry.key != key) bucket = bucket->next;
 
-			return (bucket ? (&bucket->entry.value) : nullptr);
+				return (bucket ? TableValue{&bucket->entry.value} : TableValue{});
+			}
+
+			return TableValue{};
+		}
+
+		template<typename CallableType> TableValue LookupOrInsert(
+			KeyType const & key,
+			CallableType const & callable
+		) {
+			TableValue lookupValue = this->Lookup(key);
+
+			if (lookupValue.HasValue()) return lookupValue.Value();
+
+			this->Insert(key, callable());
+
+			return this->Lookup(key);
 		}
 	};
 }
