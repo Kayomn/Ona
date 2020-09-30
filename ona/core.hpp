@@ -1,6 +1,7 @@
 #ifndef CORE_H
 #define CORE_H
 
+#include <cassert>
 #include <stddef.h>
 #include <stdint.h>
 #include <type_traits>
@@ -200,7 +201,7 @@ namespace Ona::Core {
 		 * Provides mutable access to the value at index `index` of the `Slice.
 		 */
 		constexpr Type & operator()(size_t index) {
-			// Assert((index < this->length));
+			assert((index < this->length));
 
 			return this->pointer[index];
 		}
@@ -209,7 +210,7 @@ namespace Ona::Core {
 		 * Provides non-mutable access to the value at index `index` of the `Slice.
 		 */
 		constexpr Type const & operator()(size_t index) const {
-			// Assert((index < this->length));
+			assert((index < this->length));
 
 			return this->pointer[index];
 		}
@@ -241,14 +242,6 @@ namespace Ona::Core {
 		return SliceOf(pointer, length);
 	}
 
-	/**
-	 * Assertion function used to abort the process if `expression` does not evaluate to `true`,
-	 * with `message` as the error message.
-	 *
-	 * This function may be optimized out when optimization flags are used.
-	 */
-	void Assert(bool expression, Chars const & message);
-
 	template<typename Type> class Optional final {
 		static constexpr bool isNotPointer = (!std::is_pointer<Type>::value);
 
@@ -257,7 +250,7 @@ namespace Ona::Core {
 		public:
 		Optional() = default;
 
-		explicit Optional(Type const & value) {
+		Optional(Type const & value) {
 			(*reinterpret_cast<Type *>(this->store)) = value;
 
 			if constexpr (isNotPointer) {
@@ -266,11 +259,7 @@ namespace Ona::Core {
 		}
 
 		Optional(Optional const & that) {
-			if (this->HasValue()) {
-				(*reinterpret_cast<Type *>(this->store)) = (
-					*reinterpret_cast<Type const *>(that.store)
-				);
-			}
+			(*reinterpret_cast<Type *>(this->store)) = (that.HasValue() ? that.Value() : Type{});
 		}
 
 		bool HasValue() const {
@@ -282,13 +271,13 @@ namespace Ona::Core {
 		}
 
 		Type & Value() {
-			Assert(this->HasValue(), CharsFrom("Optional is empty"));
+			assert(this->HasValue());
 
 			return (*reinterpret_cast<Type *>(this->store));
 		}
 
 		Type const & Value() const {
-			Assert(this->HasValue(), CharsFrom("Optional is empty"));
+			assert(this->HasValue());
 
 			return (*reinterpret_cast<Type const *>(this->store));
 		}
@@ -302,60 +291,60 @@ namespace Ona::Core {
 		}
 	};
 
+	template<typename Type> constexpr Optional<Type> nil = {};
+
 	template<typename ValueType, typename ErrorType> class Result final {
-		static constexpr size_t storeSize = (
-			(sizeof(ValueType) > sizeof(ErrorType)) ?
-			sizeof(ValueType) :
-			sizeof(ErrorType)
-		);
+		static constexpr size_t typeSize = std::max(sizeof(ValueType), sizeof(ErrorType));
 
-		uint8_t store[storeSize];
-
-		bool isOk;
+		uint8_t store[typeSize + 1];
 
 		public:
 		Result() = default;
 
-		explicit Result(ValueType const & value) : isOk{true} {
-			new (this->store) ValueType{value};
-		}
-
 		Result(Result const & that) {
-			this->isOk = that.isOk;
+			this->store[typeSize] = that.store[typeSize];
 
-			if (this->isOk) {
+			if (this->store[typeSize]) {
 				this->Value() = that.Value();
 			} else {
 				this->Error() = that.Error();
 			}
 		}
 
+		~Result() requires std::is_destructible_v<ValueType> || std::is_destructible_v<ErrorType> {
+			if (this->IsOk()) {
+				this->Value().~ValueType();
+			} else {
+				this->Error().~ErrorType();
+			}
+		}
+
 		ErrorType & Error() {
-			Assert((!this->isOk), CharsFrom("Result is ok"));
+			assert((!this->store[typeSize]) && "Result is ok");
 
 			return (*reinterpret_cast<ErrorType *>(this->store));
 		}
 
 		ErrorType const & Error() const {
-			Assert((!this->isOk), CharsFrom("Result is ok"));
+			assert((!this->store[typeSize]) && "Result is ok");
 
 			return (*reinterpret_cast<ErrorType const *>(this->store));
 		}
 
 		ValueType & Expect(Chars const & message) {
-			Assert(this->isOk, message);
+			assert(this->store[typeSize] && message.pointer);
 
 			return (*reinterpret_cast<ValueType *>(this->store));
 		}
 
 		ValueType const & Expect(Chars const & message) const {
-			Assert(this->isOk, message);
+			assert(this->store[typeSize] && message.pointer);
 
 			return (*reinterpret_cast<ValueType const *>(this->store));
 		}
 
 		bool IsOk() const {
-			return this->isOk;
+			return static_cast<bool>(this->store[typeSize]);
 		}
 
 		ValueType & Value() {
@@ -367,12 +356,16 @@ namespace Ona::Core {
 		}
 
 		static Result Ok(ValueType const & value) {
-			return Result{value};
+			Result result = {};
+			result.store[typeSize] = 1;
+
+			new (result.store) ValueType{value};
+
+			return result;
 		}
 
 		static Result Fail(ErrorType const & error) {
-			Result result;
-			result.isOk = false;
+			Result result = {};
 
 			new (result.store) ErrorType{error};
 
@@ -384,41 +377,22 @@ namespace Ona::Core {
 		public:
 		virtual Slice<uint8_t> Allocate(size_t size) = 0;
 
-		virtual void Deallocate(uint8_t * allocation) = 0;
+		virtual void Deallocate(void * allocation) = 0;
 
-		virtual Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size) = 0;
-
-		template<typename Type, typename... Args> Optional<Type *> New(Args... args) {
-			using Opt = Optional<Type *>;
-			uint8_t * allocation = this->Allocate(sizeof(Type)).pointer;
-
-			if (allocation) {
-				new (allocation) Type{args...};
-
-				return Opt{reinterpret_cast<Type *>(allocation)};
-			}
-
-			return Opt{};
-		}
+		virtual Slice<uint8_t> Reallocate(void * allocation, size_t size) = 0;
 	};
 
-	/**
-	 * Copies the memory contents of `source` into the memory contents of `destination`, returning
-	 * the number of bytes actually copied.
-	 */
+	Slice<uint8_t> Allocate(size_t size);
+
+	void Deallocate(void * allocation);
+
+	Slice<uint8_t> Reallocate(void * allocation, size_t size);
+
 	size_t CopyMemory(Slice<uint8_t> destination, Slice<uint8_t const> source);
 
-	template<typename Type> void WriteMemory(Slice<Type> destination, Type const & value) {
-		Type * target = destination.pointer;
-		Type const * boundary = (target + destination.length);
+	void WriteMemory(Slice<uint8_t> destination, uint8_t value);
 
-		while (target != boundary) {
-			(*target) = value;
-			target += 1;
-		}
-	}
-
-	template<typename Type> Slice<uint8_t const> BytesOf(Type & value) {
+	template<typename Type> Slice<uint8_t const> AsBytes(Type & value) {
 		return SliceOf(&value, 1).AsBytes();
 	}
 
@@ -478,80 +452,53 @@ namespace Ona::Core {
 		}
 	};
 
-	Slice<uint8_t> Allocate(size_t size);
-
-	void Deallocate(uint8_t * allocation);
-
-	Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size);
-
-	template<typename Type, typename... Args> Optional<Type *> New(Args... args) {
-		using Opt = Optional<Type *>;
-		uint8_t * allocation = Allocate(sizeof(Type)).pointer;
-
-		if (allocation) {
-			new (allocation) Type{args...};
-
-			return Opt{reinterpret_cast<Type *>(allocation)};
-		}
-
-		return Opt{};
-	}
-
-	template<typename Type> class Array final {
+	template<typename Type> struct Array {
+		private:
 		Optional<Allocator *> allocator;
-
-		size_t length;
 
 		Slice<Type> values;
 
 		public:
-		Array() = default;
-
-		constexpr Array(Optional<Allocator *> allocator) : allocator{allocator}, length{}, values{}  { }
-
-		Array(Array const & that) {
-			(*this) = Of(this->allocator, this->values);
-		}
-
 		constexpr Optional<Allocator *> AllocatorOf() {
 			return this->allocator;
 		}
 
 		constexpr size_t Count() const {
-			return this->length;
+			return this->values.length;
+		}
+
+		static Array Init(Optional<Allocator *> allocator, size_t size) {
+			Array array;
+			array.allocator = allocator;
+
+			if (allocator.HasValue()) {
+				array.values = allocator->Allocate(sizeof(Type) * size).template As<Type>();
+			} else {
+				array.values = Allocate(sizeof(Type) * size).As<Type>();
+			}
+
+			size *= static_cast<size_t>(array.values.HasValue());
+
+			new (array.values.pointer) Type[size];
+
+			return array;
 		}
 
 		void Free() {
-			for (auto & value : this->values) {
-				value.~Type();
-			}
+			for (let & value : this->values) value.~Type();
 
-			if (this->allocator) {
+			if (this->allocator.HasValue()) {
 				this->allocator.Value()->Deallocate(this->values.pointer);
 			} else {
 				Deallocate(this->values.pointer);
 			}
 		}
 
-		static Array Init(Optional<Allocator *> allocator, size_t size) {
-			Array array = {allocator};
-
-			if (allocator.HasValue()) {
-				array.values = allocator.Value()->Allocate(sizeof(Type) * size).template As<Type>();
-			} else {
-				array.values = Allocate(sizeof(Type) * size).As<Type>();
-			}
-
-			WriteMemory(array.values, Type{});
-
-			return array;
-		}
-
 		static Array Of(Optional<Allocator *> allocator, Slice<Type> const & elements) {
 			Array array = {allocator};
 
 			if (allocator.HasValue()) {
-				array.values = allocator.Value()->Allocate(
+				array.values = allocator->Allocate(
 					sizeof(Type) * elements.length
 				).template As<Type>();
 			} else {
@@ -600,13 +547,23 @@ namespace Ona::Core {
 			SeekBaseTail
 		};
 
-		void (*closer)(FileDescriptor descriptor);
+		using Closer = Optional<void (*)(FileDescriptor descriptor)>;
 
-		int64_t (*seeker)(FileDescriptor descriptor, SeekBase seekBase, int64_t offset);
+		using Seeker = Optional<
+			int64_t (*)(FileDescriptor descriptor, SeekBase seekBase, int64_t offset)
+		>;
 
-		size_t (*reader)(FileDescriptor descriptor, Slice<uint8_t> output);
+		using Reader = Optional<size_t (*)(FileDescriptor descriptor, Slice<uint8_t> output)>;
 
-		size_t (*writer)(FileDescriptor descriptor, Slice<uint8_t const> input);
+		using Writer = Optional<size_t (*)(FileDescriptor descriptor, Slice<uint8_t const> input)>;
+
+		Closer closer;
+
+		Seeker seeker;
+
+		Reader reader;
+
+		Writer writer;
 	};
 
 	struct File {
@@ -616,7 +573,7 @@ namespace Ona::Core {
 			OpenWrite = 0x2
 		};
 
-		FileOperations const * operations;
+		Optional<FileOperations const *> operations;
 
 		FileDescriptor descriptor;
 
@@ -641,12 +598,15 @@ namespace Ona::Core {
 
 	Result<File, FileOpenError> OpenFile(String const & filePath, File::OpenFlags flags);
 
-	Result<Array<uint8_t>, FileLoadError> LoadFile(Optional<Allocator *> allocator, String const & filePath);
+	Result<Array<uint8_t>, FileLoadError> LoadFile(
+		Optional<Allocator *> allocator,
+		String const & filePath
+	);
 
 	struct Library {
 		void * context;
 
-		void * FindSymbol(String const & symbolName);
+		Optional<void *> FindSymbol(String const & symbolName);
 
 		void Free();
 	};
@@ -656,7 +616,7 @@ namespace Ona::Core {
 		CantLoad
 	};
 
-	Library OpenLibrary(Chars filePath, LibraryError * error);
+	Result<Library, LibraryError> OpenLibrary(Chars filePath);
 
 	struct Point2 {
 		int32_t x, y;
@@ -671,16 +631,28 @@ namespace Ona::Core {
 
 		uint32_t value;
 
-		static constexpr Color Of(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha) {
+		static constexpr Color Of(
+			uint8_t const red,
+			uint8_t const green,
+			uint8_t const blue,
+			uint8_t const alpha
+		) {
 			return Color{red, green, blue, alpha};
 		}
 	};
 
-	constexpr Color Greyscale(uint8_t value) {
+	constexpr let colorWhite = Color{
+		Color::channelMax,
+		Color::channelMax,
+		Color::channelMax,
+		Color::channelMax
+	};
+
+	constexpr Color Greyscale(uint8_t const value) {
 		return Color::Of(value, value, value, Color::channelMax);
 	}
 
-	constexpr Color Rgb(uint8_t red, uint8_t green, uint8_t blue) {
+	constexpr Color Rgb(uint8_t const red, uint8_t const green, uint8_t const blue) {
 		return Color::Of(red, green, blue, Color::channelMax);
 	}
 
@@ -690,8 +662,7 @@ namespace Ona::Core {
 		OutOfMemory
 	};
 
-	class Image {
-		public:
+	struct Image {
 		Optional<Allocator *> allocator;
 
 		Point2 dimensions;

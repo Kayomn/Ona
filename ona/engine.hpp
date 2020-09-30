@@ -5,6 +5,13 @@
 #include "ona/collections.hpp"
 
 namespace Ona::Engine {
+	using Ona::Core::Chars;
+	using Ona::Core::Color;
+	using Ona::Core::Optional;
+	using Ona::Core::Result;
+	using Ona::Core::Slice;
+	using Ona::Core::Vector4;
+
 	using ResourceId = uint32_t;
 
 	struct Events {
@@ -27,7 +34,7 @@ namespace Ona::Engine {
 
 		uint16_t components;
 
-		Ona::Core::Chars name;
+		Chars name;
 
 		size_t ByteSize() const;
 	};
@@ -37,7 +44,7 @@ namespace Ona::Engine {
 
 		Attribute const * attributes;
 
-		constexpr Ona::Core::Slice<Attribute const> Attributes() const {
+		constexpr Slice<Attribute const> Attributes() const {
 			return Ona::Core::SliceOf(this->attributes, this->count);
 		}
 
@@ -45,9 +52,9 @@ namespace Ona::Engine {
 
 		size_t VertexSize() const;
 
-		bool ValidateMaterialData(Ona::Core::Slice<uint8_t const> const & data) const;
+		bool ValidateMaterialData(Slice<uint8_t const> const & data) const;
 
-		bool ValidateVertexData(Ona::Core::Slice<uint8_t const> const & data) const;
+		bool ValidateVertexData(Slice<uint8_t const> const & data) const;
 	};
 
 	enum class RendererError {
@@ -86,52 +93,55 @@ namespace Ona::Engine {
 
 		virtual void Clear() = 0;
 
-		virtual void ColoredClear(Ona::Core::Color color) = 0;
+		virtual void ColoredClear(Color color) = 0;
 
 		virtual bool ReadEvents(Events * events) = 0;
 
 		virtual void Update() = 0;
 
-		template<typename Type> Ona::Core::Optional<Type *> CreateCommandBuffer() {
-			Ona::Core::Optional<Type *> createdCommandBuffer = Ona::Core::New<Type>();
+		template<typename Type> Optional<Type *> CreateCommandBuffer() {
+			let createdCommandBuffer = Ona::Core::Allocate(sizeof(Type));
 
 			if (createdCommandBuffer.HasValue()) {
-				Type * commandBuffer = createdCommandBuffer.Value();
+				Type * commandBuffer = reinterpret_cast<Type *>(createdCommandBuffer.pointer);
+				(*commandBuffer) = Type{};
 
 				if (commandBuffer->Load(this)) {
 					this->commandBuffers.Append(commandBuffer);
+
+					return Optional<Type *>{commandBuffer};
 				}
 			}
 
-			return createdCommandBuffer;
+			return Ona::Core::nil<Type *>;
 		}
 
-		virtual Ona::Core::Result<ResourceId, RendererError> CreateRenderer(
-			Ona::Core::Chars const & vertexSource,
-			Ona::Core::Chars const & fragmentSource,
+		virtual Result<ResourceId, RendererError> CreateRenderer(
+			Chars const & vertexSource,
+			Chars const & fragmentSource,
 			Layout const & vertexLayout,
 			Layout const & userdataLayout,
 			Layout const & materialLayout
 		) = 0;
 
-		virtual Ona::Core::Result<ResourceId, PolyError> CreatePoly(
+		virtual Result<ResourceId, PolyError> CreatePoly(
 			ResourceId rendererId,
-			Ona::Core::Slice<uint8_t const> const & vertexData
+			Slice<uint8_t const> const & vertexData
 		) = 0;
 
-		virtual Ona::Core::Result<ResourceId, MaterialError> CreateMaterial(
+		virtual Result<ResourceId, MaterialError> CreateMaterial(
 			ResourceId rendererId,
 			Ona::Core::Image const & texture
 		) = 0;
 
 		virtual void UpdateMaterialUserdata(
 			ResourceId materialId,
-			Ona::Core::Slice<uint8_t const> const & userdata
+			Slice<uint8_t const> const & userdata
 		) = 0;
 
 		virtual void UpdateRendererUserdata(
 			ResourceId rendererId,
-			Ona::Core::Slice<uint8_t const> const & userdata
+			Slice<uint8_t const> const & userdata
 		) = 0;
 
 		virtual void UpdateRendererMaterial(ResourceId rendererId, ResourceId materialId) = 0;
@@ -144,13 +154,13 @@ namespace Ona::Engine {
 		) = 0;
 	};
 
-	Ona::Core::Optional<GraphicsServer *> LoadOpenGl(
+	Optional<GraphicsServer *> LoadOpenGl(
 		Ona::Core::String const & title,
 		int32_t width,
 		int32_t height
 	);
 
-	Ona::Core::Vector4 NormalizeColor(Ona::Core::Color const & color);
+	Vector4 NormalizeColor(Color const & color);
 
 	struct Sprite {
 		ResourceId polyId;
@@ -161,16 +171,10 @@ namespace Ona::Engine {
 
 		uint64_t Hash() const;
 
-		constexpr bool operator==(Sprite const & that) {
-			return ((this->polyId == that.polyId) && (this->materialId == that.materialId));
-		}
-
-		constexpr bool operator!=(Sprite const & that) {
-			return false;
-		}
+		constexpr auto operator<=>(Sprite const &) const = default;
 	};
 
-	Ona::Core::Optional<Sprite> CreateSprite(
+	Optional<Sprite> CreateSprite(
 		GraphicsServer * graphics,
 		Ona::Core::Image const & image
 	);
@@ -181,7 +185,7 @@ namespace Ona::Engine {
 
 			Ona::Core::Matrix transforms[max];
 
-			Ona::Core::Vector4 viewports[max];
+			Vector4 viewports[max];
 		};
 
 		struct Batch {
@@ -193,7 +197,7 @@ namespace Ona::Engine {
 		};
 
 		struct BatchSet {
-			Batch * current;
+			Optional<Batch *> current;
 
 			Batch head;
 		};

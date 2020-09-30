@@ -34,7 +34,7 @@ namespace Ona::Core {
 
 	Slice<uint8_t> String::CreateBuffer(size_t size) {
 		if (size > staticBufferSize) {
-			this->buffer.dynamic = Allocate(size).pointer;
+			this->buffer.dynamic = Allocate(sizeof(size_t) + size).pointer;
 
 			if (this->buffer.dynamic) {
 				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;

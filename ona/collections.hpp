@@ -4,29 +4,29 @@
 #include "ona/core.hpp"
 
 namespace Ona::Collections {
-	template<typename Type> class Appender final {
-		Ona::Core::Optional<Ona::Core::Allocator *> allocator;
+	using Ona::Core::Allocator;
+	using Ona::Core::Optional;
+	using Ona::Core::Slice;
+	using Ona::Core::nil;
+
+	template<typename Type> struct Appender {
+		private:
+		Slice<Type> values;
+
+		Optional<Allocator *> allocator;
 
 		size_t count;
 
-		Ona::Core::Slice<Type> values;
-
 		public:
-		Appender() = default;
-
-		Appender(Ona::Core::Optional<Ona::Core::Allocator *> allocator) : allocator{allocator} { }
-
-		Ona::Core::Optional<Ona::Core::Allocator *> AllocatorOf() {
-			return this->allocator;
+		Optional<Allocator *> AllocatorOf() {
+			return this->values.AllocatorOf();
 		}
 
-		Ona::Core::Optional<Type *> Append(Type const & value) {
-			using Opt = Ona::Core::Optional<Type *>;
-
+		Optional<Type *> Append(Type const & value) {
 			if (this->count >= this->values.length) {
 				if (!this->Reserve(this->count ? this->count : 2)) {
 					// Allocation failure.
-					return Opt{};
+					return nil<Type *>;
 				}
 			}
 
@@ -34,12 +34,12 @@ namespace Ona::Collections {
 			this->count += 1;
 			(*bufferIndex) = value;
 
-			return Opt{bufferIndex};
+			return Optional<Type *>{bufferIndex};
 		}
 
-		Ona::Core::Slice<Type> AppendAll(Ona::Core::Slice<Type> const & values) {
+		Slice<Type> AppendAll(Slice<Type> const & values) {
 			if (this->Reserve(values.length)) {
-				Ona::Core::Slice<Type> range = this->values.Sliced(
+				Slice<Type> range = this->values.Sliced(
 					this->count,
 					(this->count + values.length)
 				);
@@ -51,7 +51,7 @@ namespace Ona::Collections {
 				return range;
 			}
 
-			return Ona::Core::Slice<Type>{};
+			return Slice<Type>{};
 		}
 
 		Type & At(size_t index) {
@@ -96,21 +96,25 @@ namespace Ona::Collections {
 			for (auto & value : this->Values()) value.~Type();
 
 			if (this->allocator.HasValue()) {
-				this->allocator.Value()->Deallocate(reinterpret_cast<uint8_t *>(this->values.pointer));
+				this->allocator->Deallocate(this->values.pointer);
 			} else {
-				Ona::Core::Deallocate(reinterpret_cast<uint8_t *>(this->values.pointer));
+				Ona::Core::Deallocate(this->values.pointer);
 			}
+		}
+
+		static void Init(Optional<Allocator *> allocator) {
+
 		}
 
 		bool Reserve(size_t capacity) {
 			if (this->allocator.HasValue()) {
-				this->values = this->allocator.Value()->Reallocate(
-					reinterpret_cast<uint8_t *>(this->values.pointer),
+				this->values = this->allocator->Reallocate(
+					this->values.pointer,
 					(sizeof(Type) * (this->values.length + capacity)
 				)).template As<Type>();
 			} else {
 				this->values = Ona::Core::Reallocate(
-					reinterpret_cast<uint8_t *>(this->values.pointer),
+					this->values.pointer,
 					(sizeof(Type) * (this->values.length + capacity))
 				).template As<Type>();
 			}
@@ -119,23 +123,27 @@ namespace Ona::Collections {
 		}
 
 		void Truncate(size_t n) {
-			Ona::Core::Assert((n < this->count), Ona::Core::CharsFrom("Invalid range"));
+			assert((n < this->count) && "Invalid range");
 
-			for (auto & value : this->values.Sliced((this->count - n), this->count)) value.~Type();
+			if constexpr (std::is_destructible_v<Type>) {
+				for (auto & value : this->values.Sliced((this->count - n), this->count)) {
+					value.~Type();
+				}
+			}
 
 			this->count -= n;
 		}
 
-		Ona::Core::Slice<Type> Values() {
+		Slice<Type> Values() {
 			return this->values.Sliced(0, this->values.length);
 		}
 
-		Ona::Core::Slice<Type const> Values() const {
+		Slice<Type const> Values() const {
 			return this->values.Sliced(0, this->values.length);
 		}
 	};
 
-	template<typename KeyType, typename ValueType> class Table final {
+	template<typename KeyType, typename ValueType> struct Table {
 		public:
 		struct Entry {
 			KeyType key;
@@ -147,26 +155,58 @@ namespace Ona::Collections {
 		struct Bucket {
 			Entry entry;
 
-			Bucket * next;
+			Optional<Bucket *> next;
 		};
 
-		static constexpr size_t defaultBufferSize = 256;
+		static constexpr size_t defaultHashSize = 256;
 
-		using TableValue = Ona::Core::Optional<ValueType *>;
-
-		Ona::Core::Optional<Ona::Core::Allocator *> allocator;
+		Optional<Allocator *> allocator;
 
 		size_t count;
 
-		Ona::Core::Slice<Bucket *> buckets;
+		Slice<Optional<Bucket *>> buckets;
+
+		Appender<Optional<Bucket *>> freedBuckets;
+
+		Optional<Bucket *> CreateBucket(KeyType const & key, ValueType const & value) {
+			if (this->freedBuckets.Count()) {
+				return this->freedBuckets.At(this->freedBuckets.Count() - 1);
+			} else {
+				if (this->allocator.HasValue()) {
+					Slice<uint8_t> allocation = this->allocator->Allocate(sizeof(Entry));
+
+					if (allocation.HasValue()) {
+						Bucket * bucket = reinterpret_cast<Bucket *>(allocation.pointer);
+						(*bucket) = Bucket{Entry{key, value}, nil<Bucket *>};
+
+						return Optional<Bucket *>{bucket};
+					}
+				} else {
+					Slice<uint8_t> allocation = Ona::Core::Allocate(sizeof(Entry));
+
+					if (allocation.HasValue()) {
+						Bucket * bucket = reinterpret_cast<Bucket *>(allocation.pointer);
+						(*bucket) = Bucket{Entry{key, value}, nil<Bucket *>};
+
+						return Optional<Bucket *>{bucket};
+					}
+				}
+			}
+
+			return nil<Bucket *>;
+		}
 
 		public:
 		Table() = default;
 
-		Table(Ona::Core::Optional<Ona::Core::Allocator *> allocator) : allocator{allocator} { }
+		Table(Optional<Allocator *> allocator) : allocator{allocator} { }
 
-		Ona::Core::Optional<Ona::Core::Allocator *> AllocatorOf() {
+		Optional<Allocator *> AllocatorOf() {
 			return this->allocator;
+		}
+
+		void Clear() {
+
 		}
 
 		size_t Count() const {
@@ -176,10 +216,10 @@ namespace Ona::Collections {
 		template<typename CallableType> void ForEach(CallableType const & action) {
 			size_t indexPointer = 0;
 
-			if (indexPointer < this->buckets.length) {
-				Bucket * bucket = this->buckets(indexPointer);
+			while (indexPointer < this->buckets.length) {
+				let bucket = this->buckets(indexPointer);
 
-				while (bucket) {
+				while (bucket.HasValue()) {
 					action(bucket->entry.key, bucket->entry.value);
 
 					bucket = bucket->next;
@@ -193,31 +233,87 @@ namespace Ona::Collections {
 
 		}
 
-		TableValue Insert(KeyType const & key, ValueType const & value) {
-			return TableValue{};
+		Optional<ValueType *> Insert(KeyType const & key, ValueType const & value) {
+			if (!this->buckets.HasValue()) this->Rehash(defaultHashSize);
+
+			uint64_t const hash = (key.Hash() % this->buckets.length);
+			let bucket = this->buckets(hash);
+
+			if (bucket.HasValue()) {
+				while (bucket->next.HasValue()) bucket = bucket->next;
+
+				bucket->next = this->CreateBucket(key, value);
+			} else {
+				let bucket = this->CreateBucket(key, value);
+				this->buckets(hash) = bucket;
+
+				if (bucket.HasValue()) return Optional<ValueType *>{&bucket->entry.value};
+			}
+
+			return nil<ValueType *>;
 		}
 
 		bool Remove(KeyType const & key) {
 			return false;
 		}
 
-		TableValue Lookup(KeyType const & key) {
-			if (this->buckets.length) {
-				Bucket * bucket = this->buckets(key.Hash() % this->buckets.length);
+		bool Rehash(size_t tableSize) {
+			let oldBuckets = this->buckets;
 
-				if (bucket) while (bucket->entry.key != key) bucket = bucket->next;
-
-				return (bucket ? TableValue{&bucket->entry.value} : TableValue{});
+			if (this->allocator.HasValue()) {
+				this->buckets = this->allocator->Allocate(
+					tableSize * sizeof(Optional<Bucket *>)
+				).template As<Optional<Bucket *>>();
+			} else {
+				this->buckets = Ona::Core::Allocate(
+					tableSize * sizeof(Optional<Bucket *>)
+				).template As<Optional<Bucket *>>();
 			}
 
-			return TableValue{};
+			if (this->buckets.HasValue()) {
+				Ona::Core::ZeroMemory(this->buckets.AsBytes());
+
+				if (oldBuckets.HasValue()) {
+					size_t indexPointer = 0;
+
+					if (indexPointer < oldBuckets.length) {
+						let bucket = oldBuckets(indexPointer);
+
+						while (bucket.HasValue()) {
+							this->Insert(bucket->entry.key, bucket->entry.value);
+
+							bucket = bucket->next;
+						}
+
+						indexPointer += 1;
+					}
+				}
+
+				return true;
+			}
+
+			return false;
 		}
 
-		template<typename CallableType> TableValue LookupOrInsert(
+		Optional<ValueType *> Lookup(KeyType const & key) {
+			if (this->buckets.HasValue()) {
+				let bucket = this->buckets(key.Hash() % this->buckets.length);
+
+				if (bucket.HasValue()) {
+					while (bucket->entry.key != key) bucket = bucket->next;
+
+					if (bucket.HasValue()) return Optional<ValueType *>{&bucket->entry.value};
+				}
+			}
+
+			return nil<ValueType *>;
+		}
+
+		template<typename CallableType> Optional<ValueType *> LookupOrInsert(
 			KeyType const & key,
 			CallableType const & callable
 		) {
-			TableValue lookupValue = this->Lookup(key);
+			Optional<ValueType *> lookupValue = this->Lookup(key);
 
 			if (lookupValue.HasValue()) return lookupValue;
 

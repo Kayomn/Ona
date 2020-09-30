@@ -6,11 +6,9 @@ namespace Ona::Core {
 	void Image::Free() {
 		if (this->pixels.HasValue()) {
 			if (this->allocator.HasValue()) {
-				this->allocator.Value()->Deallocate(
-					reinterpret_cast<uint8_t *>(this->pixels.pointer)
-				);
+				this->allocator.Value()->Deallocate(this->pixels.pointer);
 			} else {
-				Deallocate(reinterpret_cast<uint8_t *>(this->pixels.pointer));
+				Deallocate(this->pixels.pointer);
 			}
 		}
 	}
@@ -48,27 +46,23 @@ namespace Ona::Core {
 		Color color
 	) {
 		if ((dimensions.x > 0) && (dimensions.y > 0)) {
-			Slice<Color> pixels = (
+			size_t const pixelArea = static_cast<size_t>(dimensions.x * dimensions.y);
+
+			Slice<uint8_t> pixels = (
 				allocator.HasValue() ?
-
-				allocator.Value()->Allocate(
-					static_cast<size_t>(dimensions.x * dimensions.y) *
-					sizeof(Color)
-				).As<Color>() :
-
-				Allocate(
-					static_cast<size_t>(dimensions.x * dimensions.y) *
-					sizeof(Color)
-				).As<Color>()
+				allocator.Value()->Allocate(pixelArea * sizeof(Color)) :
+				Allocate(pixelArea * sizeof(Color))
 			);
 
 			if (pixels.length) {
-				WriteMemory(pixels, color);
+				for (size_t i = 0; i < pixelArea; i += 1) {
+					CopyMemory(pixels.Sliced((i * sizeof(Color)), pixels.length), AsBytes(color));
+				}
 
 				return ImageResult::Ok(Image{
 					allocator,
 					dimensions,
-					pixels
+					pixels.As<Color>()
 				});
 			}
 

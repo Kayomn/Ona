@@ -4,16 +4,18 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 
-using Ona::Core::Chars;
-using Ona::Core::Color;
-using Ona::Core::Image;
-using Ona::Core::Result;
-using Ona::Core::Slice;
-using Ona::Core::SliceOf;
-using Ona::Core::String;
-using Ona::Core::Vector4;
-
 namespace Ona::Engine {
+	using Ona::Core::Chars;
+	using Ona::Core::Color;
+	using Ona::Core::Image;
+	using Ona::Core::Optional;
+	using Ona::Core::Result;
+	using Ona::Core::Slice;
+	using Ona::Core::SliceOf;
+	using Ona::Core::String;
+	using Ona::Core::Vector4;
+	using Ona::Core::nil;
+
 	struct Renderer {
 		GLuint shaderProgramHandle;
 
@@ -57,13 +59,8 @@ namespace Ona::Engine {
 		}
 	}
 
-	Ona::Core::Optional<GraphicsServer *> LoadOpenGl(
-		String const & title,
-		int32_t width,
-		int32_t height
-	) {
+	Optional<GraphicsServer *> LoadOpenGl(String const & title, int32_t width, int32_t height) {
 		using Ona::Collections::Appender;
-		using Opt = Ona::Core::Optional<GraphicsServer *>;
 
 		thread_local class OpenGlGraphicsServer final extends GraphicsServer {
 			Appender<Renderer> renderers;
@@ -601,7 +598,7 @@ namespace Ona::Engine {
 		constexpr int32_t initFlags = SDL_INIT_EVERYTHING;
 
 		if (SDL_WasInit(initFlags) == initFlags) {
-			return Opt{&graphicsServer};
+			return Optional<GraphicsServer *>{&graphicsServer};
 		}
 
 		if (SDL_Init(initFlags) == 0) {
@@ -624,13 +621,21 @@ namespace Ona::Engine {
 			graphicsServer.timeNow = SDL_GetPerformanceCounter();
 
 			if (graphicsServer.window) {
-				if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4) != 0) return Opt{};
+				if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4) != 0) {
+					return nil<GraphicsServer *>;
+				}
 
-				if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3) != 0) return Opt{};
+				if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3) != 0) {
+					return nil<GraphicsServer *>;
+				}
 
-				if (SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1) != 0) return Opt{};
+				if (SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1) != 0) {
+					return nil<GraphicsServer *>;
+				}
 
-				if (SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24) != 0) return Opt{};
+				if (SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24) != 0) {
+					return nil<GraphicsServer *>;
+				}
 
 				graphicsServer.context = SDL_GL_CreateContext(graphicsServer.window);
 				glewExperimental = true;
@@ -642,13 +647,13 @@ namespace Ona::Engine {
 						glViewport(0, 0, width, height);
 
 						if (glGetError() == GL_NO_ERROR) {
-							return Opt{&graphicsServer};
+							return Optional<GraphicsServer *>{&graphicsServer};
 						}
 					}
 				}
 			}
 		}
 
-		return Opt{};
+		return nil<GraphicsServer *>;
 	}
 }

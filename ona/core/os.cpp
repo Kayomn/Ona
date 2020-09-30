@@ -8,11 +8,11 @@
 
 namespace Ona::Core {
 	FileOperations osFileOperations = {
-		[](FileDescriptor descriptor) -> void {
+		FileOperations::Closer{[](FileDescriptor descriptor) -> void {
 			close(descriptor.unixHandle);
-		},
+		}},
 
-		[](
+		FileOperations::Seeker{[](
 			FileDescriptor descriptor,
 			FileOperations::SeekBase seekBase,
 			int64_t offset
@@ -20,19 +20,19 @@ namespace Ona::Core {
 			int64_t const bytesSought = lseek(descriptor.unixHandle, offset, seekBase);
 
 			return ((bytesSought > -1) ? static_cast<size_t>(bytesSought) : 0);
-		},
+		}},
 
-		[](FileDescriptor descriptor, Slice<uint8_t> output) -> size_t {
+		FileOperations::Reader{[](FileDescriptor descriptor, Slice<uint8_t> output) -> size_t {
 			ssize_t const bytesRead = read(descriptor.unixHandle, output.pointer, output.length);
 
 			return ((bytesRead > -1) ? static_cast<size_t>(bytesRead) : 0);
-		},
+		}},
 
-		[](FileDescriptor descriptor, Slice<uint8_t const> input) -> size_t {
+		FileOperations::Writer{[](FileDescriptor descriptor, Slice<uint8_t const> input) -> size_t {
 			ssize_t const bytesWritten = write(descriptor.unixHandle, input.pointer, input.length);
 
 			return ((bytesWritten > -1) ? static_cast<size_t>(bytesWritten) : 0);
-		},
+		}},
 	};
 
 	Slice<uint8_t> Allocate(size_t size) {
@@ -42,14 +42,7 @@ namespace Ona::Core {
 		return SliceOf(allocationAddress, size);
 	}
 
-	void Assert(bool expression, Chars const & message) {
-		if (!expression) {
-			OutFile().Write(message.AsBytes());
-			std::abort();
-		}
-	}
-
-	void Deallocate(uint8_t * allocation) {
+	void Deallocate(void * allocation) {
 		free(allocation);
 	}
 
@@ -114,10 +107,13 @@ namespace Ona::Core {
 			}
 		}
 
-		return Res::Ok(File{&osFileOperations, FileDescriptor{handle}});
+		return Res::Ok(File{
+			Optional<FileOperations const *>{&osFileOperations},
+			FileDescriptor{handle}
+		});
 	}
 
-	Slice<uint8_t> Reallocate(uint8_t * allocation, size_t size) {
+	Slice<uint8_t> Reallocate(void * allocation, size_t size) {
 		uint8_t * allocationAddress = reinterpret_cast<uint8_t *>(realloc(allocation, size));
 		size *= (allocationAddress != nullptr);
 
@@ -134,7 +130,10 @@ namespace Ona::Core {
 	}
 
 	File & OutFile() {
-		static File file = {&osFileOperations, FileDescriptor{STDOUT_FILENO}};
+		static let file = File{
+			Optional<FileOperations const *>{&osFileOperations},
+			FileDescriptor{STDOUT_FILENO}
+		};
 
 		return file;
 	}
@@ -144,39 +143,85 @@ namespace Ona::Core {
 	}
 
 	void File::Free() {
-		this->operations->closer(this->descriptor);
+		if (this->operations.HasValue() && this->operations->closer.HasValue()) {
+			this->operations->closer.Value()(this->descriptor);
+		}
 	}
 
 	void File::Print(String const & string) {
-		this->operations->writer(this->descriptor, string.AsBytes());
+		if (this->operations.HasValue() && this->operations->writer.HasValue()) {
+			this->operations->writer.Value()(this->descriptor, string.AsBytes());
+		}
 	}
 
 	size_t File::Read(Slice<uint8_t> const & output) {
-		return this->operations->reader(this->descriptor, output);
+		if (this->operations.HasValue() && this->operations->reader.HasValue()) {
+			return this->operations->reader.Value()(this->descriptor, output);
+		}
+
+		return 0;
 	}
 
 	int64_t File::SeekHead(int64_t offset) {
-		return this->operations->seeker(this->descriptor, FileOperations::SeekBaseHead, offset);
+		if (this->operations.HasValue() && this->operations->seeker.HasValue()) {
+			return this->operations->seeker.Value()(
+				this->descriptor,
+				FileOperations::SeekBaseHead,
+				offset
+			);
+		}
+
+		return 0;
 	}
 
 	int64_t File::SeekTail(int64_t offset) {
-		return this->operations->seeker(this->descriptor, FileOperations::SeekBaseTail, offset);
+		if (this->operations.HasValue() && this->operations->seeker.HasValue()) {
+			return this->operations->seeker.Value()(
+				this->descriptor,
+				FileOperations::SeekBaseTail,
+				offset
+			);
+		}
+
+		return 0;
 	}
 
 	int64_t File::Skip(int64_t offset) {
-		return this->operations->seeker(this->descriptor, FileOperations::SeekBaseCurrent, offset);
+		if (this->operations.HasValue() && this->operations->seeker.HasValue()) {
+			return this->operations->seeker.Value()(
+				this->descriptor,
+				FileOperations::SeekBaseCurrent,
+				offset
+			);
+		}
+
+		return 0;
 	}
 
 	int64_t File::Tell() {
-		return this->operations->seeker(this->descriptor, FileOperations::SeekBaseCurrent, 0);
+		if (this->operations.HasValue() && this->operations->seeker.HasValue()) {
+			return this->operations->seeker.Value()(
+				this->descriptor,
+				FileOperations::SeekBaseCurrent,
+				0
+			);
+		}
+
+		return 0;
 	}
 
 	size_t File::Write(Slice<uint8_t const> const & input) {
-		return this->operations->writer(this->descriptor, input);
+		if (this->operations.HasValue() && this->operations->writer.HasValue()) {
+			return this->operations->writer.Value()(this->descriptor, input);
+		}
+
+		return 0;
 	}
 
-	void * Library::FindSymbol(String const & symbolName) {
-		return dlsym(this->context, String::Sentineled(symbolName).AsChars().pointer);
+	Optional<void *> Library::FindSymbol(String const & symbolName) {
+		return Optional<void *>{
+			dlsym(this->context, String::Sentineled(symbolName).AsChars().pointer)
+		};
 	}
 
 	void Library::Free() {
