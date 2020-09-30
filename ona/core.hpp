@@ -311,10 +311,16 @@ namespace Ona::Core {
 			}
 		}
 
-		~Result() requires std::is_destructible_v<ValueType> || std::is_destructible_v<ErrorType> {
-			if (this->IsOk()) {
-				this->Value().~ValueType();
-			} else {
+		~Result() {
+			if constexpr (std::is_destructible_v<ValueType>) {
+				if (this->IsOk()) {
+					this->Value().~ValueType();
+
+					return;
+				}
+			}
+
+			if constexpr (std::is_destructible_v<ErrorType>) {
 				this->Error().~ErrorType();
 			}
 		}
@@ -622,38 +628,18 @@ namespace Ona::Core {
 		int32_t x, y;
 	};
 
-	union Color {
-		static constexpr size_t channelMax = 255;
-
-		struct {
-			uint8_t r, g, b, a;
-		};
-
-		uint32_t value;
-
-		static constexpr Color Of(
-			uint8_t const red,
-			uint8_t const green,
-			uint8_t const blue,
-			uint8_t const alpha
-		) {
-			return Color{red, green, blue, alpha};
-		}
+	struct Color {
+		uint8_t r, g, b, a;
 	};
 
-	constexpr let colorWhite = Color{
-		Color::channelMax,
-		Color::channelMax,
-		Color::channelMax,
-		Color::channelMax
-	};
+	constexpr let colorWhite = Color{0xFF, 0xFF, 0xFF, 0xFF};
 
 	constexpr Color Greyscale(uint8_t const value) {
-		return Color::Of(value, value, value, Color::channelMax);
+		return Color{value, value, value, 0xFF};
 	}
 
 	constexpr Color Rgb(uint8_t const red, uint8_t const green, uint8_t const blue) {
-		return Color::Of(red, green, blue, Color::channelMax);
+		return Color{red, green, blue, 0xFF};
 	}
 
 	enum class ImageError {
