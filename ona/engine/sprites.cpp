@@ -139,10 +139,7 @@ namespace Ona::Engine {
 
 			graphics->UpdateMaterialUserdata(materialId, AsBytes(material));
 
-			return Optional<Sprite>{Sprite{
-				spriteRectId,
-				materialId
-			}};
+			return Sprite{spriteRectId, materialId};
 		}
 
 		return Ona::Core::nil<Sprite>;

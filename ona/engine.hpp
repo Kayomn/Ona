@@ -109,7 +109,7 @@ namespace Ona::Engine {
 				if (commandBuffer->Load(this)) {
 					this->commandBuffers.Append(commandBuffer);
 
-					return Optional<Type *>{commandBuffer};
+					return commandBuffer;
 				}
 			}
 

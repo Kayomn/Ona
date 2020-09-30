@@ -219,9 +219,7 @@ namespace Ona::Core {
 	}
 
 	Optional<void *> Library::FindSymbol(String const & symbolName) {
-		return Optional<void *>{
-			dlsym(this->context, String::Sentineled(symbolName).AsChars().pointer)
-		};
+		return dlsym(this->context, String::Sentineled(symbolName).AsChars().pointer);
 	}
 
 	void Library::Free() {

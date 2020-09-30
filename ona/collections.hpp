@@ -34,7 +34,7 @@ namespace Ona::Collections {
 			this->count += 1;
 			(*bufferIndex) = value;
 
-			return Optional<Type *>{bufferIndex};
+			return bufferIndex;
 		}
 
 		Slice<Type> AppendAll(Slice<Type> const & values) {
@@ -179,7 +179,7 @@ namespace Ona::Collections {
 						Bucket * bucket = reinterpret_cast<Bucket *>(allocation.pointer);
 						(*bucket) = Bucket{Entry{key, value}, nil<Bucket *>};
 
-						return Optional<Bucket *>{bucket};
+						return bucket;
 					}
 				} else {
 					Slice<uint8_t> allocation = Ona::Core::Allocate(sizeof(Entry));
@@ -188,7 +188,7 @@ namespace Ona::Collections {
 						Bucket * bucket = reinterpret_cast<Bucket *>(allocation.pointer);
 						(*bucket) = Bucket{Entry{key, value}, nil<Bucket *>};
 
-						return Optional<Bucket *>{bucket};
+						return bucket;
 					}
 				}
 			}
@@ -247,7 +247,7 @@ namespace Ona::Collections {
 				let bucket = this->CreateBucket(key, value);
 				this->buckets(hash) = bucket;
 
-				if (bucket.HasValue()) return Optional<ValueType *>{&bucket->entry.value};
+				if (bucket.HasValue()) return (&bucket->entry.value);
 			}
 
 			return nil<ValueType *>;
@@ -302,7 +302,7 @@ namespace Ona::Collections {
 				if (bucket.HasValue()) {
 					while (bucket->entry.key != key) bucket = bucket->next;
 
-					if (bucket.HasValue()) return Optional<ValueType *>{&bucket->entry.value};
+					if (bucket.HasValue()) return (&bucket->entry.value);
 				}
 			}
 

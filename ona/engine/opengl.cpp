@@ -598,7 +598,7 @@ namespace Ona::Engine {
 		constexpr int32_t initFlags = SDL_INIT_EVERYTHING;
 
 		if (SDL_WasInit(initFlags) == initFlags) {
-			return Optional<GraphicsServer *>{&graphicsServer};
+			return &graphicsServer;
 		}
 
 		if (SDL_Init(initFlags) == 0) {
@@ -647,7 +647,7 @@ namespace Ona::Engine {
 						glViewport(0, 0, width, height);
 
 						if (glGetError() == GL_NO_ERROR) {
-							return Optional<GraphicsServer *>{&graphicsServer};
+							return &graphicsServer;
 						}
 					}
 				}
