@@ -1,4 +1,5 @@
 {
+	"language": "c++",
 	"targetType": "static-lib",
 	"dependencies": [
 		"core"
