@@ -135,11 +135,11 @@ namespace Ona::Collections {
 		}
 
 		Slice<Type> Values() {
-			return this->values.Sliced(0, this->values.length);
+			return this->values.Sliced(0, this->count);
 		}
 
 		Slice<Type const> Values() const {
-			return this->values.Sliced(0, this->values.length);
+			return this->values.Sliced(0, this->count);
 		}
 	};
 
