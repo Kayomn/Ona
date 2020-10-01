@@ -1,9 +1,5 @@
 #include "ona/engine/header.hpp"
 
-using Ona::Core::Color;
-using Ona::Core::Vector4;
-using Ona::Core::Slice;
-
 namespace Ona::Engine {
 	size_t Attribute::ByteSize() const {
 		size_t size;
