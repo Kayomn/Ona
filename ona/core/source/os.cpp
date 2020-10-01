@@ -1,4 +1,4 @@
-#include "ona/core.hpp"
+#include "ona/core/header.hpp"
 
 #include <stdlib.h>
 #include <unistd.h>

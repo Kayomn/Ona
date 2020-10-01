@@ -1,4 +1,4 @@
-#include "ona/core.hpp"
+#include "ona/core/header.hpp"
 
 namespace Ona::Core {
 	size_t CopyMemory(Slice<uint8_t> destination, Slice<uint8_t const> source) {

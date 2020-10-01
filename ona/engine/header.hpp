@@ -1,8 +1,8 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
-#include "ona/core.hpp"
-#include "ona/collections.hpp"
+#include "ona/core/header.hpp"
+#include "ona/collections/header.hpp"
 
 namespace Ona::Engine {
 	using Ona::Core::Chars;

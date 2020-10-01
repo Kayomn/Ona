@@ -62,6 +62,8 @@ def build(name: str) -> (bool, str):
 		if (len(path_nodes)):
 			path_nodes[0] = (path.splitext(path_nodes[0])[0] + ".o")
 
+			# Messy hack to remove "source" folder from qualified path name.
+			path_nodes.pop(1)
 			path_nodes.reverse()
 
 			object_path = path.join(output_path, ".".join(path_nodes))
@@ -124,7 +126,7 @@ def build(name: str) -> (bool, str):
 
 	print("Building", (name + "..."))
 
-	header_path = (module_path + ".hpp")
+	header_path = path.join(module_path, "header.hpp")
 
 	# A re-compilation is needed if the module header is newer than the output binary.
 	needs_recompile |= (
@@ -132,23 +134,25 @@ def build(name: str) -> (bool, str):
 		(path.getmtime(header_path) > path.getmtime(binary_path))
 	)
 
-	if (path.exists(module_path)):
+	source_path = path.join(module_path, "source")
+
+	if (path.exists(source_path)):
 		if (needs_recompile):
 			# A dependency has changed so re-compile the entire module.
-			for file_name in listdir(module_path):
-				source_path = path.join(module_path, file_name)
+			for file_name in listdir(source_path):
+				file_path = path.join(source_path, file_name)
 
-				compile_source(source_path, to_object_path(source_path))
+				compile_source(file_path, to_object_path(file_path))
 		else:
-			for file_name in listdir(module_path):
-				source_path = path.join(module_path, file_name)
-				object_path = to_object_path(source_path)
+			for file_name in listdir(source_path):
+				file_path = path.join(source_path, file_name)
+				object_path = to_object_path(file_path)
 
 				if (
 					(not path.exists(object_path)) or
-					(path.getmtime(source_path) > path.getmtime(object_path))
+					(path.getmtime(file_path) > path.getmtime(object_path))
 				):
-					compile_source(source_path, object_path)
+					compile_source(file_path, object_path)
 
 					needs_recompile = True
 

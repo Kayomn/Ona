@@ -1,4 +1,4 @@
-#include "ona/core.hpp"
+#include "ona/core/header.hpp"
 
 using ImageResult = Ona::Core::Result<Ona::Core::Image, Ona::Core::ImageError>;
 

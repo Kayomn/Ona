@@ -1,4 +1,4 @@
-#include "ona/core.hpp"
+#include "ona/core/header.hpp"
 
 namespace Ona::Core {
 	String::String(String const & that) {

@@ -1,7 +1,7 @@
 #ifndef COLLECTIONS_H
 #define COLLECTIONS_H
 
-#include "ona/core.hpp"
+#include "ona/core/header.hpp"
 
 namespace Ona::Collections {
 	using Ona::Core::Allocator;
