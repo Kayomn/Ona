@@ -2,7 +2,8 @@
 
 from argparse import ArgumentParser
 from os import path, listdir
-from subprocess import Popen, call
+from subprocess import call
+from threading import Thread
 import json
 
 processed_dependencies = []
@@ -10,54 +11,9 @@ common_flags = ["-g", "-fno-exceptions", "-std=c++20", "-I."]
 output_path = "output"
 input_path = "ona"
 
-def name_static_lib(name: str) -> str:
-	return (name + ".a")
-
-def name_shared_lib(name: str) -> str:
-	return (name + ".so")
-
-def name_executable(name: str) -> str:
-	return name
-
-target_type_namers = {
-	"static-lib": name_static_lib,
-	"shared-lib": name_shared_lib,
-	"executable": name_executable
-}
-
-def link_shared_lib(module_name: str, object_paths: list, dependency_paths: list, libraries: list) -> None:
-	print("Linking", module_name, "shared library...")
-
-def link_static_lib(module_name: str, object_paths: list, dependency_paths: list, libraries: list) -> None:
-	print("Linking", module_name, "static library...")
-	call(["llvm-ar", "rc", path.join(output_path, (module_name + ".a"))] + object_paths)
-
-def link_executable(module_name: str, object_paths: list, dependency_paths: list, libraries: list) -> None:
-	print("Linking", module_name, "executable...")
-
-	args = (
-		["clang++"] +
-		object_paths +
-		dependency_paths +
-		["-o" + path.join(output_path, module_name)] +
-		common_flags
-	)
-
-	for library in libraries:
-		args.append("-l" + library)
-
-	call(args)
-
-target_type_linkers = {
-	"static-lib": link_static_lib,
-	"shared-lib": link_shared_lib,
-	"executable": link_executable
-}
-
-target_types = [
-	"static-lib",
-	"shared-lib",
-	"executable"
+required_properties = [
+	"language",
+	"targetType"
 ]
 
 def build(name: str) -> (bool, str):
@@ -72,30 +28,27 @@ def build(name: str) -> (bool, str):
 	module_path = path.join(input_path, name)
 	build_config = load_build_config(module_path + ".json")
 
-	if (not "targetType" in build_config):
-		print("No target type specified in build.json for", name)
-		exit(1)
+	for required_property in required_properties:
+		if (not required_property in build_config):
+			print("No", required_property, "specified in build.json for", name)
+			exit(1)
 
-	target_type = build_config["targetType"]
-
-	if (not target_type in target_types):
-		print("Invalid target type specified in build.json for", name)
-		exit(1)
-
-	compilation_process_ids = []
+	compilation_workers = []
 	object_paths = []
 	dependency_paths = []
 	needs_recompile = False
 
 	def compile_source(source_path: str, object_path: str) -> None:
-		print(source_path)
+		def worker_process() -> None:
+			print(source_path)
 
-		compilation_process_ids.append(Popen([
-			"clang++",
-			source_path,
-			("-o" + object_path),
-			"-c"
-		] + common_flags))
+			if (call(["clang++", source_path, ("-o" + object_path), "-c"] + common_flags) != 0):
+				exit(1)
+
+		worker = Thread(target = worker_process)
+
+		compilation_workers.append(worker)
+		worker.start()
 
 	def to_object_path(source_path: str) -> str:
 		path_nodes = []
@@ -128,9 +81,49 @@ def build(name: str) -> (bool, str):
 				dependency_paths.append(dependency_path)
 				processed_dependencies.append(dependency)
 
+	target_type = build_config["targetType"]
+	binary_path = path.join(output_path, name)
+	link = None
+
+	if (target_type == "static-lib"):
+		def link_static_lib() -> None:
+			print("Linking", name, "static library...")
+			call(["llvm-ar", "rc", binary_path] + object_paths)
+
+		binary_path += ".a"
+		link = link_static_lib
+	elif (target_type == "executable"):
+		def link_executable() -> None:
+			print("Linking", name, "executable...")
+
+			args = (
+				["clang++"] +
+				object_paths +
+				dependency_paths +
+				["-o" + path.join(output_path, name)] +
+				common_flags
+			)
+
+			if ("libraries" in build_config):
+				for library in build_config["libraries"]:
+					args.append("-l" + library)
+
+			call(args)
+
+		link = link_executable
+	elif (target_type == "shared-lib"):
+		def link_shared_lib() -> None:
+			print("Linking", name, "shared library...")
+			# TODO: Implement shared object linking support.
+
+		binary_path += ".so"
+		link = link_shared_lib
+	else:
+		print("Invalid target type specified in module config for", name)
+		exit(1)
+
 	print("Building", (name + "..."))
 
-	binary_path = target_type_namers[target_type](path.join(output_path, name))
 	header_path = (module_path + ".hpp")
 
 	# A re-compilation is needed if the module header is newer than the output binary.
@@ -160,13 +153,10 @@ def build(name: str) -> (bool, str):
 					needs_recompile = True
 
 	if (needs_recompile):
-		if (all((pid == 0) for pid in [pid.wait() for pid in compilation_process_ids])):
-			target_type_linkers[target_type](
-				name,
-				object_paths,
-				dependency_paths,
-				(build_config["libraries"] if "libraries" in build_config else [])
-			)
+		for worker in compilation_workers:
+			worker.join()
+
+		link()
 
 	return needs_recompile, binary_path
 
