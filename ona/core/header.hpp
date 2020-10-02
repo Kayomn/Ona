@@ -16,8 +16,50 @@
 
 namespace Ona::Core {
 	struct Matrix {
-		float elements[4 * 4];
+		static constexpr size_t dimensions = 4;
+
+		float elements[dimensions * dimensions];
+
+		static constexpr Matrix Identity() {
+			let identity = Matrix{};
+
+			for (size_t i = 0; i < dimensions; i += 1) identity(i, i) = 1.f;
+
+			return identity;
+		}
+
+		constexpr float & operator()(size_t row, size_t column) {
+			return this->elements[column + (row * dimensions)];
+		}
 	};
+
+	constexpr Matrix OrthographicMatrix(
+		float left,
+		float right,
+		float bottom,
+		float top,
+		float near,
+		float far
+	) {
+		Matrix result = Matrix::Identity();
+		result.elements[0 + 0 * 4] = 2.0f / (right - left);
+		result.elements[1 + 1 * 4] = 2.0f / (top - bottom);
+		result.elements[2 + 2 * 4] = 2.0f / (near - far);
+		result.elements[3 + 0 * 4] = (left + right) / (left - right);
+		result.elements[3 + 1 * 4] = (bottom + top) / (bottom - top);
+		result.elements[3 + 2 * 4] = (far + near) / (far - near);
+
+		return result;
+	}
+
+	constexpr Matrix TranslationMatrix(float x, float y, float z) {
+		Matrix result = Matrix::Identity();
+		result(0, 3) = x;
+		result(1, 3) = y;
+		result(2, 3) = z;
+
+		return result;
+	}
 
 	struct Vector2 {
 		float x, y;
