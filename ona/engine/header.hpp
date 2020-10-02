@@ -7,6 +7,7 @@
 namespace Ona::Engine {
 	using Ona::Core::Chars;
 	using Ona::Core::Color;
+	using Ona::Core::Matrix;
 	using Ona::Core::Optional;
 	using Ona::Core::Result;
 	using Ona::Core::Slice;
@@ -144,8 +145,6 @@ namespace Ona::Engine {
 			Slice<uint8_t const> const & userdata
 		) = 0;
 
-		virtual void UpdateRendererMaterial(ResourceId rendererId, ResourceId materialId) = 0;
-
 		virtual void RenderPolyInstanced(
 			ResourceId rendererId,
 			ResourceId polyId,
@@ -160,12 +159,12 @@ namespace Ona::Engine {
 		int32_t height
 	);
 
-	Vector4 NormalizeColor(Color const & color);
-
 	struct Sprite {
 		ResourceId polyId;
 
 		ResourceId materialId;
+
+		Ona::Core::Vector2 dimensions;
 
 		void Free();
 
@@ -183,7 +182,9 @@ namespace Ona::Engine {
 		struct Chunk {
 			static constexpr size_t max = 128;
 
-			Ona::Core::Matrix transforms[max];
+			Matrix projectionTransform;
+
+			Matrix transforms[max];
 
 			Vector4 viewports[max];
 		};

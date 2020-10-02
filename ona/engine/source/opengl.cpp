@@ -43,10 +43,16 @@ namespace Ona::Engine {
 
 		GLuint vertexArrayHandle;
 
-		uint32_t vertexCount;
+		GLsizei vertexCount;
 	};
 
-	GLenum TypeDescriptorToGl(TypeDescriptor typeDescriptor) {
+	constexpr GLuint rendererBufferBindIndex = 0;
+
+	constexpr GLuint materialBufferBindIndex = 1;
+
+	constexpr GLuint materialTextureBindIndex = 0;
+
+	internal GLenum TypeDescriptorToGl(TypeDescriptor typeDescriptor) {
 		switch (typeDescriptor) {
 			case TypeDescriptor::Byte: return GL_BYTE;
 			case TypeDescriptor::UnsignedByte: return GL_UNSIGNED_BYTE;
@@ -57,6 +63,15 @@ namespace Ona::Engine {
 			case TypeDescriptor::Float: return GL_FLOAT;
 			case TypeDescriptor::Double: return GL_DOUBLE;
 		}
+	}
+
+	internal Vector4 NormalizeColor(Color const & color) {
+		return Vector4{
+			(color.r / (static_cast<float>(0xFF))),
+			(color.g / (static_cast<float>(0xFF))),
+			(color.b / (static_cast<float>(0xFF))),
+			(color.a / (static_cast<float>(0xFF)))
+		};
 	}
 
 	Optional<GraphicsServer *> LoadOpenGl(String const & title, int32_t width, int32_t height) {
@@ -93,7 +108,7 @@ namespace Ona::Engine {
 				static let compileObject = [](Chars const & source, GLenum shaderType) -> GLuint {
 					GLuint const shaderHandle = glCreateShader(shaderType);
 
-					if (shaderHandle && (source.length < INT32_MAX)) {
+					if (shaderHandle && (source.length <= INT32_MAX)) {
 						GLint const sourceSize = static_cast<GLint>(source.length);
 						GLint isCompiled;
 
@@ -181,7 +196,7 @@ namespace Ona::Engine {
 
 			~OpenGlGraphicsServer() override {
 				for (let & renderer : this->renderers.Values()) {
-					glDeleteShader(renderer.shaderProgramHandle);
+					glDeleteProgram(renderer.shaderProgramHandle);
 					glDeleteBuffers(1, (&renderer.userdataBufferHandle));
 				}
 
@@ -246,11 +261,10 @@ namespace Ona::Engine {
 				Layout const & materialLayout
 			) override {
 				using Res = Result<ResourceId, RendererError>;
-				size_t const materialSize = materialLayout.MaterialSize();
-				size_t const userdataSize = materialLayout.MaterialSize();
+				size_t const userdataSize = userdataLayout.MaterialSize();
 				RendererError error = RendererError::Server;
 
-				if ((userdataSize < PTRDIFF_MAX) && (materialSize < PTRDIFF_MAX)) {
+				if ((userdataSize < PTRDIFF_MAX) && (materialLayout.MaterialSize() < PTRDIFF_MAX)) {
 					GLuint userdataBufferHandle;
 
 					glCreateBuffers(1, (&userdataBufferHandle));
@@ -259,7 +273,7 @@ namespace Ona::Engine {
 					if (glGetError() == GL_NO_ERROR) {
 						glNamedBufferData(
 							userdataBufferHandle,
-							static_cast<GLsizeiptr>(materialSize),
+							static_cast<GLsizeiptr>(userdataSize),
 							nullptr,
 							GL_DYNAMIC_DRAW
 						);
@@ -272,12 +286,23 @@ namespace Ona::Engine {
 							);
 
 							if (shaderHandle) {
-								if (this->renderers.Append(Renderer{
+								glUniformBlockBinding(shaderHandle, glGetUniformBlockIndex(
 									shaderHandle,
-									userdataBufferHandle,
-									vertexLayout,
-									userdataLayout,
-									materialLayout
+									"Renderer"
+								), 0);
+
+								glUniformBlockBinding(shaderHandle, glGetUniformBlockIndex(
+									shaderHandle,
+									"Material"
+								), 1);
+
+
+								if (this->renderers.Append(Renderer{
+									.shaderProgramHandle = shaderHandle,
+									.userdataBufferHandle = userdataBufferHandle,
+									.vertexLayout = vertexLayout,
+									.userdataLayout = userdataLayout,
+									.materialLayout = materialLayout
 								}).HasValue()) {
 									return Res::Ok(
 										static_cast<ResourceId>(this->renderers.Count())
@@ -373,8 +398,14 @@ namespace Ona::Engine {
 												}
 
 												if (this->polys.Append(Poly{
-													vertexBufferHandle,
-													vertexArrayHandle
+													.rendererId = rendererId,
+													.vertexBufferHandle = vertexBufferHandle,
+													.vertexArrayHandle = vertexArrayHandle,
+
+													.vertexCount = static_cast<GLsizei>(
+														vertexData.length /
+														renderer->vertexLayout.VertexSize()
+													)
 												}).HasValue()) {
 													return Res::Ok(
 														static_cast<ResourceId>(this->polys.Count())
@@ -538,9 +569,9 @@ namespace Ona::Engine {
 					ResourceId const rendererId = material->rendererId;
 
 					if (rendererId) {
-						Renderer * renderer = this->GetRenderer(rendererId);
-
-						if (renderer->materialLayout.ValidateMaterialData(userdata)) {
+						if (this->GetRenderer(
+							rendererId
+						)->materialLayout.ValidateMaterialData(userdata)) {
 							if (this->UpdateUniformBuffer(
 								material->userdataBufferHandle,
 								userdata.length,
@@ -568,7 +599,7 @@ namespace Ona::Engine {
 					if (renderer->userdataLayout.ValidateMaterialData(userdata)) {
 						if (this->UpdateUniformBuffer(
 							renderer->userdataBufferHandle,
-							renderer->materialLayout.MaterialSize(),
+							userdata.length,
 							userdata
 						)) {
 							// TODO: Error codes?
@@ -581,25 +612,50 @@ namespace Ona::Engine {
 				// Renderer ID is zero.
 			}
 
-			void UpdateRendererMaterial(ResourceId rendererId, ResourceId materialId) override {
-
-			}
-
 			void RenderPolyInstanced(
 				ResourceId rendererId,
 				ResourceId polyId,
 				ResourceId materialId,
 				size_t count
 			) override {
+				if (rendererId && materialId && polyId) {
+					if (count <= INT32_MAX) {
+						let renderer = this->GetRenderer(rendererId);
+						let material = this->GetMaterial(materialId);
+						let poly = this->GetPoly(polyId);
 
+						glBindBufferBase(
+							GL_UNIFORM_BUFFER,
+							rendererBufferBindIndex,
+							renderer->userdataBufferHandle
+						);
+
+						glBindBufferBase(
+							GL_UNIFORM_BUFFER,
+							materialBufferBindIndex,
+							material->userdataBufferHandle
+						);
+
+						glBindBuffer(GL_ARRAY_BUFFER, poly->vertexBufferHandle);
+						glBindVertexArray(poly->vertexArrayHandle);
+						glUseProgram(renderer->shaderProgramHandle);
+						glBindTextureUnit(materialTextureBindIndex, material->textureHandle);
+
+						glDrawArraysInstanced(
+							GL_TRIANGLES,
+							0,
+							poly->vertexCount,
+							static_cast<GLsizei>(count)
+						);
+					}
+				}
+				// Bad ID.
 			}
 		} graphicsServer = {};
 
 		constexpr int32_t initFlags = SDL_INIT_EVERYTHING;
 
-		if (SDL_WasInit(initFlags) == initFlags) {
-			return &graphicsServer;
-		}
+		if (SDL_WasInit(initFlags) == initFlags) return &graphicsServer;
 
 		if (SDL_Init(initFlags) == 0) {
 			constexpr int32_t windowPosition = SDL_WINDOWPOS_UNDEFINED;
@@ -641,7 +697,13 @@ namespace Ona::Engine {
 				glewExperimental = true;
 
 				if (graphicsServer.context && (glewInit() == GLEW_OK)) {
+					glEnable(GL_DEBUG_OUTPUT);
 					glEnable(GL_DEPTH_TEST);
+
+					glDebugMessageCallback([](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) -> void {
+						Ona::Core::OutFile().Print(String::From(message));
+						Ona::Core::OutFile().Print(String::From("\n"));
+					}, 0);
 
 					if (glGetError() == GL_NO_ERROR) {
 						glViewport(0, 0, width, height);

@@ -26,17 +26,14 @@ namespace Ona::Engine {
 			"out vec2 texCoords;\n"
 			"out vec4 texTint;\n"
 			"\n"
-			"layout(std140, row_major) uniform Camera {\n"
-			"	mat4 projectionTransform;\n"
+			"layout(std140, row_major) uniform Renderer {\n"
+			"	mat4x4 projectionTransform;\n"
+			"	mat4x4 transforms[INSTANCE_COUNT];\n"
+			"	vec4 viewports[INSTANCE_COUNT];\n"
 			"};\n"
 			"\n"
 			"layout(std140, row_major) uniform Material {\n"
 			"	vec4 tintColor;\n"
-			"};\n"
-			"\n"
-			"layout(std140, row_major) uniform Instance {\n"
-			"	mat4x4 transforms[INSTANCE_COUNT];\n"
-			"	vec4 viewports[INSTANCE_COUNT];\n"
 			"};\n"
 			"\n"
 			"uniform sampler2D spriteTexture;\n"
@@ -77,6 +74,7 @@ namespace Ona::Engine {
 		};
 
 		static Attribute const userdataAttributes[] = {
+			Attribute{TypeDescriptor::Float, 16, CharsFrom("projectionTransform")},
 			Attribute{TypeDescriptor::Float, (16 * 128), CharsFrom("transforms")},
 			Attribute{TypeDescriptor::Float, (4 * 128), CharsFrom("viewports")},
 		};
@@ -99,7 +97,7 @@ namespace Ona::Engine {
 				vertexSource,
 				fragmentSource,
 				Layout{2, vertexAttributes},
-				Layout{2, userdataAttributes},
+				Layout{3, userdataAttributes},
 				Layout{1, materialAttributes}
 			);
 
@@ -139,7 +137,15 @@ namespace Ona::Engine {
 
 			graphics->UpdateMaterialUserdata(materialId, AsBytes(material));
 
-			return Sprite{spriteRectId, materialId};
+			return Sprite{
+				.polyId = spriteRectId,
+				.materialId = materialId,
+
+				.dimensions = Vector2{
+					static_cast<float>(image.dimensions.x),
+					static_cast<float>(image.dimensions.y)
+				}
+			};
 		}
 
 		return Ona::Core::nil<Sprite>;
@@ -156,9 +162,7 @@ namespace Ona::Engine {
 
 	void SpriteCommands::Dispatch(GraphicsServer * graphics) {
 		this->batches.ForEach([this, &graphics](Sprite & sprite, BatchSet & batchSet) {
-			Batch * batch = (&batchSet.head);
-
-			graphics->UpdateRendererMaterial(spriteRendererId, sprite.materialId);
+			let batch = (&batchSet.head);
 
 			while (batch && batch->count) {
 				graphics->UpdateRendererUserdata(spriteRendererId, AsBytes(batch->chunk));
@@ -183,7 +187,7 @@ namespace Ona::Engine {
 
 		if (batchSet.HasValue()) {
 			if (!batchSet->current.HasValue()) {
-				batchSet->current =&batchSet->head;
+				batchSet->current = (&batchSet->head);
 			}
 
 			let currentBatch = batchSet->current;
@@ -199,9 +203,24 @@ namespace Ona::Engine {
 				}
 			}
 
-			// TODO: Assign these fuckers.
-			currentBatch->chunk.transforms[currentBatch->count] = Ona::Core::Matrix{};
-			currentBatch->chunk.viewports[currentBatch->count] = Ona::Core::Vector4{};
+			// TODO: Remove hardcoded viewport sizes.
+			currentBatch->chunk.projectionTransform = Ona::Core::OrthographicMatrix(
+				0,
+				640,
+				480,
+				0,
+				-1,
+				1
+			);
+
+			currentBatch->chunk.transforms[currentBatch->count] = Matrix{
+				sprite.dimensions.x, 0.f, 0.f, position.x,
+				0.f, sprite.dimensions.y, 0.f, position.y,
+				0.f, 0.f, 1.f, 0.f,
+				0.f, 0.f, 0.f, 1.f
+			};
+
+			currentBatch->chunk.viewports[currentBatch->count] = Vector4{0.f, 0.f, 1.f, 1.f};
 			currentBatch->count += 1;
 		}
 
