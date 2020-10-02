@@ -173,7 +173,7 @@ namespace Ona::Collections {
 				return this->freedBuckets.At(this->freedBuckets.Count() - 1);
 			} else {
 				if (this->allocator.HasValue()) {
-					Slice<uint8_t> allocation = this->allocator->Allocate(sizeof(Entry));
+					Slice<uint8_t> allocation = this->allocator->Allocate(sizeof(Bucket));
 
 					if (allocation.HasValue()) {
 						Bucket * bucket = reinterpret_cast<Bucket *>(allocation.pointer);
@@ -182,7 +182,7 @@ namespace Ona::Collections {
 						return bucket;
 					}
 				} else {
-					Slice<uint8_t> allocation = Ona::Core::Allocate(sizeof(Entry));
+					Slice<uint8_t> allocation = Ona::Core::Allocate(sizeof(Bucket));
 
 					if (allocation.HasValue()) {
 						Bucket * bucket = reinterpret_cast<Bucket *>(allocation.pointer);
