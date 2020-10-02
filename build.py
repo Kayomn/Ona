@@ -7,7 +7,7 @@ from threading import Thread
 import json
 
 processed_dependencies = []
-common_flags = ["-g", "-fno-exceptions", "-std=c++20", "-I."]
+common_flags = ["-g", "-fno-exceptions", "-fsanitize=address", "-std=c++20", "-I."]
 output_path = "output"
 input_path = "ona"
 
