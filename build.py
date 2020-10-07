@@ -1,9 +1,10 @@
 #!/bin/python3
 
 from argparse import ArgumentParser
+from sys import exit
 from os import path, listdir
 from subprocess import call
-from threading import Thread
+from concurrent import futures
 import json
 
 processed_dependencies = []
@@ -33,22 +34,9 @@ def build(name: str) -> (bool, str):
 			print("No", required_property, "specified in build.json for", name)
 			exit(1)
 
-	compilation_workers = []
 	object_paths = []
 	dependency_paths = []
 	needs_recompile = False
-
-	def compile_source(source_path: str, object_path: str) -> None:
-		def worker_process() -> None:
-			print(source_path)
-
-			if (call(["clang++", source_path, ("-o" + object_path), "-c"] + common_flags) != 0):
-				exit(1)
-
-		worker = Thread(target = worker_process)
-
-		compilation_workers.append(worker)
-		worker.start()
 
 	def to_object_path(source_path: str) -> str:
 		path_nodes = []
@@ -136,31 +124,50 @@ def build(name: str) -> (bool, str):
 
 	source_path = path.join(module_path, "source")
 
-	if (path.exists(source_path)):
+	with futures.ThreadPoolExecutor() as executor:
+		def compile_source(source_path: str, object_path: str) -> int:
+			print(source_path)
+
+			return call(["clang++", source_path, ("-o" + object_path), "-c"] + common_flags)
+
+		compilation_futures = []
+
+		if (path.exists(source_path)):
+			if (needs_recompile):
+				# A dependency has changed so re-compile the entire module.
+				for file_name in listdir(source_path):
+					file_path = path.join(source_path, file_name)
+
+					compilation_futures.append(executor.submit(
+						compile_source,
+						file_path,
+						to_object_path(file_path)
+					))
+			else:
+				for file_name in listdir(source_path):
+					file_path = path.join(source_path, file_name)
+					object_path = to_object_path(file_path)
+
+					if (
+						(not path.exists(object_path)) or
+						(path.getmtime(file_path) > path.getmtime(object_path))
+					):
+						compilation_futures.append(executor.submit(
+							compile_source,
+							file_path,
+							object_path
+						))
+
+						needs_recompile = True
+
+		for future in compilation_futures:
+			exit_code = future.result()
+
+			if (exit_code != 0):
+				exit(exit_code)
+
 		if (needs_recompile):
-			# A dependency has changed so re-compile the entire module.
-			for file_name in listdir(source_path):
-				file_path = path.join(source_path, file_name)
-
-				compile_source(file_path, to_object_path(file_path))
-		else:
-			for file_name in listdir(source_path):
-				file_path = path.join(source_path, file_name)
-				object_path = to_object_path(file_path)
-
-				if (
-					(not path.exists(object_path)) or
-					(path.getmtime(file_path) > path.getmtime(object_path))
-				):
-					compile_source(file_path, object_path)
-
-					needs_recompile = True
-
-	if (needs_recompile):
-		for worker in compilation_workers:
-			worker.join()
-
-		link()
+			link()
 
 	return needs_recompile, binary_path
 
