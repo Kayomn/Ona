@@ -1,7 +1,4 @@
 {
-	"language": "c++",
 	"targetType": "static-lib",
-	"dependencies": [
-		"core"
-	]
+	"dependencies": ["core"]
 }

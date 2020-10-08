@@ -1,14 +1,6 @@
 {
-	"language": "c++",
 	"targetType": "executable",
-	"libraries": [
-		"dl",
-		"SDL2",
-		"GL",
-		"GLEW"
-	],
-	"dependencies": [
-		"core",
-		"collections"
-	]
+	"dependencies": ["core", "collections"],
+	"libraries": ["SDL2", "GL", "GLEW"],
+	"versions": ["OpenGL"]
 }
