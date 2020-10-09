@@ -47,6 +47,20 @@ public struct Table(KeyType, ValueType) {
 		this.allocator = allocator;
 	}
 
+	/**
+	 * Copy-constructs a `Table` from `that`.
+	 */
+	@nogc
+	public this(ref Table that) {
+		this.allocator = that.allocator;
+		this.count = that.count;
+		this.loadMaximum = that.loadMaximum;
+
+		this.rehash(that.buckets.length);
+
+		foreach (ref key, ref value; that.itemsOf()) this.insert(key, value);
+	}
+
 	public ~this() {
 		if (this.allocator) {
 			void destroyChainAllocator(Bucket* bucket) {
@@ -348,7 +362,7 @@ public struct Table(KeyType, ValueType) {
 	 * Creates an iterable range for the `Table` which may be used in a `foreach` statement.
 	 */
 	@nogc
-	public auto valuesOf() pure {
+	public auto itemsOf() pure {
 		alias Action = @nogc int delegate(ref KeyType key, ref ValueType value);
 
 		struct Values {
