@@ -77,15 +77,18 @@ public class SpriteCommands : GraphicsCommands {
 	 *
 	 * Should the `Sprite` fail to be created, `null` is returned instead.
 	 */
-	public Result!Sprite createSprite(GraphicsServer* graphicsServer, Image image) {
+	public Result!Sprite createSprite(GraphicsServer graphicsServer, Image image) {
 		alias Res = Result!Sprite;
-		immutable materialId = graphicsServer.createMaterial(this.rendererId, image);
+		immutable (Material) material = {tintColor: Vector4.of(1f)};
+
+		immutable materialId = graphicsServer.requestMaterial(
+			this.rendererId,
+			image,
+			DataBuffer(asBytes(material))
+		);
 
 		if (materialId) {
 			immutable imageSize = image.dimensionsOf();
-			Material material = {tintColor: Vector4.of(1f)};
-
-			graphicsServer.updateMaterialUserdata(materialId, DataBuffer(asBytes(material)));
 
 			return Res.ok(Sprite(
 				this.rectPolyId,
@@ -97,7 +100,7 @@ public class SpriteCommands : GraphicsCommands {
 		return Res.fail();
 	}
 
-	override void dispatch(GraphicsServer* graphicsServer) {
+	override void dispatch(GraphicsServer graphicsServer) {
 		foreach (ref sprite, ref batchSet; this.batches.valuesOf()) {
 			Batch* batch = (&batchSet.head);
 
@@ -164,7 +167,7 @@ public class SpriteCommands : GraphicsCommands {
 	 * Allocates and initializes a new `SpriteCommands` instances, provided it can acquire the#
 	 * resources required to do so from `graphicsServer`.
 	 */
-	public static SpriteCommands make(GraphicsServer* graphicsServer) {
+	public static SpriteCommands make(GraphicsServer graphicsServer) {
 		SpriteCommands commands = new SpriteCommands();
 
 		if (commands) {

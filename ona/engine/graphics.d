@@ -127,192 +127,101 @@ public const struct DataBuffer {
 	}
 }
 
-/**
- * Opaque interface to a platform-specific hardware-accelerated graphics API.
- */
-public struct GraphicsServer {
-	private void* instance;
-
-	extern (C) {
+extern (C++) {
+	/**
+	 * Opaque request server to the graphics and windowing systems of a platform.
+	 */
+	public interface GraphicsServer {
+		/**
+		 * Clears the backbuffer of the `GraphicsServer` to black.
+		 */
 		@nogc
-		private void function(void* instance) clearer;
+		void clear();
 
+		/**
+		 * Clears the backbuffer of the `GraphicsServer` to `color`.
+		 */
 		@nogc
-		private void function(void* instance, Color color) coloredClearer;
+		void coloredClear(Color color);
 
+		/**
+		 * Reads the relevant events received from the platform and writes them to `events`,
+		 * returning `true` if the process is expected to continue as normal or `false` if a signal
+		 * has been received to exit.
+		 */
 		@nogc
-		private bool function(void* instance, Events* events) eventsReader;
+		bool readEvents(Events* events);
 
+		/**
+		 * Updates the visible state of the `GraphicsServer`, swapping the back and front buffers.
+		 */
 		@nogc
-		private void function(void* instance) updater;
+		void update();
 
+		/**
+		 * Requests a renderer from the `GraphicsServer` that uses the shader scripts `vertexSource`
+		 * and `fragmentSource`, as well as the layouts `vertexLayout`, `rendererLayout`, and
+		 * `materialLayout` for vertices, renderer userdata, and material userdata respectively.
+		 *
+		 * If such a renderer does not yet exist, a new one will be created and returned.
+		 *
+		 * If the resources for creating the renderer cannot be acquired or the inputs are
+		 * malformed, a `0` `ResourceId` will be returned instead.
+		 */
 		@nogc
-		private ResourceId function(
-			void* instance,
+		ResourceId requestRenderer(
 			Chars vertexSource,
 			Chars fragmentSource,
 			Layout vertexLayout,
-			Layout userdataLayout,
+			Layout rendererLayout,
 			Layout materialLayout
-		) rendererRequester;
+		);
 
+		/**
+		 * Requests a material from the `GraphicsServer` that uses the renderer at `rendererId` as
+		 * its target renderer, `texture` as its pixel data, and `userdata` as its userdata.
+		 *
+		 * If such a material does not yet exist, a new one will be created and returned.
+		 *
+		 * If the resources for creating the material cannot be acquired or the inputs are
+		 * malformed, a `0` `ResourceId` will be returned instead.
+		 */
 		@nogc
-		private ResourceId function(
-			void* instance,
-			ResourceId rendererId,
-			DataBuffer vertexData
-		) polyRequester;
+		ResourceId requestMaterial(ResourceId rendererId, Image texture, DataBuffer userdata);
 
+		/**
+		 * Requests a poly collection from the `GraphicsServer` that uses the renderer at
+		 * `rendererId` as its target renderer and `vertexData` as its vertex data.
+		 *
+		 * If such a poly collection does not yet exist, a new one will be created and returned.
+		 *
+		 * If the resources for creating the poly collection cannot be acquired or the inputs are
+		 * malformed, a `0` `ResourceId` will be returned instead.
+		 */
 		@nogc
-		private ResourceId function(
-			void* instance,
-			ResourceId rendererId,
-			Image texture
-		) materialCreator;
+		ResourceId requestPoly(ResourceId rendererId, DataBuffer vertexData);
 
+		/**
+		 * Requests the the poly `polyId` by rendered to the `GraphicsServer` backbuffer using the
+		 * material at `materialId` as its material and the renderer at `rendererId` as its
+		 * renderer for `count` instances.
+		 *
+		 * Note that in order for `GraphicsServer.renderPolyInstanced` to work, the renderer at
+		 * `rendererId` **must** support instanced rendering.
+		 */
 		@nogc
-		private void function(
-			void* instance,
+		void renderPolyInstanced(
 			ResourceId rendererId,
 			ResourceId polyId,
 			ResourceId materialId,
 			size_t count
-		) instancedPolyRenderer;
-
-		@nogc
-		private void function(
-			void* instance,
-			ResourceId materialId,
-			DataBuffer userdata
-		) materialUserdataUpdater;
-
-		@nogc
-		private void function(
-			void* instance,
-			ResourceId rendererId,
-			DataBuffer userdata
-		) rendererUserdataUpdater;
-	}
-
-	/**
-	 * Clears the backbuffer.
-	 */
-	@nogc
-	public void clear() {
-		if (this.clearer) this.clearer(this.instance);
-	}
-
-	/**
-	 * Clears the backbuffer to the color value `color`.
-	 */
-	@nogc
-	void coloredClear(Color color) {
-		if (this.coloredClearer) this.coloredClearer(this.instance, color);
-	}
-
-	/**
-	 * Reads events from the `GraphicsServer` backend and writes them to the standardized format
-	 * represented in `Events`.
-	 */
-	@nogc
-	bool readEvents(Events* events) {
-		return (this.eventsReader ? this.eventsReader(this.instance, events) : false);
-	}
-
-	/**
-	 * Swaps the buffers around, presenting whatever has been rendered to the backbuffer.
-	 */
-	@nogc
-	void update() {
-		if (this.updater) this.updater(this.instance);
-	}
-
-	/**
-	 * Attempts to request a renderer resource from the `GraphicsServer`.
-	 *
-	 * If no such resource already exists, a new will be created.
-	 */
-	@nogc
-	ResourceId requestRenderer(
-		Chars vertexSource,
-		Chars fragmentSource,
-		Layout vertexLayout,
-		Layout userdataLayout,
-		Layout materialLayout
-	) {
-		return (this.rendererRequester ? this.rendererRequester(
-			this.instance,
-			vertexSource,
-			fragmentSource,
-			vertexLayout,
-			userdataLayout,
-			materialLayout
-		) : 0);
-	}
-
-	/**
-	 * Attempts to request a poly resource from the `GraphicsServer` that belongs to the renderer
-	 * referenced by `rendererId` and has identical vertex data to `vertexData`.
-	 *
-	 * If no such resource already exists, a new will be created.
-	 */
-	@nogc
-	ResourceId requestPoly(ResourceId rendererId, DataBuffer vertexData) {
-		return (this.polyRequester ? this.polyRequester(this.instance, rendererId, vertexData) : 0);
-	}
-
-	/**
-	 * Attempts to create a new material resource on the `GraphicsServer`.
-	 */
-	@nogc
-	ResourceId createMaterial(ResourceId rendererId, Image texture) {
-		return (
-			this.materialCreator ?
-			this.materialCreator(this.instance, rendererId, texture) :
-			0
 		);
-	}
 
-	/**
-	 * Requests that the `GraphicsServer` render the poly referenced by `polyId` using the
-	 * material referenced by `materialId` using the renderer referenced by `rendererId` `count`
-	 * number of times.
-	 *
-	 * Note that in order for `GraphicsServer.renderPolyInstanced` to work, the renderer
-	 * referenced by `rendererId` **must** support instanced rendering.
-	 */
-	@nogc
-	void renderPolyInstanced(
-		ResourceId rendererId,
-		ResourceId polyId,
-		ResourceId materialId,
-		size_t count
-	) {
-		if (this.instancedPolyRenderer) {
-			this.instancedPolyRenderer(this.instance, rendererId, polyId, materialId, count);
-		}
-	}
-
-	/**
-	 * Updates the userdata stored in the material referenced by `materialId` with `userdata`,
-	 * provided that it is deemed to be valid data.
-	 */
-	@nogc
-	void updateMaterialUserdata(ResourceId materialId, DataBuffer userdata) {
-		if (this.materialUserdataUpdater) {
-			this.materialUserdataUpdater(this.instance, materialId, userdata);
-		}
-	}
-
-	/**
-	 * Updates the userdata stored in the renderer referenced by `rendererId` with `userdata`,
-	 * provided that it is deemed to be valid data.
-	 */
-	@nogc
-	void updateRendererUserdata(ResourceId rendererId, DataBuffer userdata) {
-		if (this.rendererUserdataUpdater) {
-			this.rendererUserdataUpdater(this.instance, rendererId, userdata);
-		}
+		/**
+		 * Updates the userdata of the renderer at `rendererId` with `userdata`.
+		 */
+		@nogc
+		void updateRendererUserdata(ResourceId rendererId, DataBuffer userdata);
 	}
 }
 
@@ -326,15 +235,7 @@ public interface GraphicsCommands {
 	 * `GraphicsCommands` command queue in the process.
 	 */
 	@nogc
-	void dispatch(GraphicsServer* graphicsServer);
-}
-
-/**
- * Error codes used when a `GraphicsServer` fails to produce a valid renderer resource.
- */
-public enum RendererError {
-	server,
-	badShader
+	void dispatch(GraphicsServer graphicsServer);
 }
 
 /**
@@ -351,27 +252,9 @@ public enum TypeDescriptor {
 	double_
 }
 
-/**
- * Error codes used when a `GraphicsServer` fails to produce a valid poly resource.
- */
-public enum PolyError {
-	server,
-	badRenderer,
-	badVertices
-}
-
-/**
- * Error codes used when a `GraphicsServer` fails to produce a valid material resource.
- */
-public enum MaterialError {
-	server,
-	badRenderer,
-	badImage
-}
-
 public alias ResourceId = uint;
 
 /**
  * Loads the OpenGL graphics backend into memory.
  */
-public extern (C) GraphicsServer* loadGraphics(Chars title, int width, int height);
+public extern (C) GraphicsServer loadGraphics(Chars title, int width, int height);

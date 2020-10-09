@@ -10,44 +10,38 @@
 
 #define internal static
 
-#define thread_local _Thread_local
+class Allocator;
 
-#define cast(type) (type)
-
-#define min(a, b) ((a < b) ? a : b)
-
-#define make(type) cast(type *)calloc(1, sizeof(type))
-
-typedef void * Allocator;
-
-typedef struct {
+struct Point2 {
 	int32_t x, y;
-} Point2;
+};
 
-typedef struct {
+struct Vector4 {
 	float x, y, z, w;
-} Vector4;
+};
 
-typedef struct {
+struct Color {
 	uint8_t r, g, b, a;
-} Color;
+};
 
-typedef struct {
+struct Chars {
 	size_t size;
 
 	char const * pointer;
 
 	size_t length;
-} Chars;
+};
 
-typedef struct {
+struct Image {
 	Allocator * allocator;
 
 	Color * pixels;
 
 	Point2 dimensions;
-} Image;
+};
 
-
+extern "C" void __cxa_pure_virtual() {
+	assert(false);
+}
 
 #endif
