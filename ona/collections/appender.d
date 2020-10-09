@@ -24,6 +24,23 @@ public struct Appender(Type) {
 		this.allocator = allocator;
 	}
 
+	/**
+	 * Copy-constructs a new `Appender` from the memory contents of `that`.
+	 */
+	@nogc
+	public this(ref Appender that) {
+		this.allocator = that.allocator;
+		this.count = that.count;
+
+		this.values = cast(Type[])(
+			that.allocator ?
+			that.allocator.allocate(Type.sizeof * that.count) :
+			allocate(Type.sizeof * that.count)
+		);
+
+		foreach (i; 0 .. this.count) this.values[i] = that.values[i];
+	}
+
 	public ~this() {
 		static if (hasElaborateDestructor!Type) {
 			foreach (ref value; this.valuesOf()) destroy(value);
