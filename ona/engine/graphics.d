@@ -79,11 +79,23 @@ public struct Events {
 	float deltaTime;
 }
 
-public struct Layout {
+/**
+ * Language-agnostic sequence of `Attribute`s.
+ */
+public const struct Layout {
+	/**
+	 * Number of `Attribute`s in the `Layout`.
+	 */
 	size_t length;
 
-	const (Attribute)* pointer;
+	/**
+	 * Pointer to the first `Attribute`.
+	 */
+	Attribute* pointer;
 
+	/**
+	 * Constructs a `Layout` from `attributes`.
+	 */
 	@nogc
 	this(const (Attribute)[] attributes) pure {
 		this.length = attributes.length;
@@ -91,11 +103,23 @@ public struct Layout {
 	}
 }
 
-public struct DataBuffer {
+/**
+ * Language-agnostic type-erasing wrapper around a sequence of bytes.
+ */
+public const struct DataBuffer {
+	/**
+	 * Number of bytes in the `DataBuffer`.
+	 */
 	size_t length;
 
-	const (ubyte)* pointer;
+	/**
+	 * Pointer to the first byte.
+	 */
+	ubyte* pointer;
 
+	/**
+	 * Constructs a `DataBuffer` from `data`.
+	 */
 	@nogc
 	this(const (ubyte)[] data) pure {
 		this.length = data.length;
