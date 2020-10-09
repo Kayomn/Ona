@@ -90,7 +90,16 @@ def build(name: str) -> BuildInfo:
 				dependency_paths.append(build_info.path)
 				processed_dependencies.append(dependency)
 
+	target_type = module_config["targetType"]
 	binary_file_path = path.join(output_path, name)
+
+	if (target_type == "shared-lib"):
+		binary_file_path += ".so"
+	elif (target_type == "static-lib"):
+		binary_file_path += ".a"
+	elif (target_type == "executable"):
+		# Leaving this here for when Microsoft executable file extensions need to be taken care of.
+		pass
 
 	print("Building", (name + "..."))
 
@@ -178,8 +187,6 @@ def build(name: str) -> BuildInfo:
 				exit(exit_code)
 
 		if (needs_recompile):
-			target_type = module_config["targetType"]
-
 			if (target_type == "shared-lib"):
 				print("Linking shared library...")
 			elif (target_type == "static-lib"):
