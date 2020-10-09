@@ -48,7 +48,57 @@ public struct Table(KeyType, ValueType) {
 	}
 
 	public ~this() {
-		// TODO
+		if (this.allocator) {
+			void destroyChainAllocator(Bucket* bucket) {
+				while (bucket) {
+					Bucket* nextBucket = bucket.next;
+
+					static if (hasElaborateDestructor!KeyType) {
+						destroy(bucket.entry.key);
+					}
+
+					static if (hasElaborateDestructor!ValueType) {
+						destroy(bucket.entry.value);
+					}
+
+					this.allocator.deallocate(bucket);
+
+					bucket = nextBucket;
+				}
+			}
+
+			destroyChainAllocator(this.freedBuckets);
+
+			if (this.count) {
+				foreach (i; 0 .. this.buckets.length) destroyChainAllocator(this.buckets[i]);
+			}
+
+			this.allocator.deallocate(this.buckets.ptr);
+		} else {
+			static void destroyChain(Bucket* bucket) {
+				while (bucket) {
+					Bucket* nextBucket = bucket.next;
+
+					static if (hasElaborateDestructor!KeyType) {
+						destroy(bucket.entry.key);
+					}
+
+					static if (hasElaborateDestructor!ValueType) {
+						destroy(bucket.entry.value);
+					}
+
+					deallocate(bucket);
+
+					bucket = nextBucket;
+				}
+			}
+
+			destroyChain(this.freedBuckets);
+
+			if (this.count) foreach (i; 0 .. this.buckets.length) destroyChain(this.buckets[i]);
+
+			deallocate(this.buckets.ptr);
+		}
 	}
 
 	/**
@@ -203,7 +253,6 @@ public struct Table(KeyType, ValueType) {
 	}
 
 	public bool remove(KeyType key) pure {
-		// TODO
 		return false;
 	}
 
@@ -264,7 +313,7 @@ public struct Table(KeyType, ValueType) {
 	 * If `key` does not point to a value in the `Table` then `null` is returned instead.
 	 */
 	public inout (ValueType*) lookup(KeyType key) inout {
-		if (this.buckets) {
+		if (this.buckets && this.count) {
 			inout (Bucket)* bucket = this.buckets[hashKey(key) % this.buckets.length];
 
 			if (bucket) {
