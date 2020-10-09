@@ -28,6 +28,11 @@ public struct Attribute {
 	uint components;
 
 	/**
+	 * Name of the `Attribute` used within the shader program.
+	 */
+	Chars name;
+
+	/**
 	 * Calculates the number of bytes that compose the `Attribute` based on the `TypeDescriptor` and
 	 * number of components.
 	 */

@@ -12,22 +12,26 @@ private import
 public const struct Chars {
 	static assert((this.sizeof == 24), (typeof(this).stringof ~ " is not 24 bytes"));
 
-	size_t size;
+	/**
+	 * Raw ASCII view the `Chars`.
+	 */
+	char[] values;
 
+	/**
+	 * Number of UTF-8 / ASCII characters in the `Chars`.
+	 */
 	size_t length;
-
-	const (char)* pointer;
 
 	/**
 	 * Parses `data` into a `Chars` as if it's UTF-8 encoded.
 	 */
 	@nogc
-	static Chars parseUtf8(const (char)[] data) pure {
+	static Chars parseUTF8(const (char)[] data) pure {
 		size_t length;
 
 		foreach (c; data) length += ((c & 0xC0) != 0x80);
 
-		return Chars(data.length, length, data.ptr);
+		return Chars(data, length);
 	}
 }
 
@@ -56,7 +60,7 @@ public struct String {
 	 */
 	@nogc
 	public this(const (char)[] data) {
-		this(Chars.parseUtf8(data));
+		this(Chars.parseUTF8(data));
 	}
 
 	/**
@@ -64,11 +68,11 @@ public struct String {
 	 */
 	@nogc
 	public this(Chars chars) {
-		if (chars.size <= this.size.max) {
-			ubyte[] buffer = this.createBuffer(cast(uint)chars.size);
+		if (chars.values.length <= this.size.max) {
+			ubyte[] buffer = this.createBuffer(cast(uint)chars.values.length);
 			this.length = cast(uint)chars.length;
 
-			copyMemory(buffer, cast(const (ubyte)[])chars.pointer[0 .. chars.size]);
+			copyMemory(buffer, cast(const (ubyte)[])chars.values);
 		}
 	}
 
@@ -103,7 +107,7 @@ public struct String {
 	 */
 	@nogc
 	public Chars chars() const pure {
-		return Chars(this.size, this.length, (cast(const (char*))this.asBytes().ptr));
+		return Chars((cast(const (char[]))this.asBytes()), this.size);
 	}
 
 	@nogc
@@ -143,6 +147,18 @@ public struct String {
 	@nogc
 	public uint lengthOf() const pure {
 		return this.length;
+	}
+
+	/**
+	 * Retrieves the character pointer of the `String`.
+	 */
+	@nogc
+	public const (char)* pointerOf() const pure return {
+		return (
+			this.isDynamic() ?
+			(cast(const (char)*)this.data.dynamic) :
+			(cast(const (char)*)this.data.static_.ptr)
+		);
 	}
 
 	@nogc

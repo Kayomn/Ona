@@ -35,9 +35,9 @@ typedef struct {
 typedef struct {
 	size_t size;
 
-	size_t length;
-
 	char const * pointer;
+
+	size_t length;
 } Chars;
 
 typedef struct {

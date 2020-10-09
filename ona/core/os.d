@@ -184,7 +184,7 @@ public struct Library {
 	 */
 	@nogc
 	public void* findSymbol(String symbolName) {
-		return dlsym(this.context, String.sentineled(symbolName).chars().pointer);
+		return dlsym(this.context, String.sentineled(symbolName).pointerOf());
 	}
 
 	/**
@@ -293,7 +293,7 @@ public ubyte[] allocate(size_t size) {
  */
 @nogc
 public bool checkFile(String filePath) {
-	return (access(String.sentineled(filePath).chars().pointer, F_OK) != -1);
+	return (access(String.sentineled(filePath).pointerOf(), F_OK) != -1);
 }
 
 /**
@@ -334,7 +334,7 @@ public Result!(File, FileOpenError) openFile(String filePath, File.OpenFlags fla
 	* Other | yes  no    no
 	*/
 	const (int) handle = open(
-		String.sentineled(filePath).chars().pointer,
+		String.sentineled(filePath).pointerOf(),
 		unixAccessFlags,
 		(S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR)
 	);
@@ -356,10 +356,7 @@ public Result!(File, FileOpenError) openFile(String filePath, File.OpenFlags fla
 @nogc
 public Result!(Library, LibraryError) openLibrary(String libraryPath) {
 	alias Res = Result!(Library, LibraryError);
-
-	Library library = {
-		context: dlopen(String.sentineled(libraryPath).chars().pointer, RTLD_NOW)
-	};
+	Library library = {context: dlopen(String.sentineled(libraryPath).pointerOf(), RTLD_NOW)};
 
 	return (library.context ? Res.ok(library) : Res.fail(LibraryError.cantLoad));
 }

@@ -168,7 +168,7 @@ public class SpriteCommands : GraphicsCommands {
 		SpriteCommands commands = new SpriteCommands();
 
 		if (commands) {
-			static immutable vertexSource = `
+			static immutable vertexSource = Chars.parseUTF8(`
 #version 430 core
 #define INSTANCE_COUNT 128
 
@@ -199,9 +199,9 @@ void main() {
 	gl_Position = (
 		projectionTransform * transforms[gl_InstanceID] * vec4(quadVertex, 0.0, 1.0)
 	);
-}`;
+}`);
 
-			static immutable fragmentSource = `
+			static immutable fragmentSource = Chars.parseUTF8(`
 #version 430 core
 
 in vec2 texCoords;
@@ -216,28 +216,28 @@ void main() {
 	if (spriteTextureColor.a == 0.0) discard;
 
 	outColor = spriteTextureColor;
-}`;
+}`);
 
 			static immutable vertexAttributes = [
-				Attribute(TypeDescriptor.float_, 2),
-				Attribute(TypeDescriptor.float_, 2)
+				Attribute(TypeDescriptor.float_, 2, Chars.parseUTF8("quadVertex")),
+				Attribute(TypeDescriptor.float_, 2, Chars.parseUTF8("quadUV"))
 			];
 
-			static immutable userdataAttributes = [
-				Attribute(TypeDescriptor.float_, 16),
-				Attribute(TypeDescriptor.float_, (16 * 128)),
-				Attribute(TypeDescriptor.float_, (4 * 128)),
+			static immutable rendererAttributes = [
+				Attribute(TypeDescriptor.float_, 16, Chars.parseUTF8("projectionTransform")),
+				Attribute(TypeDescriptor.float_, (16 * 128), Chars.parseUTF8("transforms")),
+				Attribute(TypeDescriptor.float_, (4 * 128), Chars.parseUTF8("viewports")),
 			];
 
 			static immutable materialAttributes = [
-				Attribute(TypeDescriptor.float_, 4)
+				Attribute(TypeDescriptor.float_, 4, Chars.parseUTF8("tintColor"))
 			];
 
 			commands.rendererId = graphicsServer.requestRenderer(
-				Chars.parseUtf8(vertexSource),
-				Chars.parseUtf8(fragmentSource),
+				vertexSource,
+				fragmentSource,
 				Layout(vertexAttributes),
-				Layout(userdataAttributes),
+				Layout(rendererAttributes),
 				Layout(materialAttributes)
 			);
 

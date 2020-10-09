@@ -27,6 +27,8 @@ typedef struct {
 	TypeDescriptor descriptor;
 
 	uint32_t components;
+
+	Chars chars;
 } Attribute;
 
 typedef struct {
