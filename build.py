@@ -25,7 +25,12 @@ required_properties = [
 	"targetType"
 ]
 
-def build(name: str) -> (bool, str):
+class BuildInfo:
+	def __init__(self, has_recompiled: bool, path: str):
+		self.has_recompiled = has_recompiled
+		self.path = path
+
+def build(name: str) -> BuildInfo:
 	def load_build_config(file_path: str) -> dict:
 		if (not path.exists(file_path)):
 			print("No build.json exists for", name)
@@ -79,10 +84,10 @@ def build(name: str) -> (bool, str):
 	if ("dependencies" in module_config):
 		for dependency in module_config["dependencies"]:
 			if (not dependency in processed_dependencies):
-				build_result, dependency_path = build(dependency)
-				needs_recompile |= build_result
+				build_info = build(dependency)
+				needs_recompile |= build_info.has_recompiled
 
-				dependency_paths.append(dependency_path)
+				dependency_paths.append(build_info.path)
 				processed_dependencies.append(dependency)
 
 	binary_file_path = path.join(output_path, name)
@@ -202,7 +207,7 @@ def build(name: str) -> (bool, str):
 			else:
 				print("Unknown target type: ", target_type)
 
-	return needs_recompile, binary_file_path
+	return BuildInfo(needs_recompile, binary_file_path)
 
 arg_parser = ArgumentParser(
 	description = "Builds an Ona engine component and all of its dependencies."
@@ -213,5 +218,5 @@ arg_parser.add_argument("component", help = "Component to compile")
 args = arg_parser.parse_args()
 component = args.component
 
-if (not build(component)[0]):
+if (not build(component).has_recompiled):
 	print("Nothing to be done")
