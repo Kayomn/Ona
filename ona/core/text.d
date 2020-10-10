@@ -33,6 +33,20 @@ public const struct Chars {
 
 		return Chars(data, length);
 	}
+
+	@nogc
+	public bool opEquals(Chars that) const {
+		return (this.values == that.values);
+	}
+
+	@nogc
+	public ulong toHash() pure const {
+		ulong hash = 5381;
+
+		foreach (c; this.asBytes()) hash = (((hash << 5) + hash) ^ c);
+
+		return hash;
+	}
 }
 
 /**
