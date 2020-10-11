@@ -192,8 +192,6 @@ def build(name: str) -> BuildInfo:
 			elif (target_type == "static-lib"):
 				print("Linking static library...")
 
-				binary_file_path += ".a"
-
 				call(["ar", "rc", binary_file_path] + object_paths)
 			elif (target_type == "executable"):
 				print("Linking executable...")
