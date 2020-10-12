@@ -61,7 +61,7 @@ def build(name: str) -> BuildInfo:
 			path_nodes.append(split[1])
 
 		if (len(path_nodes)):
-			path_nodes[0] = (path.splitext(path_nodes[0])[0] + ".o")
+			path_nodes[0] += ".o"
 
 			path_nodes.reverse()
 
