@@ -30,13 +30,14 @@ public struct Appender(Type) {
 	@nogc
 	public this(ref Appender that) {
 		this.allocator = that.allocator;
-		this.count = that.count;
 
 		this.values = cast(Type[])(
 			that.allocator ?
-			that.allocator.allocate(Type.sizeof * that.count) :
-			allocate(Type.sizeof * that.count)
+			that.allocator.allocate(Type.sizeof * that.values.length) :
+			allocate(Type.sizeof * that.values.length)
 		);
+
+		this.count = (that.count * (this.values != null));
 
 		foreach (i; 0 .. this.count) this.values[i] = that.values[i];
 	}
@@ -200,7 +201,7 @@ public struct Appender(Type) {
 	 * invalidate it.
 	 */
 	@nogc
-	public inout (Type[]) valuesOf() inout {
+	public inout (Type[]) valuesOf() inout pure {
 		return this.values[0 .. this.count];
 	}
 }
