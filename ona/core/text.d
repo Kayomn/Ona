@@ -9,24 +9,24 @@ private import
 /**
  * Non-owning view into a UTF-8-encoded character sequence.
  */
-public const struct Chars {
+public struct Chars {
 	static assert((this.sizeof == 24), (typeof(this).stringof ~ " is not 24 bytes"));
 
 	/**
 	 * Raw ASCII view the `Chars`.
 	 */
-	char[] values;
+	private const (char)[] values;
 
 	/**
 	 * Number of UTF-8 / ASCII characters in the `Chars`.
 	 */
-	size_t length;
+	private size_t length;
 
 	/**
 	 * Parses `data` into a `Chars` as if it's UTF-8 encoded.
 	 */
 	@nogc
-	static Chars parseUTF8(const (char)[] data) pure {
+	public static Chars parseUTF8(const (char)[] data) pure {
 		size_t length;
 
 		foreach (c; data) length += ((c & 0xC0) != 0x80);
