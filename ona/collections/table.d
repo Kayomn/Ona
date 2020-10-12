@@ -50,7 +50,6 @@ public struct Table(KeyType, ValueType) {
 	/**
 	 * Copy-constructs a `Table` from `that`.
 	 */
-	@nogc
 	public this(ref Table that) {
 		this.allocator = that.allocator;
 		this.count = that.count;
@@ -361,15 +360,11 @@ public struct Table(KeyType, ValueType) {
 	/**
 	 * Creates an iterable range for the `Table` which may be used in a `foreach` statement.
 	 */
-	@nogc
 	public auto itemsOf() pure {
-		alias Action = @nogc int delegate(ref KeyType key, ref ValueType value);
-
 		struct Values {
 			Table* context;
 
-			@nogc
-			int opApply(Action action) {
+			int opApply(int delegate(ref KeyType key, ref ValueType value) action) {
 				if (this.context.count) foreach (i; 0 .. this.context.buckets.length) {
 					Bucket* bucket = this.context.buckets[i];
 
