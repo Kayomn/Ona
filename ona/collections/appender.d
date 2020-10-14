@@ -76,7 +76,7 @@ public struct Appender(ValueType, IndexType = size_t) {
 	 * Should `Appender.append` fail, `null` is returned instead.
 	 */
 	@nogc
-	public ValueType* append(ValueType value) {
+	public ValueType* append(in ValueType value) {
 		if (this.count >= this.capacity) {
 			if (!this.reserve(this.count ? this.count : 2)) {
 				// Allocation failure.
