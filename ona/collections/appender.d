@@ -7,12 +7,14 @@ import
 /**
  * Sequential buffer of linearly allocate memory with `O(1)` random access.
  */
-public struct Appender(Type) {
+public struct Appender(ValueType, IndexType = size_t) {
 	private Allocator allocator;
 
-	private size_t count;
+	private ValueType* values;
 
-	private Type[] values;
+	private IndexType count;
+
+	private IndexType capacity;
 
 	/**
 	 * Constructs an `Appender` with `allocator` as the `Allocator`.
@@ -31,19 +33,22 @@ public struct Appender(Type) {
 	public this(ref Appender that) {
 		this.allocator = that.allocator;
 
-		this.values = cast(Type[])(
+		this.values = (cast(ValueType*)(
 			that.allocator ?
-			that.allocator.allocate(Type.sizeof * that.values.length) :
-			allocate(Type.sizeof * that.values.length)
-		);
+			that.allocator.allocate(ValueType.sizeof * that.capacity) :
+			allocate(ValueType.sizeof * that.capacity)
+		).ptr);
 
-		this.count = (that.count * (this.values != null));
+		if (this.values) {
+			this.count = that.count;
+			this.capacity = that.capacity;
 
-		foreach (i; 0 .. this.count) this.values[i] = that.values[i];
+			foreach (i; 0 .. this.count) this.values[i] = that.values[i];
+		}
 	}
 
 	public ~this() {
-		static if (hasElaborateDestructor!Type) {
+		static if (hasElaborateDestructor!ValueType) {
 			foreach (ref value; this.valuesOf()) destroy(value);
 		}
 
@@ -71,15 +76,15 @@ public struct Appender(Type) {
 	 * Should `Appender.append` fail, `null` is returned instead.
 	 */
 	@nogc
-	public Type* append(Type value) {
-		if (this.count >= this.values.length) {
+	public ValueType* append(ValueType value) {
+		if (this.count >= this.capacity) {
 			if (!this.reserve(this.count ? this.count : 2)) {
 				// Allocation failure.
-				return nil!(Type*);
+				return null;
 			}
 		}
 
-		Type* bufferAddress = (this.values.ptr + this.count);
+		ValueType* bufferAddress = (this.values + this.count);
 		this.count += 1;
 		(*bufferAddress) = value;
 
@@ -90,7 +95,7 @@ public struct Appender(Type) {
 	 * Retrieves the value at index `index` by reference.
 	 */
 	@nogc
-	public ref inout (Type) at(const (size_t) index) inout pure {
+	public ref inout (ValueType) at(in IndexType index) inout pure {
 		return this.values[index];
 	}
 
@@ -104,15 +109,15 @@ public struct Appender(Type) {
 	 * its existing buffer to store the additional values.
 	 */
 	@nogc
-	public size_t capacityOf() const pure {
-		return this.values.length;
+	public IndexType capacityOf() const pure {
+		return this.capacity;
 	}
 
 	/**
 	 * Clears all contents of the `Appender`, destroying values if they are destructible.
 	 */
 	public void clear() {
-		static if (hasElaborateDestructor!Type) {
+		static if (hasElaborateDestructor!ValueType) {
 			foreach (ref value; this.valuesOf()) destroy(value);
 		}
 
@@ -125,7 +130,7 @@ public struct Appender(Type) {
 	 * `Appender.countOf` is not to be confused with `Appender.capacityOf`.
 	 */
 	@nogc
-	public size_t countOf() const pure {
+	public IndexType countOf() const pure {
 		return this.count;
 	}
 
@@ -141,12 +146,15 @@ public struct Appender(Type) {
 	@nogc
 	public bool compress() {
 		if (this.allocator) {
-			this.values = cast(Type[])this.allocator.reallocate(
-				this.values.ptr,
-				(this.count * Type.sizeof)
-			);
+			this.values = (cast(ValueType*)this.allocator.reallocate(
+				this.values,
+				(this.count * ValueType.sizeof)
+			).ptr);
 		} else {
-			this.values = cast(Type[])reallocate(this.values.ptr, (this.count * Type.sizeof));
+			this.values = (cast(ValueType*)reallocate(
+				this.values,
+				(this.count * ValueType.sizeof)
+			).ptr);
 		}
 
 		return (this.values != null);
@@ -163,20 +171,28 @@ public struct Appender(Type) {
 	 * `true`.
 	 */
 	@nogc
-	public bool reserve(const (size_t) capacity) {
+	public bool reserve(in IndexType capacity) {
+		immutable newCapacity = (this.capacity + capacity);
+
 		if (this.allocator) {
-			this.values = cast(Type[])this.allocator.reallocate(
-				this.values.ptr,
-				((this.values.length + capacity) * Type.sizeof)
-			);
+			this.values = (cast(ValueType*)this.allocator.reallocate(
+				this.values,
+				(newCapacity * ValueType.sizeof)
+			).ptr);
 		} else {
-			this.values = cast(Type[])reallocate(
-				this.values.ptr,
-				((this.values.length + capacity) * Type.sizeof)
-			);
+			this.values = (cast(ValueType*)reallocate(
+				this.values,
+				(newCapacity * ValueType.sizeof)
+			).ptr);
 		}
 
-		return (this.values != null);
+		if (this.values) {
+			this.capacity = newCapacity;
+
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -184,10 +200,10 @@ public struct Appender(Type) {
 	 * destructible.
 	 */
 	@nogc
-	public void truncate(const (size_t) n) {
+	public void truncate(in IndexType n) {
 		assert((n < this.count), "Invalid range");
 
-		static if (hasElaborateDestructor!Type) {
+		static if (hasElaborateDestructor!ValueType) {
 			foreach (ref value; this.values[(this.count - n), this.count]) destroy(value);
 		}
 
@@ -201,7 +217,7 @@ public struct Appender(Type) {
 	 * invalidate it.
 	 */
 	@nogc
-	public inout (Type[]) valuesOf() inout pure {
+	public inout (ValueType)[] valuesOf() inout pure {
 		return this.values[0 .. this.count];
 	}
 }
