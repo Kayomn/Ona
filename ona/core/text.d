@@ -26,7 +26,7 @@ public struct Chars {
 	 * Parses `data` into a `Chars` as if it's UTF-8 encoded.
 	 */
 	@nogc
-	public static Chars parseUTF8(const (char)[] data) pure {
+	public static Chars parseUTF8(in const (char)[] data) pure {
 		size_t length;
 
 		foreach (c; data) length += ((c & 0xC0) != 0x80);
@@ -35,7 +35,7 @@ public struct Chars {
 	}
 
 	@nogc
-	public bool opEquals(Chars that) const {
+	public bool opEquals(in Chars that) const {
 		return (this.values == that.values);
 	}
 
@@ -73,7 +73,7 @@ public struct String {
 	 * Creates a `String` from the ASCII / UTF-8 `data`.
 	 */
 	@nogc
-	public this(const (char)[] data) {
+	public this(in const (char)[] data) {
 		this(Chars.parseUTF8(data));
 	}
 
@@ -81,7 +81,7 @@ public struct String {
 	 * Creates a `String` from the character data `chars`.
 	 */
 	@nogc
-	public this(Chars chars) {
+	public this(in Chars chars) {
 		if (chars.values.length <= this.size.max) {
 			ubyte[] buffer = this.createBuffer(cast(uint)chars.values.length);
 			this.length = cast(uint)chars.length;
@@ -125,7 +125,7 @@ public struct String {
 	}
 
 	@nogc
-	private ubyte[] createBuffer(uint size) return {
+	private ubyte[] createBuffer(in uint size) return {
 		if (size > staticBufferSize) {
 			this.data.dynamic = allocate(size_t.sizeof + clamp(size, 0, this.size.max)).ptr;
 
@@ -176,7 +176,7 @@ public struct String {
 	}
 
 	@nogc
-	public bool opEquals(String that) const {
+	public bool opEquals(in String that) const {
 		return (this.asBytes() == that.asBytes());
 	}
 
@@ -191,7 +191,7 @@ public struct String {
 	 * Creates a copy of `str` with a null-terminating sentinel character on the end.
 	 */
 	@nogc
-	public static String sentineled(String str) {
+	public static String sentineled(in String str) {
 		String sentineledString;
 		ubyte[] buffer = sentineledString.createBuffer(str.lengthOf() + 1);
 
