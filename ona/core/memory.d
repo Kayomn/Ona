@@ -1,6 +1,9 @@
 module ona.core.memory;
 
-private import std.algorithm, ona.core.types;
+private import
+	std.algorithm,
+	std.traits,
+	ona.core.types;
 
 /**
  * Runtime-polymorphic allocator API.
