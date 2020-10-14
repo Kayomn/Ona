@@ -27,6 +27,19 @@ public struct Color {
 	 * `ubyte.max`.
 	 */
 	ubyte r, g, b, a;
+
+	/**
+	 * Converts the `Color` into a `Vector4` of normalized red, green, blue, alpha values.
+	 */
+	@nogc
+	Vector4 normalized() const pure {
+		return Vector4(
+			(this.r / (cast(float)0xFF)),
+			(this.g / (cast(float)0xFF)),
+			(this.b / (cast(float)0xFF)),
+			(this.a / (cast(float)0xFF))
+		);
+	}
 }
 
 /**
