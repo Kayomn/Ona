@@ -7,49 +7,6 @@ private import
 	std.algorithm;
 
 /**
- * Non-owning view into a UTF-8-encoded character sequence.
- */
-public struct Chars {
-	static assert((this.sizeof == 24), (typeof(this).stringof ~ " is not 24 bytes"));
-
-	/**
-	 * Raw ASCII view the `Chars`.
-	 */
-	private const (char)[] values;
-
-	/**
-	 * Number of UTF-8 / ASCII characters in the `Chars`.
-	 */
-	private size_t length;
-
-	/**
-	 * Parses `data` into a `Chars` as if it's UTF-8 encoded.
-	 */
-	@nogc
-	public static Chars parseUTF8(in const (char)[] data) pure {
-		size_t length;
-
-		foreach (c; data) length += ((c & 0xC0) != 0x80);
-
-		return Chars(data, length);
-	}
-
-	@nogc
-	public bool opEquals(in Chars that) const {
-		return (this.values == that.values);
-	}
-
-	@nogc
-	public ulong toHash() pure const {
-		ulong hash = 5381;
-
-		foreach (c; this.asBytes()) hash = (((hash << 5) + hash) ^ c);
-
-		return hash;
-	}
-}
-
-/**
  * Reference-counted, UTF-8-encoded character sequence.
  */
 public struct String {
@@ -73,20 +30,13 @@ public struct String {
 	 * Creates a `String` from the ASCII / UTF-8 `data`.
 	 */
 	@nogc
-	public this(in const (char)[] data) {
-		this(Chars.parseUTF8(data));
-	}
+	public this(in char[] data) {
+		if (data.length <= this.size.max) {
+			ubyte[] buffer = this.createBuffer(cast(uint)data.length);
 
-	/**
-	 * Creates a `String` from the character data `chars`.
-	 */
-	@nogc
-	public this(in Chars chars) {
-		if (chars.values.length <= this.size.max) {
-			ubyte[] buffer = this.createBuffer(cast(uint)chars.values.length);
-			this.length = cast(uint)chars.length;
+			foreach (c; data) this.length += ((c & 0xC0) != 0x80);
 
-			copyMemory(buffer, cast(const (ubyte)[])chars.values);
+			copyMemory(buffer, cast(const (ubyte)[])data);
 		}
 	}
 
@@ -120,8 +70,8 @@ public struct String {
 	 * A weak reference view of the UTF-8 `String` contents in its `Chars` interpretation.
 	 */
 	@nogc
-	public Chars chars() const pure {
-		return Chars((cast(const (char[]))this.asBytes()), this.size);
+	public const (char)[] asChars() const pure {
+		return (cast(const (char[]))this.asBytes());
 	}
 
 	@nogc
@@ -213,3 +163,82 @@ public struct String {
 		return hash;
 	}
 }
+
+/**
+ * Creates a `String` representing a decimal from the integer `value`.
+ */
+@nogc
+public String decString(Type)(in Type value) {
+	static if (__traits(isIntegral, Type)) {
+		if (value) {
+			enum base = 10;
+			char[28] buffer;
+			size_t bufferCount;
+
+			static if (__traits(isUnsigned, Type)) {
+				// Unsigend types need not apply.
+				Type n1 = value;
+			} else {
+				Type n1 = void;
+
+				if (value < 0) {
+					// Negative value.
+					n1 = -value;
+					buffer[0] = '-';
+					bufferCount += 1;
+				} else {
+					// Positive value.
+					n1 = value;
+				}
+			}
+
+			while (n1) {
+				buffer[bufferCount] = cast(char)((n1 % base) + '0');
+				n1 = (n1 / base);
+				bufferCount += 1;
+			}
+
+			foreach (i; 0 .. (bufferCount / 2)) {
+				swap(buffer[i], buffer[bufferCount - i - 1]);
+			}
+
+			return String(buffer[0 .. bufferCount]);
+		} else {
+			// Return string of zero.
+			return String("0");
+		}
+	} else static if (__traits(isFloating, Type)) {
+		return String("0.0");
+	}
+}
+
+/**
+ * Creates a `String` representing a hexadecimal from the integer `value`.
+ */
+@nogc
+public String hexString(Type)(in Type value) {
+	static if (__traits(isIntegral, Type)) {
+		if (value) {
+			enum hexLength = (Type.sizeof << 1);
+			enum hexPrefix = "0x";
+			enum hexDigits = "0123456789ABCDEF";
+			char[hexPrefix.length + hexLength] buffer;
+			size_t bufferCount = hexPrefix.length;
+
+			copyMemory(buffer, hexPrefix);
+
+			for (size_t j = ((hexLength - 1) * 4); bufferCount < buffer.length; j -= 4) {
+				buffer[bufferCount] = hexDigits[(value >> j) & 0x0f];
+				bufferCount += 1;
+			}
+
+			return String(buffer[0 .. bufferCount]);
+		} else {
+			// Return string of zero.
+			return String("0x0");
+		}
+	} else static if (__traits(isFloating, Type)) {
+		return String("0x0");
+	}
+}
+
