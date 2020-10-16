@@ -38,6 +38,143 @@ public interface Allocator {
 }
 
 /**
+ * An allocation strategy that behaves similarly to automatic memory. Data must be deallocated in
+ * the same order that it is allocated or it cannot otherwise be deallocated and will be skipped.
+ *
+ * The allocation strategy very simply bumps the pointer until an allocation cannot fit on the
+ * current page, at which point it will be allocated on a new page.
+ *
+ * The only reliable way to free all memory created by a `StackAllocator` is by calling
+ * `StackAllocator.reset`, which also invalidates any memory allocated by the allocator. Be careful
+ * when using `StackAllocator`, as dangling pointers are easily created using it.
+ */
+public final class StackAllocator(size_t pageSize) if (pageSize > 0) : Allocator {
+	private struct Page {
+		Page* nextPage;
+
+		ubyte[pageSize] memory;
+	}
+
+	private Allocator baseAllocator;
+
+	private size_t cursor;
+
+	private size_t pageCount;
+
+	private Page headPage;
+
+	private Page* currentPage;
+
+	/**
+	 * Constructs a `StackAllocator` that uses the global allocator as its backing allocation
+	 * strategy for all initial stack page allocations.
+	 */
+	@nogc
+	public this() pure {
+		this.currentPage = (&this.headPage);
+		this.pageCount = 1;
+	}
+
+	/**
+	 * Constructs a `StackAllocator` that uses `baseAllocator` as the backing allocation strategy
+	 * for all initial stack page allocations.
+	 *
+	 * Passing a `null` value is functionally equivalent to calling the default constructor.
+	 */
+	@nogc
+	public this(Allocator baseAllocator) pure {
+		this.baseAllocator = baseAllocator;
+
+		this();
+	}
+
+	@nogc
+	public ~this() {
+		Page* page = this.headPage;
+
+		if (this.baseAllocator) {
+			while (page) {
+				Page* nextPage = page.nextPage;
+
+				this.baseAllocator.deallocate(page);
+
+				page = nextPage;
+			}
+		} else {
+			while (page) {
+				Page* nextPage = page.nextPage;
+
+				deallocate(page);
+
+				page = nextPage;
+			}
+		}
+	}
+
+	@nogc
+	override ubyte[] allocate(size_t size) {
+		bool createPage() {
+			if (this.currentPage.nextPage) {
+				this.currentPage = this.currentPage.nextPage;
+
+				return true;
+			} else {
+				Page* page = (cast(Page*)(
+					this.baseAllocator ?
+					this.baseAllocator.allocate(Page.sizeof) :
+					allocate(Page.sizeof)
+				).ptr);
+
+				if (page) {
+					(*page) = Page.init;
+
+					if (this.currentPage) {
+						this.currentPage.nextPage = page;
+						this.currentPage = this.currentPage.nextPage;
+						this.pageCount += 1;
+					}
+
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		if (size >= ((pageSize * this.pageCount) - this.cursor)) {
+			if (!this.createPage()) {
+				// Allocation failure.
+				return null;
+			}
+		}
+
+		scope (exit) this.cursor += size;
+
+		immutable relativeCursor = (this.cursor - ((this.blockCount - 1) * blockSize));
+
+		return this.currentPage.memory[relativeCursor .. (relativeCursor + size)];
+	}
+
+	@nogc
+	override void deallocate(void* allocation) {
+
+	}
+
+	@nogc
+	override void reallocate(void* allocation, size_t size) {
+
+	}
+
+	/**
+	 * Resets the `StackAllocator` cursor, making all memory allocated by it invalid.
+	 */
+	@nogc
+	public void reset() pure {
+		this.cursor = 0;
+	}
+}
+
+/**
  * A view of the data in `value` as a raw byte interpretation with a range equal to `Type.sizeof`.
  */
 @nogc
