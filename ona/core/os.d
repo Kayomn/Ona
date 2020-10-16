@@ -127,7 +127,7 @@ public struct File {
 	 * The number of bytes actually written is returned.
 	 */
 	@nogc
-	size_t write(const (ubyte)[] input) {
+	size_t write(const (void)[] input) {
 		return (this.operations ? this.operations.writer(this.descriptor, input) : 0);
 	}
 }
@@ -167,7 +167,7 @@ public struct FileOperations {
 	 * Function used to write bytes of the file at `descriptor`.
 	 */
 	@nogc
-	size_t function(FileDescriptor descriptor, const (ubyte)[] input) writer;
+	size_t function(FileDescriptor descriptor, const (void)[] input) writer;
 }
 
 /**
@@ -268,7 +268,7 @@ private FileOperations osFileOperations = {
 		return ((bytesRead > -1) ? cast(size_t)bytesRead : 0);
 	},
 
-	(FileDescriptor descriptor, const (ubyte)[] input) {
+	(FileDescriptor descriptor, const (void)[] input) {
 		const (ptrdiff_t) bytesWritten = write(descriptor.unixHandle, input.ptr, input.length);
 
 		return ((bytesWritten > -1) ? cast(size_t)bytesWritten : 0);
