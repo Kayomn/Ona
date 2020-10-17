@@ -30,7 +30,7 @@ public class Appender(ValueType, IndexType = size_t) {
 			foreach (ref value; this.valuesOf()) destroy(value);
 		}
 
-		this.allocator.deallocate(this.values.ptr);
+		this.allocator.deallocate(this.values);
 	}
 
 	/**
@@ -48,7 +48,7 @@ public class Appender(ValueType, IndexType = size_t) {
 	 * Should `Appender.append` fail, `null` is returned instead.
 	 */
 	@nogc
-	public ValueType* append(in ValueType value) {
+	public ValueType* append(ValueType value) {
 		if (this.count >= this.capacity) {
 			if (!this.reserve(this.count ? this.count : 2)) {
 				// Allocation failure.
