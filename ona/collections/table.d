@@ -7,7 +7,7 @@ private import
 /**
  * Hash-ordered table of values organized and accessible via key types.
  */
-public struct Table(KeyType, ValueType) {
+public class Table(KeyType, ValueType) {
 	private struct Bucket {
 		Entry entry;
 
@@ -22,7 +22,7 @@ public struct Table(KeyType, ValueType) {
 
 	private enum defaultHashSize = 256;
 
-	private Allocator allocator;
+	private NotNull!Allocator allocator;
 
 	private size_t count;
 
@@ -43,75 +43,36 @@ public struct Table(KeyType, ValueType) {
 	 * Passing a `null` `Allocator` will have the same result as initializing with `Table.init`.
 	 */
 	@nogc
-	public this(Allocator allocator) pure {
+	public this(NotNull!Allocator allocator) pure {
 		this.allocator = allocator;
 	}
 
-	/**
-	 * Copy-constructs a `Table` from `that`.
-	 */
-	public this(ref Table that) {
-		this.allocator = that.allocator;
-		this.count = that.count;
-		this.loadMaximum = that.loadMaximum;
-
-		this.rehash(that.buckets.length);
-
-		foreach (ref key, ref value; that.itemsOf()) this.insert(key, value);
-	}
-
 	public ~this() {
-		if (this.allocator) {
-			void destroyChainAllocator(Bucket* bucket) {
-				while (bucket) {
-					Bucket* nextBucket = bucket.next;
+		void destroyChainAllocator(Bucket* bucket) {
+			while (bucket) {
+				Bucket* nextBucket = bucket.next;
 
-					static if (hasElaborateDestructor!KeyType) {
-						destroy(bucket.entry.key);
-					}
-
-					static if (hasElaborateDestructor!ValueType) {
-						destroy(bucket.entry.value);
-					}
-
-					this.allocator.deallocate(bucket);
-
-					bucket = nextBucket;
+				static if (hasElaborateDestructor!KeyType) {
+					destroy(bucket.entry.key);
 				}
-			}
 
-			destroyChainAllocator(this.freedBuckets);
-
-			if (this.count) {
-				foreach (i; 0 .. this.buckets.length) destroyChainAllocator(this.buckets[i]);
-			}
-
-			this.allocator.deallocate(this.buckets.ptr);
-		} else {
-			static void destroyChain(Bucket* bucket) {
-				while (bucket) {
-					Bucket* nextBucket = bucket.next;
-
-					static if (hasElaborateDestructor!KeyType) {
-						destroy(bucket.entry.key);
-					}
-
-					static if (hasElaborateDestructor!ValueType) {
-						destroy(bucket.entry.value);
-					}
-
-					deallocate(bucket);
-
-					bucket = nextBucket;
+				static if (hasElaborateDestructor!ValueType) {
+					destroy(bucket.entry.value);
 				}
+
+				this.allocator.deallocate(bucket);
+
+				bucket = nextBucket;
 			}
-
-			destroyChain(this.freedBuckets);
-
-			if (this.count) foreach (i; 0 .. this.buckets.length) destroyChain(this.buckets[i]);
-
-			deallocate(this.buckets.ptr);
 		}
+
+		destroyChainAllocator(this.freedBuckets);
+
+		if (this.count) {
+			foreach (i; 0 .. this.buckets.length) destroyChainAllocator(this.buckets[i]);
+		}
+
+		this.allocator.deallocate(this.buckets.ptr);
 	}
 
 	/**
@@ -120,7 +81,7 @@ public struct Table(KeyType, ValueType) {
 	 * If the `Table` is using the global allocator, an `null` `Allocator` is returned instead.
 	 */
 	@nogc
-	public inout (Allocator) allocatorOf() pure inout {
+	public inout (NotNull!Allocator) allocatorOf() pure inout {
 		return this.allocator;
 	}
 
@@ -182,11 +143,7 @@ public struct Table(KeyType, ValueType) {
 
 			return bucket;
 		} else {
-			Bucket* bucket = (cast(Bucket*)(
-				this.allocator ?
-				this.allocator.allocate(Bucket.sizeof).ptr :
-				allocate(Bucket.sizeof).ptr
-			));
+			Bucket* bucket = (cast(Bucket*)(this.allocator.allocate(Bucket.sizeof).ptr));
 
 			if (bucket) {
 				(*bucket) = Bucket(Entry(key, value), null);
@@ -198,18 +155,13 @@ public struct Table(KeyType, ValueType) {
 		return null;
 	}
 
-	private static ulong hashKey(ref KeyType key) {
-		static if (is(Type == string)) {
-			ulong hash = 5381;
+	private static ulong hashKey(in KeyType key) {
+		static assert(
+			__traits(hasMember, KeyType, "toHash"),
+			(KeyType.stringof ~ " is not a hashable type")
+		);
 
-			foreach (c; value) hash = (((hash << 5) + hash) ^ c);
-
-			return hash;
-		} else static if (__traits(hasMember, KeyType, "toHash")) {
-			return key.toHash();
-		} else {
-			static assert(false, (KeyType.stringof ~ " is not hashable"));
-		}
+		return key.toHash();
 	}
 
 	/**
@@ -362,7 +314,7 @@ public struct Table(KeyType, ValueType) {
 	 */
 	public auto itemsOf() pure {
 		struct Values {
-			Table* context;
+			Table context;
 
 			int opApply(int delegate(ref KeyType key, ref ValueType value) action) {
 				if (this.context.count) foreach (i; 0 .. this.context.buckets.length) {
@@ -379,6 +331,6 @@ public struct Table(KeyType, ValueType) {
 			}
 		}
 
-		return Values(&this);
+		return Values(this);
 	}
 }

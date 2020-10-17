@@ -74,12 +74,8 @@ public struct Image {
 	 */
 	@nogc
 	public void free() {
-		if (this.pixels) {
-			if (this.allocator is null) {
-				deallocate(this.pixels);
-			} else {
-				this.allocator.deallocate(this.pixels);
-			}
+		if (this.pixels && this.allocator) {
+			this.allocator.deallocate(this.pixels);
 		}
 	}
 
@@ -94,9 +90,9 @@ public struct Image {
 	 */
 	@nogc
 	public static Result!(Image, ImageError) from(
-		Allocator allocator,
-		const (Point2) dimensions,
-		Color[] data
+		NotNull!Allocator allocator,
+		in Point2 dimensions,
+		in Color[] data
 	) {
 		alias Res = Result!(Image, ImageError);
 
@@ -104,11 +100,7 @@ public struct Image {
 			immutable (size_t) pixelArea = (dimensions.x * dimensions.y);
 
 			if (pixelArea == data.length) {
-				ubyte[] pixelData = (
-					(allocator is null) ?
-					allocate(pixelArea * Color.sizeof) :
-					allocator.allocate(pixelArea * Color.sizeof)
-				);
+				ubyte[] pixelData = allocator.allocate(pixelArea * Color.sizeof);
 
 				if (pixelData.length) {
 					copyMemory(pixelData, cast(ubyte[])data);
@@ -134,20 +126,15 @@ public struct Image {
 	 */
 	@nogc
 	public static Result!(Image, ImageError) solid(
-		Allocator allocator,
-		const (Point2) dimensions,
-		const (Color) color
+		NotNull!Allocator allocator,
+		in Point2 dimensions,
+		in Color color
 	) {
 		alias Res = Result!(Image, ImageError);
 
 		if ((dimensions.x > 0) && (dimensions.y > 0)) {
 			immutable (size_t) pixelArea = (dimensions.x * dimensions.y);
-
-			ubyte[] pixelData = (
-				(allocator is null) ?
-				allocate(pixelArea * Color.sizeof) :
-				allocator.allocate(pixelArea * Color.sizeof)
-			);
+			ubyte[] pixelData = allocator.allocate(pixelArea * Color.sizeof);
 
 			if (pixelData.length) {
 				foreach (i; 0 .. pixelArea) {
@@ -176,7 +163,7 @@ public enum ImageError {
  * Creates a greyscale `Color` of `value` represented in a range of `0` to `255`.
  */
 @nogc
-public Color greyscale(const (ubyte) value) pure {
+public Color greyscale(in ubyte value) pure {
 	return Color(value, value, value, 0xFF);
 }
 
@@ -184,7 +171,7 @@ public Color greyscale(const (ubyte) value) pure {
  * Creates an opaque `Color` from the color channel values `red`, `green`, and `blue`.
  */
 @nogc
-public Color rgb(const (ubyte) red, const (ubyte) green, const (ubyte) blue) pure {
+public Color rgb(in ubyte red, in ubyte green, in ubyte blue) pure {
 	return Color(red, green, blue, 0xFF);
 }
 

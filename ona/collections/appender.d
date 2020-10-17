@@ -5,10 +5,11 @@ import
 	std.traits;
 
 /**
- * Sequential buffer of linearly allocate memory with `O(1)` random access.
+ * Sequential buffer of linearly allocate memory with `O(1)` random access that is designed for
+ * small amounts of insertion.
  */
-public struct Appender(ValueType, IndexType = size_t) {
-	private Allocator allocator;
+public class Appender(ValueType, IndexType = size_t) {
+	private NotNull!Allocator allocator;
 
 	private ValueType* values;
 
@@ -18,33 +19,10 @@ public struct Appender(ValueType, IndexType = size_t) {
 
 	/**
 	 * Constructs an `Appender` with `allocator` as the `Allocator`.
-	 *
-	 * Passing a `null` `Allocator` will have the same result as initializing with `Appender.init`.
 	 */
 	@nogc
-	public this(Allocator allocator) pure {
+	public this(NotNull!Allocator allocator) pure {
 		this.allocator = allocator;
-	}
-
-	/**
-	 * Copy-constructs a new `Appender` from the memory contents of `that`.
-	 */
-	@nogc
-	public this(ref Appender that) {
-		this.allocator = that.allocator;
-
-		this.values = (cast(ValueType*)(
-			that.allocator ?
-			that.allocator.allocate(ValueType.sizeof * that.capacity) :
-			allocate(ValueType.sizeof * that.capacity)
-		).ptr);
-
-		if (this.values) {
-			this.count = that.count;
-			this.capacity = that.capacity;
-
-			foreach (i; 0 .. this.count) this.values[i] = that.values[i];
-		}
 	}
 
 	public ~this() {
@@ -52,11 +30,7 @@ public struct Appender(ValueType, IndexType = size_t) {
 			foreach (ref value; this.valuesOf()) destroy(value);
 		}
 
-		if (this.allocator) {
-			this.allocator.deallocate(this.values.ptr);
-		} else {
-			deallocate(this.values.ptr);
-		}
+		this.allocator.deallocate(this.values.ptr);
 	}
 
 	/**
@@ -65,7 +39,7 @@ public struct Appender(ValueType, IndexType = size_t) {
 	 * If the `Appender` is using the global allocator, `null` is returned instead.
 	 */
 	@nogc
-	public inout (Allocator) allocatorOf() inout pure {
+	public inout (NotNull!Allocator) allocatorOf() inout pure {
 		return this.allocator;
 	}
 
@@ -145,17 +119,10 @@ public struct Appender(ValueType, IndexType = size_t) {
 	 */
 	@nogc
 	public bool compress() {
-		if (this.allocator) {
-			this.values = (cast(ValueType*)this.allocator.reallocate(
-				this.values,
-				(this.count * ValueType.sizeof)
-			).ptr);
-		} else {
-			this.values = (cast(ValueType*)reallocate(
-				this.values,
-				(this.count * ValueType.sizeof)
-			).ptr);
-		}
+		this.values = (cast(ValueType*)this.allocator.reallocate(
+			this.values,
+			(this.count * ValueType.sizeof)
+		).ptr);
 
 		return (this.values != null);
 	}
@@ -174,17 +141,10 @@ public struct Appender(ValueType, IndexType = size_t) {
 	public bool reserve(in IndexType capacity) {
 		immutable newCapacity = (this.capacity + capacity);
 
-		if (this.allocator) {
-			this.values = (cast(ValueType*)this.allocator.reallocate(
-				this.values,
-				(newCapacity * ValueType.sizeof)
-			).ptr);
-		} else {
-			this.values = (cast(ValueType*)reallocate(
-				this.values,
-				(newCapacity * ValueType.sizeof)
-			).ptr);
-		}
+		this.values = (cast(ValueType*)this.allocator.reallocate(
+			this.values,
+			(newCapacity * ValueType.sizeof)
+		).ptr);
 
 		if (this.values) {
 			this.capacity = newCapacity;
