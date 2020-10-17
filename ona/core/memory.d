@@ -13,23 +13,28 @@ private import
  *
  * Be weary of dangling references to `Scoped` types.
  */
-public struct Scoped(Type) {
+public struct Scoped(Type) if (is(Type == class)) {
 	alias __instance this;
 
 	private ubyte[__traits(classInstanceSize, Type) + 1] buffer;
 
 	static if (hasElaborateDestructor!Type) {
 		public ~this() {
-			if (this) destroy(this.__instance());
+			if (this.exists()) destroy(this.__instance());
 		}
 	}
 
 	/**
-	 * Forwards the instance symbols.
+	 * Retrieves the instance by reference.
 	 */
 	@nogc
 	public Type __instance() pure {
-		return cast(Type)this.buffer.ptr;
+		return (this.exists() ? (cast(Type)this.buffer.ptr) : null);
+	}
+
+	@nogc
+	private ref bool exists() pure {
+		return (*cast(bool*)(this.buffer.ptr + __traits(classInstanceSize, Type)));
 	}
 
 	/**
@@ -37,19 +42,11 @@ public struct Scoped(Type) {
 	 */
 	public static Scoped make(Args...)(auto ref Args args) {
 		Scoped scoped = void;
-		scoped.buffer[__traits(classInstanceSize, Type)] = 1;
+		scoped.exists() = true;
 
 		emplace(scoped.__instance(), args);
 
 		return scoped;
-	}
-
-	/**
-	 * Casts to `true` if the `Scoped` contains an instance, otherwise `false`.
-	 */
-	@nogc
-	public CastType opCast(CastType)() pure const if (is(CastType == bool))  {
-		return cast(bool)this.buffer[__traits(classInstanceSize, Type)];
 	}
 }
 
