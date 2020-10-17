@@ -280,7 +280,7 @@ private FileOperations osFileOperations = {
  * Retrieves the global allocator.
  */
 @nogc
-public Allocator globalAllocator() {
+public NotNull!Allocator globalAllocator() {
 	final class GlobalAllocator : Allocator {
 		@nogc
 		override ubyte[] allocate(size_t size) {
@@ -304,7 +304,7 @@ public Allocator globalAllocator() {
 		}
 	}
 
-	__gshared Allocator allocator = new GlobalAllocator();
+	__gshared NotNull!Allocator allocator = new GlobalAllocator();
 
 	return allocator;
 }
