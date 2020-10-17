@@ -51,7 +51,7 @@ public struct String {
 		if (this.isDynamic()) {
 			const (size_t) refCount = (this.refCounter() -= 1);
 
-			if (refCount == 0) deallocate(this.data.dynamic);
+			if (refCount == 0) globalAllocator().deallocate(this.data.dynamic);
 		}
 	}
 
@@ -79,7 +79,10 @@ public struct String {
 	private ubyte[] createBuffer(in uint size) return {
 		if (size > staticBufferSize) {
 			this.size = size;
-			this.data.dynamic = allocate(size_t.sizeof + clamp(size, 0, this.size.max)).ptr;
+
+			this.data.dynamic = globalAllocator().allocate(
+				size_t.sizeof + clamp(size, 0, this.size.max)
+			).ptr;
 
 			if (this.data.dynamic) {
 				this.refCounter() = 1;
@@ -245,3 +248,95 @@ public String hexString(Type)(in Type value) {
 	}
 }
 
+public final class StringBuilder(size_t blockSize) {
+	private struct Block {
+		Block* next;
+
+		char[blockSize] buffer;
+	}
+
+	private NotNull!Allocator allocator;
+
+	private size_t cursor;
+
+	private size_t blockCount;
+
+	private Block headBlock;
+
+	private Block* currentBlock;
+
+	@nogc
+	public this(NotNull!Allocator allocator) pure {
+		this.allocator = allocator;
+	}
+
+	@nogc
+	public ~this() {
+		// TODO: Implement.
+	}
+
+	@nogc
+	public inout (NotNull!Allocator) allocatorOf() inout pure {
+		return this.allocator;
+	}
+
+	@nogc
+	public String toString() const {
+		return String(cast(const (char)[])this.currentBlock.buffer[0 .. this.cursor]);
+	}
+
+	/**
+	 * Writes `c` to the `StringBuilder`.
+	 */
+	@nogc
+	public bool write(in char c) {
+		bool createBlock() {
+			Block* block = (cast(Block*)(this.allocator.allocate(Block.sizeof)).ptr);
+
+			if (block) {
+				(*block) = Block.init;
+
+				if (this.currentBlock) {
+					this.currentBlock.next = block;
+					this.currentBlock = this.currentBlock.next;
+					this.blockCount += 1;
+				} else {
+					this.headBlock = block;
+					this.currentBlock = block;
+					this.blockCount = 1;
+				}
+
+				return true;
+			}
+
+			return false;
+		}
+
+		// Check that there's a byte free for the character.
+		if (((blockSize * this.blockCount) - this.cursor) == 0) {
+			if (!createBlock()) {
+				// Allocation failure.
+				return false;
+			}
+		}
+
+		Type* blockAddress = cast(Type*)(
+			this.currentBlock.buffer.ptr + (this.cursor - ((this.blockCount - 1) * blockSize))
+		);
+
+		(*blockAddress) = c;
+		this.cursor += Type.sizeof;
+
+		return true;
+	}
+
+	/**
+	 * Writes `values` to the `StringBuilder`.
+	 */
+	@nogc
+	public bool write(in char[] values...) {
+		foreach (value; values) if (!this.append(value)) return false;
+
+		return true;
+	}
+}
