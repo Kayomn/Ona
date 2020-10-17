@@ -170,84 +170,6 @@ public struct String {
 	}
 }
 
-/**
- * Creates a `String` representing a decimal from the integer `value`.
- */
-@nogc
-public String decString(Type)(in Type value) {
-	static if (__traits(isIntegral, Type)) {
-		if (value) {
-			enum base = 10;
-			char[28] buffer;
-			size_t bufferCount;
-
-			static if (__traits(isUnsigned, Type)) {
-				// Unsigend types need not apply.
-				Type n1 = value;
-			} else {
-				Type n1 = void;
-
-				if (value < 0) {
-					// Negative value.
-					n1 = -value;
-					buffer[0] = '-';
-					bufferCount += 1;
-				} else {
-					// Positive value.
-					n1 = value;
-				}
-			}
-
-			while (n1) {
-				buffer[bufferCount] = cast(char)((n1 % base) + '0');
-				n1 = (n1 / base);
-				bufferCount += 1;
-			}
-
-			foreach (i; 0 .. (bufferCount / 2)) {
-				swap(buffer[i], buffer[bufferCount - i - 1]);
-			}
-
-			return String(buffer[0 .. bufferCount]);
-		} else {
-			// Return string of zero.
-			return String("0");
-		}
-	} else static if (__traits(isFloating, Type)) {
-		return String("0.0");
-	}
-}
-
-/**
- * Creates a `String` representing a hexadecimal from the integer `value`.
- */
-@nogc
-public String hexString(Type)(in Type value) {
-	static if (__traits(isIntegral, Type)) {
-		if (value) {
-			enum hexLength = (Type.sizeof << 1);
-			enum hexPrefix = "0x";
-			enum hexDigits = "0123456789ABCDEF";
-			char[hexPrefix.length + hexLength] buffer;
-			size_t bufferCount = hexPrefix.length;
-
-			copyMemory(buffer, hexPrefix);
-
-			for (size_t j = ((hexLength - 1) * 4); bufferCount < buffer.length; j -= 4) {
-				buffer[bufferCount] = hexDigits[(value >> j) & 0x0f];
-				bufferCount += 1;
-			}
-
-			return String(buffer[0 .. bufferCount]);
-		} else {
-			// Return string of zero.
-			return String("0x0");
-		}
-	} else static if (__traits(isFloating, Type)) {
-		return String("0x0");
-	}
-}
-
 public final class StringBuilder(size_t blockSize) {
 	private struct Block {
 		Block* next;
@@ -338,5 +260,99 @@ public final class StringBuilder(size_t blockSize) {
 		foreach (value; values) if (!this.append(value)) return false;
 
 		return true;
+	}
+}
+
+/**
+ * Checks if `c` is a digit according to unicode.
+ */
+@nogc
+public bool isDigit(in dchar c) pure {
+	return ((c > dchar(47)) && (c < dchar(58)));
+}
+
+/**
+ * Checks if `c` is whitespace according to unicode.
+ */
+@nogc
+public bool isWhitespace(in dchar c) pure {
+	return ((c == ' ') || (c == '\t') || (c == '\n') || (c == '\v') || (c == '\f') || (c == '\r'));
+}
+
+/**
+ * Creates a `String` representing a decimal from the integer `value`.
+ */
+@nogc
+public String decString(Type)(in Type value) {
+	static if (__traits(isIntegral, Type)) {
+		if (value) {
+			enum base = 10;
+			char[28] buffer;
+			size_t bufferCount;
+
+			static if (__traits(isUnsigned, Type)) {
+				// Unsigend types need not apply.
+				Type n1 = value;
+			} else {
+				Type n1 = void;
+
+				if (value < 0) {
+					// Negative value.
+					n1 = -value;
+					buffer[0] = '-';
+					bufferCount += 1;
+				} else {
+					// Positive value.
+					n1 = value;
+				}
+			}
+
+			while (n1) {
+				buffer[bufferCount] = cast(char)((n1 % base) + '0');
+				n1 = (n1 / base);
+				bufferCount += 1;
+			}
+
+			foreach (i; 0 .. (bufferCount / 2)) {
+				swap(buffer[i], buffer[bufferCount - i - 1]);
+			}
+
+			return String(buffer[0 .. bufferCount]);
+		} else {
+			// Return string of zero.
+			return String("0");
+		}
+	} else static if (__traits(isFloating, Type)) {
+		return String("0.0");
+	}
+}
+
+/**
+ * Creates a `String` representing a hexadecimal from the integer `value`.
+ */
+@nogc
+public String hexString(Type)(in Type value) {
+	static if (__traits(isIntegral, Type)) {
+		if (value) {
+			enum hexLength = (Type.sizeof << 1);
+			enum hexPrefix = "0x";
+			enum hexDigits = "0123456789ABCDEF";
+			char[hexPrefix.length + hexLength] buffer;
+			size_t bufferCount = hexPrefix.length;
+
+			copyMemory(buffer, hexPrefix);
+
+			for (size_t j = ((hexLength - 1) * 4); bufferCount < buffer.length; j -= 4) {
+				buffer[bufferCount] = hexDigits[(value >> j) & 0x0f];
+				bufferCount += 1;
+			}
+
+			return String(buffer[0 .. bufferCount]);
+		} else {
+			// Return string of zero.
+			return String("0x0");
+		}
+	} else static if (__traits(isFloating, Type)) {
+		return String("0x0");
 	}
 }
