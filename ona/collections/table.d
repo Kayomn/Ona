@@ -39,8 +39,6 @@ public class Table(KeyType, ValueType) {
 
 	/**
 	 * Constructs an `Table` with `allocator` as the `Allocator`.
-	 *
-	 * Passing a `null` `Allocator` will have the same result as initializing with `Table.init`.
 	 */
 	@nogc
 	public this(NotNull!Allocator allocator) pure {
@@ -77,8 +75,6 @@ public class Table(KeyType, ValueType) {
 
 	/**
 	 * Attempts to retrieve the `Allocator` being used by the `Table`.
-	 *
-	 * If the `Table` is using the global allocator, an `null` `Allocator` is returned instead.
 	 */
 	@nogc
 	public inout (NotNull!Allocator) allocatorOf() pure inout {

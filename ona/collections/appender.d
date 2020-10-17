@@ -35,8 +35,6 @@ public class Appender(ValueType, IndexType = size_t) {
 
 	/**
 	 * Attempts to retrieve the `Allocator` being used by the `Appender`.
-	 *
-	 * If the `Appender` is using the global allocator, `null` is returned instead.
 	 */
 	@nogc
 	public inout (NotNull!Allocator) allocatorOf() inout pure {
