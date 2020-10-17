@@ -2,8 +2,56 @@ module ona.core.memory;
 
 private import
 	std.algorithm,
+	std.conv,
 	std.traits,
 	ona.core.types;
+
+/**
+ * Allows for scoped allocations of classes that exist on the stack.
+ *
+ * Because the value is stack-allocated, no dynamic memory allocator is used.
+ *
+ * Be weary of dangling references to `Scoped` types.
+ */
+public struct Scoped(Type) {
+	alias __instance this;
+
+	private ubyte[__traits(classInstanceSize, Type) + 1] buffer;
+
+	static if (hasElaborateDestructor!Type) {
+		public ~this() {
+			if (this) destroy(this.__instance());
+		}
+	}
+
+	/**
+	 * Forwards the instance symbols.
+	 */
+	@nogc
+	public Type __instance() pure {
+		return cast(Type)this.buffer.ptr;
+	}
+
+	/**
+	 * Creates an instance of `Type` on the stack wrapped in a `Scoped`.
+	 */
+	public static Scoped make(Args...)(auto ref Args args) {
+		Scoped scoped = void;
+		scoped.buffer[__traits(classInstanceSize, Type)] = 1;
+
+		emplace(scoped.__instance(), args);
+
+		return scoped;
+	}
+
+	/**
+	 * Casts to `true` if the `Scoped` contains an instance, otherwise `false`.
+	 */
+	@nogc
+	public CastType opCast(CastType)() pure const if (is(CastType == bool))  {
+		return cast(bool)this.buffer[__traits(classInstanceSize, Type)];
+	}
+}
 
 /**
  * Runtime-polymorphic allocator API.
