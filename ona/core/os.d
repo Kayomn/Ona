@@ -6,6 +6,7 @@ private import
 	core.sys.posix.unistd,
 	core.sys.posix.fcntl,
 	core.sys.posix.dlfcn,
+	ona.core.memory,
 	ona.core.text,
 	ona.core.types;
 
@@ -276,16 +277,36 @@ private FileOperations osFileOperations = {
 };
 
 /**
- * Allocates `size` bytes of memory, or `nil` if the memory cannot be allocated.
- *
- * Failure to allocate the requested amount of memory will result in
+ * Retrieves the global allocator.
  */
 @nogc
-public ubyte[] allocate(size_t size) {
-	ubyte* allocation = cast(ubyte*)malloc(size);
-	size *= (allocation != null);
+public Allocator globalAllocator() {
+	final class GlobalAllocator : Allocator {
+		@nogc
+		override ubyte[] allocate(size_t size) {
+			ubyte* allocation = cast(ubyte*)malloc(size);
+			size *= (allocation != null);
 
-	return allocation[0 .. size];
+			return allocation[0 .. size];
+		}
+
+		@nogc
+		override void deallocate(void* allocation) {
+			free(allocation);
+		}
+
+		@nogc
+		override ubyte[] reallocate(void* allocation, size_t size) {
+			allocation = realloc(allocation, size);
+			size *= (allocation != null);
+
+			return (cast(ubyte*)allocation)[0 .. size];
+		}
+	}
+
+	__gshared Allocator allocator = new GlobalAllocator();
+
+	return allocator;
 }
 
 /**
@@ -296,16 +317,14 @@ public bool checkFile(String filePath) {
 	return (access(String.sentineled(filePath).pointerOf(), F_OK) != -1);
 }
 
-/**
- * Deallocates the memory at `allocation` using the global allocator.
- *
- * If `allocation` is not an address allocated by the global allocator then the program will
- * encounter a critical error.
- */
-@nogc
-public void deallocate(void* allocation) {
-	free(allocation);
-}
+// public Type make(Args...)(NotNull!Allocator allocator, auto ref Args args) {
+// 	enum classSize = __traits(classInstanceSize, Type);
+// 	Type instance = allocator.allocate(classSize).ptr;
+
+// 	if (instance) emplace(instance, args);
+
+// 	return instance;
+// }
 
 /**
  * Attempts to open a file at `filePath`.
@@ -367,18 +386,4 @@ public Result!(Library, LibraryError) openLibrary(String libraryPath) {
 @nogc
 public File outFile() {
 	return File((&osFileOperations), FileDescriptor(STDOUT_FILENO));
-}
-
-/**
- * Reallocates `allocation` to be `size` bytes using the global allocator.
- *
- * If `allocation` is greater than `size`, the memory contents will be truncated in order to fit the
- * new size.
- */
-@nogc
-public ubyte[] reallocate(void* allocation, size_t size) {
-	allocation = realloc(allocation, size);
-	size *= (allocation != null);
-
-	return (cast(ubyte*)allocation)[0 .. size];
 }
