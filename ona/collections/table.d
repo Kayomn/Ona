@@ -231,12 +231,7 @@ public final class Table(KeyType, ValueType) {
 	 */
 	public bool rehash(const (size_t) tableSize) {
 		Bucket*[] oldBuckets = this.buckets;
-
-		this.buckets = (
-			this.allocator ?
-			(cast(Bucket*[])this.allocator.allocate(tableSize * size_t.sizeof)) :
-			(cast(Bucket*[])allocate(tableSize * size_t.sizeof))
-		);
+		this.buckets = (cast(Bucket*[])this.allocator.allocate(tableSize * size_t.sizeof));
 
 		if (this.buckets) {
 			zeroMemory(cast(ubyte[])this.buckets);
