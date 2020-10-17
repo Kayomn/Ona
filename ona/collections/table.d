@@ -7,7 +7,7 @@ private import
 /**
  * Hash-ordered table of values organized and accessible via key types.
  */
-public class Table(KeyType, ValueType) {
+public final class Table(KeyType, ValueType) {
 	private struct Bucket {
 		Entry entry;
 
@@ -214,6 +214,7 @@ public class Table(KeyType, ValueType) {
 	}
 
 	public bool remove(KeyType key) pure {
+		// TODO: Implement.
 		return false;
 	}
 
