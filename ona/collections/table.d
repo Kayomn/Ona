@@ -213,6 +213,31 @@ public final class Table(KeyType, ValueType) {
 		return null;
 	}
 
+	/**
+	 * Creates an iterable range for the `Table` which may be used in a `foreach` statement.
+	 */
+	public auto itemsOf() pure {
+		struct Values {
+			Table context;
+
+			int opApply(int delegate(ref KeyType key, ref ValueType value) action) {
+				if (this.context.count) foreach (i; 0 .. this.context.buckets.length) {
+					Bucket* bucket = this.context.buckets[i];
+
+					while (bucket) {
+						if (action(bucket.entry.key, bucket.entry.value)) return 1;
+
+						bucket = bucket.next;
+					}
+				}
+
+				return 0;
+			}
+		}
+
+		return Values(this);
+	}
+
 	public bool remove(KeyType key) pure {
 		// TODO: Implement.
 		return false;
@@ -247,7 +272,7 @@ public final class Table(KeyType, ValueType) {
 					}
 				}
 
-				deallocate(oldBuckets.ptr);
+				this.allocator.deallocate(oldBuckets.ptr);
 			}
 
 			return true;
@@ -291,7 +316,7 @@ public final class Table(KeyType, ValueType) {
 	 * If the `key` does not point to a value in the `Table` and the value created by `producer`
 	 * fails to be inserted then `null` is returned instead.
 	 */
-	public ValueType* lookupOrInsert(KeyType key, ValueType delegate() producer) {
+	public ValueType* require(KeyType key, ValueType delegate() producer) {
 		ValueType* lookupValue = this.lookup(key);
 
 		if (lookupValue) return lookupValue;
@@ -299,30 +324,5 @@ public final class Table(KeyType, ValueType) {
 		this.insert(key, producer());
 
 		return this.lookup(key);
-	}
-
-	/**
-	 * Creates an iterable range for the `Table` which may be used in a `foreach` statement.
-	 */
-	public auto itemsOf() pure {
-		struct Values {
-			Table context;
-
-			int opApply(int delegate(ref KeyType key, ref ValueType value) action) {
-				if (this.context.count) foreach (i; 0 .. this.context.buckets.length) {
-					Bucket* bucket = this.context.buckets[i];
-
-					while (bucket) {
-						if (action(bucket.entry.key, bucket.entry.value)) return 1;
-
-						bucket = bucket.next;
-					}
-				}
-
-				return 0;
-			}
-		}
-
-		return Values(this);
 	}
 }
