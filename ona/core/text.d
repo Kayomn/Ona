@@ -190,6 +190,8 @@ public final class StringBuilder(size_t blockSize) {
 	@nogc
 	public this(NotNull!Allocator allocator) pure {
 		this.allocator = allocator;
+		this.currentBlock = (&this.headBlock);
+		this.blockCount = 1;
 	}
 
 	@nogc
@@ -217,16 +219,9 @@ public final class StringBuilder(size_t blockSize) {
 
 			if (block) {
 				(*block) = Block.init;
-
-				if (this.currentBlock) {
-					this.currentBlock.next = block;
-					this.currentBlock = this.currentBlock.next;
-					this.blockCount += 1;
-				} else {
-					this.headBlock = block;
-					this.currentBlock = block;
-					this.blockCount = 1;
-				}
+				this.currentBlock.next = block;
+				this.currentBlock = this.currentBlock.next;
+				this.blockCount += 1;
 
 				return true;
 			}
@@ -242,12 +237,12 @@ public final class StringBuilder(size_t blockSize) {
 			}
 		}
 
-		Type* blockAddress = cast(Type*)(
+		char* blockAddress = cast(char*)(
 			this.currentBlock.buffer.ptr + (this.cursor - ((this.blockCount - 1) * blockSize))
 		);
 
 		(*blockAddress) = c;
-		this.cursor += Type.sizeof;
+		this.cursor += char.sizeof;
 
 		return true;
 	}
@@ -257,7 +252,7 @@ public final class StringBuilder(size_t blockSize) {
 	 */
 	@nogc
 	public bool write(in char[] values...) {
-		foreach (value; values) if (!this.append(value)) return false;
+		foreach (value; values) if (!this.write(value)) return false;
 
 		return true;
 	}
