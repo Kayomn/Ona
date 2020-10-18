@@ -16,6 +16,12 @@ public struct NotNull(Type) if (isNullable!Type) {
 	alias __payload this;
 
 	Type __payload;
+
+	@disable this();
+
+	this(Type value) {
+		this.__payload = value;
+	}
 }
 
 /**
