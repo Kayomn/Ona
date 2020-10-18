@@ -13,7 +13,7 @@ private import
  *
  * Be weary of dangling references to `Scoped` types.
  */
-public struct Scoped(Type) if (is(Type == class)) {
+public struct Scoped(Type) {
 	alias __instance this;
 
 	private ubyte[__traits(classInstanceSize, Type) + 1] buffer;
@@ -80,6 +80,26 @@ public interface Allocator {
 	 */
 	@nogc
 	ubyte[] reallocate(void* allocation, size_t size);
+
+	/**
+	 * Allocates and initializes an instance of `Type` using `args`.
+	 */
+	@nogc
+	Type make(Type, Args...)(
+		auto ref Args args
+	) if ((!is(Type == interface)) || (!isAbstactClass!Type)) {
+		static if (is(Type == class)) {
+			Type instance = (cast(Type)this.allocate(__traits(classInstanceSize, Type)).ptr);
+
+			if (instnace) return emplace(instance, args);
+		} else {
+			Type* instance = (cast(Type*)this.allocate(Type.sizeof).ptr);
+
+			if (instnace) return emplace(instance, args);
+		}
+
+		return null;
+	}
 }
 
 /**
@@ -93,12 +113,14 @@ public interface Allocator {
  * `StackAllocator.reset`, which also invalidates any memory allocated by the allocator. Be careful
  * when using `StackAllocator`, as dangling pointers are easily created using it.
  */
-public final class StackAllocator(size_t pageSize) if (pageSize > 0) : Allocator {
+public final class StackAllocator : Allocator {
 	private struct Page {
 		Page* nextPage;
 
 		ubyte[pageSize] memory;
 	}
+
+	private enum pageSize = 4096;
 
 	private Allocator baseAllocator;
 
@@ -135,7 +157,7 @@ public final class StackAllocator(size_t pageSize) if (pageSize > 0) : Allocator
 
 	@nogc
 	public ~this() {
-		Page* page = this.headPage;
+		Page* page = (&this.headPage);
 
 		if (this.baseAllocator) {
 			while (page) {
@@ -187,7 +209,7 @@ public final class StackAllocator(size_t pageSize) if (pageSize > 0) : Allocator
 		}
 
 		if (size >= ((pageSize * this.pageCount) - this.cursor)) {
-			if (!this.createPage()) {
+			if (!createPage()) {
 				// Allocation failure.
 				return null;
 			}
@@ -195,7 +217,7 @@ public final class StackAllocator(size_t pageSize) if (pageSize > 0) : Allocator
 
 		scope (exit) this.cursor += size;
 
-		immutable relativeCursor = (this.cursor - ((this.blockCount - 1) * blockSize));
+		immutable relativeCursor = (this.cursor - ((this.pageCount - 1) * pageSize));
 
 		return this.currentPage.memory[relativeCursor .. (relativeCursor + size)];
 	}
@@ -206,8 +228,8 @@ public final class StackAllocator(size_t pageSize) if (pageSize > 0) : Allocator
 	}
 
 	@nogc
-	override void reallocate(void* allocation, size_t size) {
-
+	override ubyte[] reallocate(void* allocation, size_t size) {
+		return null;
 	}
 
 	/**
