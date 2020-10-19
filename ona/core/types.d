@@ -69,7 +69,7 @@ public struct Result(ValueType, ErrorType = void) {
 		 * Creates a `Result` containing an error value of `error`, indicating a failed operation.
 		 */
 		@nogc
-		public static Result fail(ErrorType error) pure {
+		public static Result fail(ErrorType error) {
 			Result res;
 
 			emplace((cast(ErrorType*)res.store.ptr), error);
@@ -130,10 +130,10 @@ public struct Result(ValueType, ErrorType = void) {
 		 * failed operation before attempting to access it.
 		 */
 		@nogc
-		public ref const (ErrorType) errorOf() const {
+		public ref inout (ErrorType) errorOf() inout {
 			assert((!cast(bool)this), "Result is ok");
 
-			return (*(cast(const (ErrorType)*)this.store));
+			return (*(cast(inout (ErrorType)*)this.store));
 		}
 	}
 }
