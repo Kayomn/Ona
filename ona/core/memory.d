@@ -64,22 +64,24 @@ public interface Allocator {
 	ubyte[] allocate(size_t size);
 
 	/**
-	 * Deallocates the memory at `allocation` using the global allocator.
+	 * Deallocates the memory at `allocation` using the `Allocator`.
 	 *
-	 * If `allocation` is not an address allocated by the global allocator then the program will
+	 * If `allocation` is not an address allocated by the `Allocator` then the program will
 	 * encounter a critical error.
 	 */
 	@nogc
 	void deallocate(void* allocation);
 
 	/**
-	 * Reallocates `allocation` to be `size` bytes using the global allocator.
+	 * Destroys and deallocates `instance`.
 	 *
-	 * If `allocation` is greater than `size`, the memory contents will be truncated in order to fit the
-	 * new size.
+	 * If `instance` is not an address allocated by the `Allocator` then the program will encounter
+	 * a critical error.
 	 */
-	@nogc
-	ubyte[] reallocate(void* allocation, size_t size);
+	void free(Type)(Type instance) {
+		destroy(instance);
+		this.deallocate(cast(void*)instance);
+	}
 
 	/**
 	 * Allocates and initializes an instance of `Type` using `args`.
@@ -91,7 +93,7 @@ public interface Allocator {
 		static if (is(Type == class)) {
 			Type instance = (cast(Type)this.allocate(__traits(classInstanceSize, Type)).ptr);
 
-			if (instnace) return emplace(instance, args);
+			if (instance) return emplace(instance, args);
 		} else {
 			Type* instance = (cast(Type*)this.allocate(Type.sizeof).ptr);
 
@@ -100,6 +102,15 @@ public interface Allocator {
 
 		return null;
 	}
+
+	/**
+	 * Reallocates `allocation` to be `size` bytes using the global allocator.
+	 *
+	 * If `allocation` is greater than `size`, the memory contents will be truncated in order to fit the
+	 * new size.
+	 */
+	@nogc
+	ubyte[] reallocate(void* allocation, size_t size);
 }
 
 /**
