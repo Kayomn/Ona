@@ -86,7 +86,6 @@ public interface Allocator {
 	/**
 	 * Allocates and initializes an instance of `Type` using `args`.
 	 */
-	@nogc
 	Type make(Type, Args...)(
 		auto ref Args args
 	) if ((!is(Type == interface)) || (!isAbstactClass!Type)) {
