@@ -190,7 +190,7 @@ private struct ShaderLexer {
 }
 
 public interface ShaderStatement {
-	final class Discard : ShaderStatement {
+	static final class Discard : ShaderStatement {
 		@nogc
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitDiscardStatement(this);
@@ -202,7 +202,7 @@ public interface ShaderStatement {
 		}
 	}
 
-	final class Function : ShaderStatement {
+	static final class Function : ShaderStatement {
 		private Appender!ShaderStatement body;
 
 		public const (char)[] typename;
@@ -225,7 +225,7 @@ public interface ShaderStatement {
 		}
 	}
 
-	final class If : ShaderStatement {
+	static final class If : ShaderStatement {
 		private Appender!ShaderStatement body;
 
 		public ShaderExpression expression;
@@ -250,7 +250,7 @@ public interface ShaderStatement {
 		}
 	}
 
-	final class Return : ShaderStatement {
+	static final class Return : ShaderStatement {
 		ShaderExpression expression;
 
 		@nogc
@@ -264,7 +264,7 @@ public interface ShaderStatement {
 		}
 	}
 
-	final class Variable : ShaderStatement {
+	static final class Variable : ShaderStatement {
 		public enum Flags {
 			none = 0,
 			isGlobal = 0x1,
@@ -333,7 +333,7 @@ public interface ShaderStatementVisitor {
 }
 
 public interface ShaderExpression {
-	final class Assign : ShaderExpression {
+	static final class Assign : ShaderExpression {
 		public ShaderExpression expression;
 
 		@nogc
@@ -352,7 +352,7 @@ public interface ShaderExpression {
 		}
 	}
 
-	final class Literal : ShaderExpression {
+	static final class Literal : ShaderExpression {
 		public const (char)[] value;
 
 		@nogc
@@ -396,14 +396,81 @@ private enum Token {
 	eof
 }
 
-@nogc
-public Result!(ShaderAST, String) parseShaderAST(Allocator allocator, in char[] source) {
-	alias Res = Result!(ShaderAST, String);
+private alias ParseResult(Type) = Result!(Type, String);
 
-	enum ErrorMessage {
-		memory = String("Out of memory")
+@nogc
+private ParseResult!ShaderStatement parseDeclaration(
+	Allocator allocator,
+	in Lexeme typename,
+	ref ShaderLexer lexer
+) {
+	alias Res = ParseResult!ShaderStatement;
+	Lexeme identifier;
+
+	if ((!lexer.next(identifier)) || (identifier.token != Token.identifier)) {
+		return Res.fail(String("Expected identifier after typename"));
 	}
 
+	Lexeme symbol;
+
+	if ((!lexer.next(symbol)) || (symbol.token != Token.symbol)) {
+		return Res.fail(String("Expected symbol after identifier"));
+	}
+
+	declarationType: switch (symbol.value[0]) {
+		case ';': {
+			auto globalVariable = allocator.make!(ShaderStatement.Variable)(
+				typename.value,
+				identifier.value
+			);
+
+			return (globalVariable ? Res.ok(globalVariable) : Res.fail(String("Out of memory")));
+		} break declarationType;
+
+		case '=': {
+			Lexeme expression;
+
+			if (!lexer.next(expression)) return Res.fail(String("Unexpected end of line"));
+
+			ParseResult!ShaderExpression parsed = parseExpression(allocator, expression, lexer);
+
+			if (!parsed) return Res.fail(parsed.errorOf());
+
+			auto assign = allocator.make!(ShaderExpression.Assign)(parsed.valueOf());
+
+			if (!assign) return Res.fail(String("Out of memory"));
+
+			auto globalVariable = allocator.make!(ShaderStatement.Variable)(
+				typename.value,
+				identifier.value,
+				assign
+			);
+
+			return (globalVariable ? Res.ok(globalVariable) : Res.fail(String("Out of memory")));
+		} break declarationType;
+
+		case '(': break declarationType;
+
+		default: break declarationType;
+	}
+
+	return Res.ok(null);
+}
+
+@nogc
+private ParseResult!ShaderExpression parseExpression(
+	Allocator allocator,
+	in Lexeme typename,
+	ref ShaderLexer lexer
+) {
+	alias Res = ParseResult!ShaderExpression;
+
+	return Res.ok(null);
+}
+
+@nogc
+public ParseResult!ShaderAST parseShaderAST(Allocator allocator, in char[] source) {
+	alias Res = ParseResult!ShaderAST;
 	ShaderLexer lexer = source;
 
 	ShaderAST ast = {
@@ -411,9 +478,22 @@ public Result!(ShaderAST, String) parseShaderAST(Allocator allocator, in char[] 
 		statements: allocator.make!(Appender!ShaderStatement)(globalAllocator())
 	};
 
-	if (!ast.statements) return Res.fail(ErrorMessage.memory);
+	if (!ast.statements) return Res.fail(String("Out of memory"));
 
-	// TODO: Everything else.
+	Lexeme declaration;
+
+	// A source file with zero lexemes should be valid.
+	while (lexer.next(declaration)) {
+		if (declaration.token != Token.typename) {
+			return Res.fail(String("Expected typename at beginning of declaration"));
+		}
+
+		ParseResult!ShaderStatement parsed = parseDeclaration(allocator, declaration, lexer);
+
+		if (parsed) return Res.fail(parsed.errorOf());
+
+		if (!ast.statements.append(parsed.valueOf())) return Res.fail(String("Out of memory"));
+	}
 
 	return Res.ok(ast);
 }
