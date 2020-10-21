@@ -46,7 +46,7 @@ public interface Allocator {
 	 */
 	Type make(Type, Args...)(
 		auto ref Args args
-	) if ((!is(Type == interface)) || (!isAbstactClass!Type)) {
+	) if ((!is(Type == interface)) || (!isAbstractClass!Type)) {
 		static if (is(Type == class)) {
 			Type instance = (cast(Type)this.allocate(__traits(classInstanceSize, Type)).ptr);
 
