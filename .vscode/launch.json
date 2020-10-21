@@ -1,12 +1,24 @@
 {
 	"version": "0.2.0",
-	"configurations": [{
-		"name": "Debug",
-		"type": "gdb",
-		"request": "launch",
-		"target": "${workspaceRoot}/output/engine",
-		"cwd": "${workspaceRoot}/assets",
-		"valuesFormatting": "parseText",
-		// "preLaunchTask": "Build Ona"
-	}]
+	"configurations": [
+		{
+			"name": "Debug",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "${workspaceFolder}/output/engine",
+			"args": [],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}/assets",
+			"environment": [],
+			"externalConsole": false,
+			"MIMode": "gdb",
+			"setupCommands": [
+				{
+					"description": "Enable pretty-printing for gdb",
+					"text": "-enable-pretty-printing",
+					"ignoreFailures": true
+				}
+			],
+			"internalConsoleOptions": "neverOpen"
+		}]
 }
