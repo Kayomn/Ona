@@ -8,7 +8,7 @@ import
  * Sequential buffer of linearly allocate memory with `O(1)` random access that is designed for
  * small amounts of insertion.
  */
-public class Appender(ValueType, IndexType = size_t) {
+public class Array(ValueType, IndexType = size_t) {
 	private NotNull!Allocator allocator;
 
 	private ValueType* values;
