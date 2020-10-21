@@ -32,6 +32,8 @@ public struct String {
 	 */
 	@nogc
 	public this(in char[] data) {
+		this.data.static_ = 0;
+
 		if (data.length <= this.size.max) {
 			ubyte[] buffer = this.createBuffer(cast(uint)data.length);
 
