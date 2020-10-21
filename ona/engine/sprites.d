@@ -10,9 +10,9 @@ public import
  * screen.
  */
 public struct Sprite {
-	private ResourceId polyId;
+	private ResourceID polyID;
 
-	private ResourceId materialId;
+	private ResourceID materialID;
 
 	private Vector2 dimensions;
 
@@ -23,12 +23,11 @@ public struct Sprite {
 
 	@nogc
 	public ulong toHash() pure const {
-		return (((cast(ulong)this.polyId) << 32) | (cast(ulong)this.materialId));
+		return (
+			((cast(ulong)this.polyID.indexOf()) << 32) |
+			(cast(ulong)this.materialID.indexOf())
+		);
 	}
-}
-
-private struct Material {
-	Vector4 tintColor;
 }
 
 private struct Vertex2D {
@@ -67,32 +66,29 @@ public class SpriteCommands : GraphicsCommands {
 
 	private Table!(Sprite, BatchSet) batches;
 
-	private ResourceId rendererId;
-
-	private ResourceId rectPolyId;
+	public this() {
+		this.batches = new Table!(Sprite, BatchSet)(globalAllocator());
+	}
 
 	/**
-	 * Attempts to create a `Sprite` instance wrapped in an `Optional` from the pixel data `image`
+	 * Attempts to create a `Sprite` instance wrapped in a `Result` from the pixel data `image`
 	 * using `graphicsServer`.
 	 *
-	 * Should the `Sprite` fail to be created, `null` is returned instead.
+	 * Should the `Sprite` fail to be created, an erroenous `Result` is returned instead.
 	 */
 	public Result!Sprite createSprite(GraphicsServer graphicsServer, Image image) {
 		alias Res = Result!Sprite;
-		immutable (Material) material = {tintColor: Vector4.of(1f)};
 
-		immutable materialId = graphicsServer.requestMaterial(
-			this.rendererId,
-			image,
-			DataBuffer(asBytes(material))
-		);
+		immutable materialID = graphicsServer.createMaterial(rendererID, image, [
+			Vector4.of(1f)
+		]);
 
-		if (materialId) {
+		if (materialID) {
 			immutable imageSize = image.dimensionsOf();
 
 			return Res.ok(Sprite(
-				this.rectPolyId,
-				materialId,
+				rectPolyID,
+				materialID,
 				Vector2(imageSize.x, imageSize.y)
 			));
 		}
@@ -101,19 +97,16 @@ public class SpriteCommands : GraphicsCommands {
 	}
 
 	override void dispatch(GraphicsServer graphicsServer) {
-		foreach (ref sprite, ref batchSet; this.batches.valuesOf()) {
+		foreach (ref sprite, ref batchSet; this.batches.itemsOf()) {
 			Batch* batch = (&batchSet.head);
 
 			while (batch && batch.count) {
-				graphicsServer.updateRendererUserdata(
-					this.rendererId,
-					DataBuffer(asBytes(batch.chunk))
-				);
+				graphicsServer.updateRendererUserdata(rendererID, asBytes(batch.chunk));
 
 				graphicsServer.renderPolyInstanced(
-					this.rendererId,
-					sprite.polyId,
-					sprite.materialId,
+					rendererID,
+					sprite.polyID,
+					sprite.materialID,
 					batch.count
 				);
 
@@ -128,8 +121,8 @@ public class SpriteCommands : GraphicsCommands {
 	/**
 	 * Draws `sprite` at coordinates `position`.
 	 */
-	public void draw(Sprite sprite, Vector2 position) {
-		BatchSet* batchSet = this.batches.lookupOrInsert(sprite, () => BatchSet.init);
+	public void draw(in Sprite sprite, Vector2 position) {
+		BatchSet* batchSet = this.batches.require(sprite, () => BatchSet.init);
 
 		if (batchSet) {
 			if (!batchSet.current) batchSet.current = (&batchSet.head);
@@ -137,7 +130,7 @@ public class SpriteCommands : GraphicsCommands {
 			Batch* currentBatch = batchSet.current;
 
 			if (currentBatch.count == Chunk.max) {
-				Batch* batch = (cast(Batch*)allocate(Batch.sizeof).ptr);
+				Batch* batch = (cast(Batch*)globalAllocator().allocate(Batch.sizeof).ptr);
 
 				if (batch) {
 					(*batch) = Batch();
@@ -159,8 +152,6 @@ public class SpriteCommands : GraphicsCommands {
 			currentBatch.chunk.viewports[currentBatch.count] = Vector4(0f, 0f, 1f, 1f);
 			currentBatch.count += 1;
 		}
-
-		// TODO: Record failed render.
 	}
 
 	/**
@@ -171,96 +162,60 @@ public class SpriteCommands : GraphicsCommands {
 		SpriteCommands commands = new SpriteCommands();
 
 		if (commands) {
-			static immutable vertexSource = Chars.parseUTF8(`
-#version 430 core
-#define INSTANCE_COUNT 128
+			if (rendererID && rectPolyID) {
+				return commands;
+			} else {
+				rendererID = graphicsServer.createRenderer(
+					[
+						Property(PropertyType.vector2, "quadVertex"),
+						Property(PropertyType.vector2, "quadUV")
+					],
 
-in vec2 quadVertex;
-in vec2 quadUv;
+					[
+						Property(PropertyType.matrix, "projectionTransform"),
+						Property(PropertyType.matrix, "transforms", 128),
+						Property(PropertyType.vector4, "viewports", 128)
+					],
 
-out vec2 texCoords;
-out vec4 texTint;
+					[
+						Property(PropertyType.vector2, "tintColor")
+					],
 
-layout(std140, row_major) uniform Renderer {
-	mat4x4 projectionTransform;
-	mat4x4 transforms[INSTANCE_COUNT];
-	vec4 viewports[INSTANCE_COUNT];
-};
+`vector2 texCoords;
 
-layout(std140, row_major) uniform Material {
-	vec4 tintColor;
-};
+vector4 vertex() {
+	const vector4 viewport = viewports[instance];
+	texCoords = ((quadUV * viewport.zw) + viewport.xy);
 
-uniform sampler2D spriteTexture;
+	return (projectionTransform * transforms[instance] * vector4(quadVertex, 0.0, 1.0));
+}
 
-void main() {
-	const vec4 viewport = viewports[gl_InstanceID];
-
-	texCoords = ((quadUv * viewport.zw) + viewport.xy);
-	texTint = tintColor;
-
-	gl_Position = (
-		projectionTransform * transforms[gl_InstanceID] * vec4(quadVertex, 0.0, 1.0)
-	);
-}`);
-
-			static immutable fragmentSource = Chars.parseUTF8(`
-#version 430 core
-
-in vec2 texCoords;
-in vec4 texTint;
-out vec4 outColor;
-
-uniform sampler2D spriteTexture;
-
-void main() {
-	const vec4 spriteTextureColor = (texture(spriteTexture, texCoords) * texTint);
+vector4 fragment() {
+	const vector4 spriteTextureColor = (texture(mainTexture, texCoords) * tintColor);
 
 	if (spriteTextureColor.a == 0.0) discard;
 
-	outColor = spriteTextureColor;
-}`);
+	return spriteTextureColor;
+}`
+				);
 
-			static immutable vertexAttributes = [
-				Attribute(TypeDescriptor.float_, 2, Chars.parseUTF8("quadVertex")),
-				Attribute(TypeDescriptor.float_, 2, Chars.parseUTF8("quadUV"))
-			];
+				rectPolyID = graphicsServer.createPoly(rendererID, [
+					Vertex2D(Vector2(1f, 1f), Vector2(1f, 1f)),
+					Vertex2D(Vector2(1f, 0f), Vector2(1f, 0f)),
+					Vertex2D(Vector2(0f, 1f), Vector2(0f, 1f)),
+					Vertex2D(Vector2(1f, 0f), Vector2(1f, 0f)),
+					Vertex2D(Vector2(0f, 0f), Vector2(0f, 0f)),
+					Vertex2D(Vector2(0f, 1f), Vector2(0f, 1f))
+				]);
 
-			static immutable rendererAttributes = [
-				Attribute(TypeDescriptor.float_, 16, Chars.parseUTF8("projectionTransform")),
-				Attribute(TypeDescriptor.float_, (16 * 128), Chars.parseUTF8("transforms")),
-				Attribute(TypeDescriptor.float_, (4 * 128), Chars.parseUTF8("viewports")),
-			];
-
-			static immutable materialAttributes = [
-				Attribute(TypeDescriptor.float_, 4, Chars.parseUTF8("tintColor"))
-			];
-
-			commands.rendererId = graphicsServer.requestRenderer(
-				vertexSource,
-				fragmentSource,
-				Layout(vertexAttributes),
-				Layout(rendererAttributes),
-				Layout(materialAttributes)
-			);
-
-			static immutable quadPoly = [
-				Vertex2D(Vector2(1f, 1f), Vector2(1f, 1f)),
-				Vertex2D(Vector2(1f, 0f), Vector2(1f, 0f)),
-				Vertex2D(Vector2(0f, 1f), Vector2(0f, 1f)),
-				Vertex2D(Vector2(1f, 0f), Vector2(1f, 0f)),
-				Vertex2D(Vector2(0f, 0f), Vector2(0f, 0f)),
-				Vertex2D(Vector2(0f, 1f), Vector2(0f, 1f))
-			];
-
-			commands.rectPolyId = graphicsServer.requestPoly(
-				commands.rendererId,
-				DataBuffer(cast(ubyte[])quadPoly)
-			);
-
-			if (commands.rendererId && commands.rectPolyId) return commands;
+				if (rendererID && rectPolyID) return commands;
+			}
 		}
 
 		return null;
 	}
 }
+
+private shared (ResourceID) rendererID;
+
+private shared (ResourceID) rectPolyID;

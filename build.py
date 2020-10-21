@@ -8,15 +8,7 @@ import json
 
 processed_dependencies = []
 common_d_flags = ["--gc"]
-
-common_cpp_flags = [
-	"-g",
-	"--std=c++14",
-	"-fno-exceptions",
-	"-fno-rtti",
-	"-fno-threadsafe-statics",
-	"-I."
-]
+common_c_flags = ["-g", "-I."]
 
 output_path = "output"
 input_path = "ona"
@@ -74,12 +66,12 @@ def build(name: str) -> BuildInfo:
 		return ""
 
 	version_d_flags = []
-	version_cpp_flags = []
+	version_c_flags = []
 
 	if ("versions" in module_config):
 		for version in module_config["versions"]:
 			version_d_flags.append("--d-version=" + version)
-			version_cpp_flags.append("-D version_" + version)
+			version_c_flags.append("-D version_" + version)
 
 	if ("dependencies" in module_config):
 		for dependency in module_config["dependencies"]:
@@ -120,9 +112,9 @@ def build(name: str) -> BuildInfo:
 			print(source_path)
 
 			return call(
-				["clang++", source_path, ("-o" + object_path), "-c"] +
-				version_cpp_flags +
-				common_cpp_flags
+				["clang", source_path, ("-o" + object_path), "-c"] +
+				version_c_flags +
+				common_c_flags
 			)
 
 		compilation_futures = []
@@ -139,7 +131,7 @@ def build(name: str) -> BuildInfo:
 							file_path,
 							to_object_path(file_path)
 						))
-					elif (file_name.endswith(".cpp")):
+					elif (file_name.endswith(".c")):
 						file_path = path.join(module_path, file_name)
 
 						compilation_futures.append(executor.submit(
@@ -164,7 +156,7 @@ def build(name: str) -> BuildInfo:
 							))
 
 							needs_recompile = True
-					elif (file_name.endswith(".cpp")):
+					elif (file_name.endswith(".c")):
 						file_path = path.join(module_path, file_name)
 						object_path = to_object_path(file_path)
 
