@@ -4,23 +4,213 @@ private import
 	ona.collections,
 	ona.core;
 
+public struct ShaderAST {
+	private Allocator allocator;
+
+	public Appender!ShaderStatement statements;
+
+	public void free() {
+		if (this.allocator) {
+			foreach (statement; this.statements.valuesOf()) {
+				statement.free();
+				this.allocator.free(statement);
+			}
+
+			this.allocator.free(this.statements);
+		}
+	}
+}
+
+private struct Lexeme {
+	Token token;
+
+	const (char)[] value;
+
+	@nogc
+	bool isSymbol(char symbol) pure const {
+		return ((this.token == Token.symbol) && (this.value[0] == symbol));
+	}
+}
+
+private struct ShaderLexer {
+	private const (char)[] source;
+
+	private size_t cursor;
+
+	@nogc
+	this(in char[] source) pure {
+		this.source = source;
+	}
+
+	@nogc
+	bool next(out Lexeme lexeme) pure {
+		static bool isLogicalChar(in char c) pure {
+			switch (c) {
+				case '<', '>', '=', '!': return true;
+
+				default: return false;
+			}
+		}
+
+		static bool isDelimiter(in char c) pure {
+			if (isLogicalChar(c)) return true;
+
+			switch (c) {
+				case ',', '.', '+', ';', '/', '*', '(', ')', '{', '}', '[', ']':
+					return true;
+
+				default: return false;
+			}
+		}
+
+		while (this.cursor < this.source.length) {
+			char atCursor = this.source[this.cursor];
+
+			if (isWhitespace(atCursor)) {
+				// Skip whitespace.
+				this.cursor += 1;
+			} else if (isDelimiter(atCursor)) {
+				// Symbols.
+				size_t tokenEnd = (this.cursor + 1);
+
+				if (tokenEnd < this.source.length) {
+					if (isLogicalChar(this.source[tokenEnd])) {
+						// Logical operator symbol (==, !=, <=, >=).
+						tokenEnd += 1;
+					} else if (this.source[tokenEnd] == '/') {
+						// Single-line comment.
+						tokenEnd += 1;
+
+						while (
+							(tokenEnd < this.source.length) &&
+							(this.source[tokenEnd] != '\n')
+						) {
+							tokenEnd += 1;
+						}
+					} else if (this.source[tokenEnd] == '*') {
+						// Multi-line comment.
+						bool endOfComment;
+						tokenEnd += 1;
+
+						while ((tokenEnd < this.source.length) && (!endOfComment)) {
+							if (this.source[tokenEnd] == '*') {
+								tokenEnd += 1;
+
+								if (this.source[tokenEnd] == '/') {
+									tokenEnd += 1;
+									endOfComment = true;
+								}
+							} else {
+								tokenEnd += 1;
+							}
+						}
+					}
+				}
+
+				lexeme = Lexeme(Token.symbol, this.source[this.cursor .. tokenEnd]);
+				this.cursor = tokenEnd;
+
+				return true;
+			} else analysis: switch (atCursor) {
+				case '0': .. case '9': {
+					// Number literals.
+					size_t tokenEnd = (this.cursor + 1);
+
+					while (
+						(tokenEnd < this.source.length) &&
+						isDigit(this.source[tokenEnd])
+					) {
+						tokenEnd += 1;
+					}
+
+					if ((tokenEnd < this.source.length) && (this.source[tokenEnd] == '.')) {
+						// Decimal place encountered.
+						immutable decimalIndex = tokenEnd;
+						tokenEnd += 1;
+
+						// Read second half of number.
+						while (
+							(tokenEnd < this.source.length) &&
+							isDigit(this.source[tokenEnd])
+						) {
+							tokenEnd += 1;
+						}
+
+						// The decimal is not part of the number, it is just a random period
+						// after the number.
+						if (tokenEnd == decimalIndex) tokenEnd -= 1;
+
+						lexeme = Lexeme(Token.numberLiteral, this.source[this.cursor .. tokenEnd]);
+					} else {
+						lexeme = Lexeme(Token.integerLiteral, this.source[this.cursor .. tokenEnd]);
+					}
+
+					this.cursor = tokenEnd;
+
+					return true;
+				} break analysis;
+
+				default: {
+					// Identifiers and keywords.
+					size_t tokenEnd = (this.cursor + 1);
+
+					while (
+						(tokenEnd < this.source.length) &&
+						(!isWhitespace(this.source[tokenEnd])) &&
+						(!isDelimiter(this.source[tokenEnd]))
+					) {
+						tokenEnd += 1;
+					}
+
+					const value = this.source[this.cursor .. tokenEnd];
+
+					identifierCheck: switch (value) {
+						case "matrix", "vector2", "vector3", "vector4", "float": {
+							lexeme = Lexeme(Token.typename, value);
+						} break identifierCheck;
+
+						case "int", "const", "if", "else", "return", "instance": {
+							lexeme = Lexeme(Token.keyword, value);
+						} break identifierCheck;
+
+						default: {
+							lexeme = Lexeme(Token.identifier, value);
+						} break identifierCheck;
+					}
+
+					this.cursor = tokenEnd;
+
+					return true;
+				} break analysis;
+			}
+		}
+
+		return false;
+	}
+}
+
 public interface ShaderStatement {
 	final class Discard : ShaderStatement {
 		@nogc
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitDiscardStatement(this);
 		}
+
+		@nogc
+		void free() {
+
+		}
 	}
 
 	final class Function : ShaderStatement {
-		private ShaderAST body;
+		private Appender!ShaderStatement body;
 
 		public const (char)[] typename;
 
 		public const (char)[] identifier;
 
 		@nogc
-		public inout (ShaderAST) bodyOf() inout pure {
+		public inout (Appender!ShaderStatement) bodyOf() inout pure {
 			return this.body;
 		}
 
@@ -28,10 +218,15 @@ public interface ShaderStatement {
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitFunctionStatement(this);
 		}
+
+		@nogc
+		void free() {
+
+		}
 	}
 
 	final class If : ShaderStatement {
-		private ShaderAST body;
+		private Appender!ShaderStatement body;
 
 		public ShaderExpression expression;
 
@@ -40,13 +235,18 @@ public interface ShaderStatement {
 		public ShaderStatement statementFalse;
 
 		@nogc
-		public inout (ShaderAST) bodyOf() inout pure {
+		public inout (Appender!ShaderStatement) bodyOf() inout pure {
 			return this.body;
 		}
 
 		@nogc
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitIfStatement(this);
+		}
+
+		@nogc
+		void free() {
+
 		}
 	}
 
@@ -56,6 +256,11 @@ public interface ShaderStatement {
 		@nogc
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitReturnStatement(this);
+		}
+
+		@nogc
+		void free() {
+
 		}
 	}
 
@@ -93,6 +298,11 @@ public interface ShaderStatement {
 		}
 
 		@nogc
+		void free() {
+
+		}
+
+		@nogc
 		public bool hasFlag(in Flags flags) pure {
 			return ((this.flags & flags) != 0);
 		}
@@ -100,6 +310,9 @@ public interface ShaderStatement {
 
 	@nogc
 	String accept(ShaderStatementVisitor visitor);
+
+	@nogc
+	void free();
 }
 
 public interface ShaderStatementVisitor {
@@ -132,6 +345,11 @@ public interface ShaderExpression {
 		override String accept(ShaderExpressionVisitor visitor) {
 			return visitor.visitAssignExpression(this);
 		}
+
+		@nogc
+		void free() {
+
+		}
 	}
 
 	final class Literal : ShaderExpression {
@@ -146,10 +364,18 @@ public interface ShaderExpression {
 		override String accept(ShaderExpressionVisitor visitor) {
 			return visitor.visitLiteralExpression(this);
 		}
+
+		@nogc
+		void free() {
+
+		}
 	}
 
 	@nogc
 	String accept(ShaderExpressionVisitor visitor);
+
+	@nogc
+	void free();
 }
 
 public interface ShaderExpressionVisitor {
@@ -160,11 +386,34 @@ public interface ShaderExpressionVisitor {
 	String visitLiteralExpression(ShaderExpression.Literal literal);
 }
 
-public alias ShaderAST = Appender!ShaderStatement;
+private enum Token {
+	symbol,
+	identifier,
+	typename,
+	keyword,
+	numberLiteral,
+	integerLiteral,
+	eof
+}
 
 @nogc
 public Result!(ShaderAST, String) parseShaderAST(Allocator allocator, in char[] source) {
 	alias Res = Result!(ShaderAST, String);
 
-	return Res.fail(String("Not implemented"));
+	enum ErrorMessage {
+		memory = String("Out of memory")
+	}
+
+	ShaderLexer lexer = source;
+
+	ShaderAST ast = {
+		allocator: allocator,
+		statements: allocator.make!(Appender!ShaderStatement)(globalAllocator())
+	};
+
+	if (!ast.statements) return Res.fail(ErrorMessage.memory);
+
+	// TODO: Everything else.
+
+	return Res.ok(ast);
 }

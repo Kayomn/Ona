@@ -258,7 +258,7 @@ version (OpenGL) {
 
 		auto visitor = scoped!GLSLParser(glsl);
 
-		foreach (statement; ast.valuesOf()) statement.accept(visitor);
+		foreach (statement; ast.statements.valuesOf()) statement.accept(visitor);
 
 		return true;
 	}
