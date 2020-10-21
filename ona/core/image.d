@@ -90,7 +90,7 @@ public struct Image {
 	 */
 	@nogc
 	public static Result!(Image, ImageError) from(
-		NotNull!Allocator allocator,
+		Allocator allocator,
 		in Point2 dimensions,
 		in Color[] data
 	) {
@@ -126,7 +126,7 @@ public struct Image {
 	 */
 	@nogc
 	public static Result!(Image, ImageError) solid(
-		NotNull!Allocator allocator,
+		Allocator allocator,
 		in Point2 dimensions,
 		in Color color
 	) {

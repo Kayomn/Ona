@@ -280,7 +280,7 @@ private FileOperations osFileOperations = {
  * Retrieves the global allocator.
  */
 @nogc
-public NotNull!Allocator globalAllocator() {
+public Allocator globalAllocator() {
 	final class GlobalAllocator : Allocator {
 		@nogc
 		override ubyte[] allocate(size_t size) {
@@ -304,7 +304,7 @@ public NotNull!Allocator globalAllocator() {
 		}
 	}
 
-	__gshared NotNull!Allocator allocator = new GlobalAllocator();
+	__gshared Allocator allocator = new GlobalAllocator();
 
 	return allocator;
 }
@@ -317,7 +317,7 @@ public bool checkFile(String filePath) {
 	return (access(String.sentineled(filePath).pointerOf(), F_OK) != -1);
 }
 
-// public Type make(Args...)(NotNull!Allocator allocator, auto ref Args args) {
+// public Type make(Args...)(Allocator allocator, auto ref Args args) {
 // 	enum classSize = __traits(classInstanceSize, Type);
 // 	Type instance = allocator.allocate(classSize).ptr;
 

@@ -24,7 +24,7 @@ public struct Key(IndexType) if (isIntegral!IndexType) {
 public final class Sloter(ValueType, IndexType) if (isIntegral!IndexType) {
 	private ulong generation;
 
-	private NotNull!Allocator allocator;
+	private Allocator allocator;
 
 	private Key!IndexType* slots;
 
@@ -37,7 +37,7 @@ public final class Sloter(ValueType, IndexType) if (isIntegral!IndexType) {
 	private IndexType freeHead;
 
 	@nogc
-	public this(NotNull!Allocator allocator) pure {
+	public this(Allocator allocator) pure {
 		this.allocator = allocator;
 	}
 
@@ -51,7 +51,7 @@ public final class Sloter(ValueType, IndexType) if (isIntegral!IndexType) {
 	}
 
 	@nogc
-	public inout (NotNull!Allocator) allocatorOf() inout pure {
+	public inout (Allocator) allocatorOf() inout pure {
 		return this.allocator;
 	}
 

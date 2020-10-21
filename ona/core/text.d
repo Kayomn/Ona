@@ -195,7 +195,7 @@ public final class StringBuilder(size_t blockSize) {
 		char[blockSize] buffer;
 	}
 
-	private NotNull!Allocator allocator;
+	private Allocator allocator;
 
 	private size_t cursor;
 
@@ -206,7 +206,7 @@ public final class StringBuilder(size_t blockSize) {
 	private Block* currentBlock;
 
 	@nogc
-	public this(NotNull!Allocator allocator) pure {
+	public this(Allocator allocator) pure {
 		this.allocator = allocator;
 		this.currentBlock = (&this.headBlock);
 		this.blockCount = 1;
@@ -218,7 +218,7 @@ public final class StringBuilder(size_t blockSize) {
 	}
 
 	@nogc
-	public inout (NotNull!Allocator) allocatorOf() inout pure {
+	public inout (Allocator) allocatorOf() inout pure {
 		return this.allocator;
 	}
 

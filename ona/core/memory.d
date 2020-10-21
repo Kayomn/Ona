@@ -254,13 +254,13 @@ public auto scoped(Type, Args...)(auto ref Args args) {
 
 		@nogc
 		public Type __instance() pure {
-			return Type(cast(Type)this.buffer.ptr);
+			return (cast(Type)this.buffer.ptr);
 		}
 	}
 
 	Scoped scoped = void;
 
-	emplace(scoped.__instance().__payload, args);
+	emplace(scoped.__instance(), args);
 
 	return scoped;
 }

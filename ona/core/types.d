@@ -5,25 +5,6 @@ private import
 	std.conv,
 	std.traits;
 
-private enum isNullable(Type) = (
-	isPointer!Type ||
-	isDynamicArray!Type ||
-	is(Type == class) ||
-	is(Type == interface)
-);
-
-public struct NotNull(Type) if (isNullable!Type) {
-	alias __payload this;
-
-	Type __payload;
-
-	@disable this();
-
-	this(Type value) {
-		this.__payload = value;
-	}
-}
-
 /**
  * A type wrapper for a value *or* an error.
  *

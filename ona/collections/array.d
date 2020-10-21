@@ -34,7 +34,7 @@ public interface Array(ValueType, IndexType = size_t) {
  * amounts of insertion.
  */
 public final class Appender(ValueType, IndexType = size_t) : Array!(ValueType, IndexType) {
-	private NotNull!Allocator allocator;
+	private Allocator allocator;
 
 	private ValueType* values;
 
@@ -46,7 +46,7 @@ public final class Appender(ValueType, IndexType = size_t) : Array!(ValueType, I
 	 * Constructs an `Appender` with `allocator` as the `Allocator`.
 	 */
 	@nogc
-	public this(NotNull!Allocator allocator) pure {
+	public this(Allocator allocator) pure {
 		this.allocator = allocator;
 	}
 
@@ -62,7 +62,7 @@ public final class Appender(ValueType, IndexType = size_t) : Array!(ValueType, I
 	 * Attempts to retrieve the `Allocator` being used by the `Appender`.
 	 */
 	@nogc
-	public inout (NotNull!Allocator) allocatorOf() inout pure {
+	public inout (Allocator) allocatorOf() inout pure {
 		return this.allocator;
 	}
 

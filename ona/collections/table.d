@@ -22,7 +22,7 @@ public final class Table(KeyType, ValueType) {
 
 	private enum defaultHashSize = 256;
 
-	private NotNull!Allocator allocator;
+	private Allocator allocator;
 
 	private size_t count;
 
@@ -41,7 +41,7 @@ public final class Table(KeyType, ValueType) {
 	 * Constructs an `Table` with `allocator` as the `Allocator`.
 	 */
 	@nogc
-	public this(NotNull!Allocator allocator) pure {
+	public this(Allocator allocator) pure {
 		this.allocator = allocator;
 	}
 
@@ -77,7 +77,7 @@ public final class Table(KeyType, ValueType) {
 	 * Attempts to retrieve the `Allocator` being used by the `Table`.
 	 */
 	@nogc
-	public inout (NotNull!Allocator) allocatorOf() pure inout {
+	public inout (Allocator) allocatorOf() pure inout {
 		return this.allocator;
 	}
 
