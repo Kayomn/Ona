@@ -99,6 +99,14 @@ public struct String {
 	}
 
 	/**
+	 * Checks whether or not the `String` contains any text.
+	 */
+	@nogc
+	public bool isEmpty() const pure {
+		return (this.size == 0);
+	}
+
+	/**
 	 * Checks whether or not the `String` is using dynamic memory.
 	 */
 	@nogc
@@ -129,6 +137,14 @@ public struct String {
 			(cast(const (char)*)this.data.dynamic) :
 			(cast(const (char)*)this.data.static_.ptr)
 		);
+	}
+
+	/**
+	 * Casts to `false` if the `String` is empty, otherwise `true`.
+	 */
+	@nogc
+	public Type opCast(Type)() if (is(Type == bool)) {
+		return (!this.isEmpty());
 	}
 
 	@nogc
