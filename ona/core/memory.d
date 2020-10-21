@@ -244,7 +244,7 @@ public auto scoped(Type, Args...)(auto ref Args args) {
 	static struct Scoped {
 		alias __instance this;
 
-		private ubyte[__traits(classInstanceSize, Type) + 1] buffer;
+		private ubyte[__traits(classInstanceSize, Type)] buffer;
 
 		static if (hasElaborateDestructor!Type) {
 			public ~this() {
@@ -254,19 +254,13 @@ public auto scoped(Type, Args...)(auto ref Args args) {
 
 		@nogc
 		public Type __instance() pure {
-			return (this.exists() ? (cast(Type)this.buffer.ptr) : null);
-		}
-
-		@nogc
-		private ref bool exists() pure {
-			return (*cast(bool*)(this.buffer.ptr + __traits(classInstanceSize, Type)));
+			return Type(cast(Type)this.buffer.ptr);
 		}
 	}
 
 	Scoped scoped = void;
-	scoped.exists() = true;
 
-	emplace(scoped.__instance(), args);
+	emplace(scoped.__instance().__payload, args);
 
 	return scoped;
 }
