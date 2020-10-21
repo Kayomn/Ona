@@ -34,9 +34,11 @@ public interface Allocator {
 	 * If `instance` is not an address allocated by the `Allocator` then the program will encounter
 	 * a critical error.
 	 */
-	void free(Type)(Type instance) {
+	void free(Type)(ref Type instance) {
 		destroy(instance);
 		this.deallocate(cast(void*)instance);
+
+		instance = null;
 	}
 
 	/**
