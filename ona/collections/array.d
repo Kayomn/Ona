@@ -5,10 +5,35 @@ import
 	std.traits;
 
 /**
- * Sequential buffer of linearly allocate memory with `O(1)` random access that is designed for
- * small amounts of insertion.
+ * Sequential buffer of linearly allocated memory with `O(1)` random access time.
  */
-public class Array(ValueType, IndexType = size_t) {
+public interface Array(ValueType, IndexType = size_t) {
+	/**
+	 * Retrieves the value at index `index` by reference.
+	 */
+	@nogc
+	ref inout (ValueType) at(in IndexType index) inout pure;
+
+	/**
+	 * Retrieves the number of values currently stored by the `Array`.
+	 */
+	@nogc
+	IndexType countOf() const pure;
+
+	/**
+	 * Returns a weak view into the values currently contained in the `Array`.
+	 *
+	 * As the view is considered "weak", any mutation to the `Array` will invalidate the view.
+	 */
+	@nogc
+	inout (ValueType)[] valuesOf() inout pure;
+}
+
+/**
+ * Sequential buffer of linearly allocate memory with `O(1)` random access time designed for light
+ * amounts of insertion.
+ */
+public final class Appender(ValueType, IndexType = size_t) : Array!(ValueType, IndexType) {
 	private NotNull!Allocator allocator;
 
 	private ValueType* values;
@@ -63,11 +88,8 @@ public class Array(ValueType, IndexType = size_t) {
 		return bufferAddress;
 	}
 
-	/**
-	 * Retrieves the value at index `index` by reference.
-	 */
 	@nogc
-	public ref inout (ValueType) at(in IndexType index) inout pure {
+	override ref inout (ValueType) at(in IndexType index) inout pure {
 		return this.values[index];
 	}
 
@@ -96,13 +118,8 @@ public class Array(ValueType, IndexType = size_t) {
 		this.count = 0;
 	}
 
-	/**
-	 * Retrieves the number of values stored by the `Appender`.
-	 *
-	 * `Appender.countOf` is not to be confused with `Appender.capacityOf`.
-	 */
 	@nogc
-	public IndexType countOf() const pure {
+	override IndexType countOf() const pure {
 		return this.count;
 	}
 
@@ -168,14 +185,8 @@ public class Array(ValueType, IndexType = size_t) {
 		this.count -= n;
 	}
 
-	/**
-	 * Returns a view into the values contained in the `Appender`.
-	 *
-	 * Note that the returned value is a weak reference, and subsequent calls to `Appender` may
-	 * invalidate it.
-	 */
 	@nogc
-	public inout (ValueType)[] valuesOf() inout pure {
+	override inout (ValueType)[] valuesOf() inout pure {
 		return this.values[0 .. this.count];
 	}
 }
