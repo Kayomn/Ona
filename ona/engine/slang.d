@@ -490,7 +490,7 @@ public ParseResult!ShaderAST parseShaderAST(Allocator allocator, in char[] sourc
 
 		ParseResult!ShaderStatement parsed = parseDeclaration(allocator, declaration, lexer);
 
-		if (parsed) return Res.fail(parsed.errorOf());
+		if (!parsed) return Res.fail(parsed.errorOf());
 
 		if (!ast.statements.append(parsed.valueOf())) return Res.fail(String("Out of memory"));
 	}
