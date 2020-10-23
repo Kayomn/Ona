@@ -66,13 +66,13 @@ version (OpenGL) {
 	}
 
 	@nogc
-	private bool glslCompileFragment(SourceBuilder glsl, in ShaderAST ast) {
+	private bool glslCompileFragment(StringBuilder glsl, in ShaderAST ast) {
 		return true;
 	}
 
 	@nogc
 	private bool glslCompileHeader(
-		SourceBuilder glsl,
+		StringBuilder glsl,
 		in Property[] vertexProperties,
 		in Property[] rendererProperties,
 		in Property[] materialProperties
@@ -95,7 +95,7 @@ version (OpenGL) {
 			}
 		}
 
-		static bool writeUserdataLayout(ref SourceBuilder glsl, in Property[] layout) {
+		static bool writeUserdataLayout(ref StringBuilder glsl, in Property[] layout) {
 			if (!glsl.write("layout (std140, row_major) uniform Renderer {\n")) return false;
 
 			foreach (ref property; layout) {
@@ -156,12 +156,12 @@ version (OpenGL) {
 	}
 
 	@nogc
-	private bool glslCompileVertex(SourceBuilder glsl, ShaderAST ast) {
+	private bool glslCompileVertex(StringBuilder glsl, ShaderAST ast) {
 		static final class GLSLParser : ShaderStatementVisitor, ShaderExpressionVisitor {
-			private SourceBuilder glsl;
+			private StringBuilder glsl;
 
 			@nogc
-			public this(SourceBuilder glsl) pure {
+			public this(StringBuilder glsl) pure {
 				this.glsl = glsl;
 			}
 
@@ -335,8 +335,8 @@ version (OpenGL) {
 				immutable materialSize = calculateUserdataSize(materialProperties);
 
 				if ((userdataSize < bufferLimit) && (materialSize < bufferLimit)) {
-					SourceBuilder vertexGLSL;
-					SourceBuilder fragmentGLSL;
+					auto vertexGLSL = scoped!StringBuilder(globalAllocator());
+					auto fragmentGLSL = scoped!StringBuilder(globalAllocator());
 
 					if (glslCompileHeader(
 						vertexGLSL, vertexProperties, rendererProperties, materialProperties

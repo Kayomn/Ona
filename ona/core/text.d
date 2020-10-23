@@ -188,23 +188,31 @@ public struct String {
 	}
 }
 
-public final class StringBuilder(size_t blockSize) {
+/**
+ * Mutable, block-based text construction container used for assembling `String`s.
+ */
+public final class StringBuilder {
 	private struct Block {
+		size_t filled;
+
 		Block* next;
 
-		char[blockSize] buffer;
+		ubyte[4096 - (filled.sizeof + next.sizeof)] buffer;
 	}
 
 	private Allocator allocator;
 
-	private size_t cursor;
+	private size_t count;
 
 	private size_t blockCount;
 
-	private Block headBlock;
-
 	private Block* currentBlock;
 
+	private Block headBlock;
+
+	/**
+	 * Constructs a `StringBuilder` with `allocator` as the allocation strategy.
+	 */
 	@nogc
 	public this(Allocator allocator) pure {
 		this.allocator = allocator;
@@ -214,63 +222,74 @@ public final class StringBuilder(size_t blockSize) {
 
 	@nogc
 	public ~this() {
-		// TODO: Implement.
+		Block* block = this.headBlock.next;
+
+		while (block) {
+			Block* nextBlock = block.next;
+
+			this.allocator.deallocate(block);
+
+			block = nextBlock;
+		}
 	}
 
+	/**
+	 * Attempts to retrieve the `Allocator` being used by the `StringBuilder`.
+	 */
 	@nogc
 	public inout (Allocator) allocatorOf() inout pure {
 		return this.allocator;
 	}
 
+	/**
+	 * Retrieves the number of characters currently held by the `StringBuilder`.
+	 */
+	@nogc
+	public size_t countOf() const pure {
+		return this.count;
+	}
+
 	@nogc
 	public String toString() const {
-		return String(cast(const (char)[])this.currentBlock.buffer[0 .. this.cursor]);
+		return String(cast(const (char)[])this.currentBlock.buffer[0 .. this.count]);
 	}
 
 	/**
 	 * Writes `c` to the `StringBuilder`.
+	 *
+	 * Should `StringBuilder.write` fail for any reason, `false` is returned. Otherwise, `true` is
+	 * returned.
 	 */
 	@nogc
 	public bool write(in char c) {
-		bool createBlock() {
-			Block* block = (cast(Block*)(this.allocator.allocate(Block.sizeof)).ptr);
+		if (this.currentBlock.filled == Block.buffer.length) {
+			Block* block = (cast(Block*)this.allocator.allocate(Block.sizeof).ptr);
 
-			if (block) {
-				(*block) = Block.init;
-				this.currentBlock.next = block;
-				this.currentBlock = this.currentBlock.next;
-				this.blockCount += 1;
-
-				return true;
-			}
-
-			return false;
-		}
-
-		// Check that there's a byte free for the character.
-		if (((blockSize * this.blockCount) - this.cursor) == 0) {
-			if (!createBlock()) {
+			if (!block) {
 				// Allocation failure.
 				return false;
 			}
+
+			this.currentBlock.next = block;
+			this.currentBlock = block;
 		}
 
-		char* blockAddress = cast(char*)(
-			this.currentBlock.buffer.ptr + (this.cursor - ((this.blockCount - 1) * blockSize))
-		);
-
-		(*blockAddress) = c;
-		this.cursor += char.sizeof;
+		this.currentBlock.buffer[this.currentBlock.filled] = c;
+		this.currentBlock.filled += 1;
+		this.count += 1;
 
 		return true;
 	}
 
 	/**
-	 * Writes `values` to the `StringBuilder`.
+	 * Writes `text` to the `StringBuilder`.
+	 *
+	 * Should `StringBuilder.write` fail for any reason, `false` is returned. Otherwise, `true` is
+	 * returned.
 	 */
 	@nogc
-	public bool write(in char[] values...) {
-		foreach (value; values) if (!this.write(value)) return false;
+	public bool write(in char[] text...) {
+		foreach (c; text) if (!this.write(c)) return false;
 
 		return true;
 	}

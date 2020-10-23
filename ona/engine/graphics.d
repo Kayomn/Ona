@@ -160,5 +160,3 @@ public enum PropertyType {
 }
 
 public alias ResourceID = Key!(uint);
-
-public alias SourceBuilder = StringBuilder!4096;
