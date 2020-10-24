@@ -12,12 +12,30 @@ public struct ShaderAST {
 	public void free() {
 		if (this.allocator) {
 			foreach (statement; this.statements.valuesOf()) {
-				statement.free();
 				this.allocator.free(statement);
 			}
 
 			this.allocator.free(this.statements);
 		}
+	}
+}
+
+public struct ShaderVariable {
+	enum Flags {
+		none = 0,
+		isGlobal = 0x1,
+		isConst = 0x2
+	}
+
+	const (char)[] typename;
+
+	const (char)[] identifier;
+
+	Flags flags;
+
+	@nogc
+	bool hasFlag(in Flags flags) pure {
+		return ((this.flags & flags) != 0);
 	}
 }
 
@@ -195,38 +213,40 @@ public interface ShaderStatement {
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitDiscardStatement(this);
 		}
-
-		@nogc
-		void free() {
-
-		}
 	}
 
 	static final class Function : ShaderStatement {
-		private Appender!ShaderStatement body;
+		public Appender!ShaderVariable args;
+
+		public Appender!ShaderStatement body;
 
 		public const (char)[] typename;
 
 		public const (char)[] identifier;
 
 		@nogc
-		public inout (Appender!ShaderStatement) bodyOf() inout pure {
-			return this.body;
+		public this(in char[] typename, in char[] identifier) {
+			Allocator allocator = globalAllocator();
+			this.typename = typename;
+			this.identifier = identifier;
+			this.args = allocator.make!(Appender!ShaderVariable)(allocator);
+			this.body = allocator.make!(Appender!ShaderStatement)(allocator);
+		}
+
+		public ~this() {
+			Allocator allocator = globalAllocator();
+			allocator.free(this.args);
+			allocator.free(this.body);
 		}
 
 		@nogc
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitFunctionStatement(this);
 		}
-
-		@nogc
-		void free() {
-
-		}
 	}
 
 	static final class If : ShaderStatement {
-		private Appender!ShaderStatement body;
+		public Appender!ShaderStatement body;
 
 		public ShaderExpression expression;
 
@@ -235,18 +255,8 @@ public interface ShaderStatement {
 		public ShaderStatement statementFalse;
 
 		@nogc
-		public inout (Appender!ShaderStatement) bodyOf() inout pure {
-			return this.body;
-		}
-
-		@nogc
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitIfStatement(this);
-		}
-
-		@nogc
-		void free() {
-
 		}
 	}
 
@@ -257,38 +267,21 @@ public interface ShaderStatement {
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitReturnStatement(this);
 		}
-
-		@nogc
-		void free() {
-
-		}
 	}
 
 	static final class Variable : ShaderStatement {
-		public enum Flags {
-			none = 0,
-			isGlobal = 0x1,
-			isConst = 0x2
-		}
-
-		public const (char)[] typename;
-
-		public const (char)[] identifier;
+		public ShaderVariable variable;
 
 		public ShaderExpression expression;
 
-		public Flags flags;
-
 		@nogc
 		public this(in char[] typename, in char[] identifier) pure {
-			this.typename = typename;
-			this.identifier = identifier;
+			this.variable = ShaderVariable(typename, identifier);
 		}
 
 		@nogc
 		public this(in char[] typename, in char[] identifier, ShaderExpression expression) pure {
-			this.typename = typename;
-			this.identifier = identifier;
+			this.variable = ShaderVariable(typename, identifier);
 			this.expression = expression;
 		}
 
@@ -296,23 +289,10 @@ public interface ShaderStatement {
 		override String accept(ShaderStatementVisitor visitor) {
 			return visitor.visitVariableStatement(this);
 		}
-
-		@nogc
-		void free() {
-
-		}
-
-		@nogc
-		public bool hasFlag(in Flags flags) pure {
-			return ((this.flags & flags) != 0);
-		}
 	}
 
 	@nogc
 	String accept(ShaderStatementVisitor visitor);
-
-	@nogc
-	void free();
 }
 
 public interface ShaderStatementVisitor {
@@ -345,11 +325,6 @@ public interface ShaderExpression {
 		override String accept(ShaderExpressionVisitor visitor) {
 			return visitor.visitAssignExpression(this);
 		}
-
-		@nogc
-		void free() {
-
-		}
 	}
 
 	static final class Literal : ShaderExpression {
@@ -364,18 +339,10 @@ public interface ShaderExpression {
 		override String accept(ShaderExpressionVisitor visitor) {
 			return visitor.visitLiteralExpression(this);
 		}
-
-		@nogc
-		void free() {
-
-		}
 	}
 
 	@nogc
 	String accept(ShaderExpressionVisitor visitor);
-
-	@nogc
-	void free();
 }
 
 public interface ShaderExpressionVisitor {
@@ -405,34 +372,32 @@ private ParseResult!ShaderStatement parseDeclaration(
 	ref ShaderLexer lexer
 ) {
 	alias Res = ParseResult!ShaderStatement;
-	Lexeme identifier;
+	Lexeme lexeme;
 
-	if ((!lexer.next(identifier)) || (identifier.token != Token.identifier)) {
+	if ((!lexer.next(lexeme)) || (lexeme.token != Token.identifier)) {
 		return Res.fail(String("Expected identifier after typename"));
 	}
 
-	Lexeme symbol;
+	const identifier = lexeme.value;
 
-	if ((!lexer.next(symbol)) || (symbol.token != Token.symbol)) {
+	if ((!lexer.next(lexeme)) || (lexeme.token != Token.symbol)) {
 		return Res.fail(String("Expected symbol after identifier"));
 	}
 
-	declarationType: switch (symbol.value[0]) {
+	declarationType: switch (lexeme.value[0]) {
 		case ';': {
 			auto globalVariable = allocator.make!(ShaderStatement.Variable)(
 				typename.value,
-				identifier.value
+				identifier
 			);
 
 			return (globalVariable ? Res.ok(globalVariable) : Res.fail(String("Out of memory")));
 		} break declarationType;
 
 		case '=': {
-			Lexeme expression;
+			if (!lexer.next(lexeme)) return Res.fail(String("Unexpected end of file"));
 
-			if (!lexer.next(expression)) return Res.fail(String("Unexpected end of line"));
-
-			ParseResult!ShaderExpression parsed = parseExpression(allocator, expression, lexer);
+			ParseResult!ShaderExpression parsed = parseExpression(allocator, lexeme, lexer);
 
 			if (!parsed) return Res.fail(parsed.errorOf());
 
@@ -442,14 +407,85 @@ private ParseResult!ShaderStatement parseDeclaration(
 
 			auto globalVariable = allocator.make!(ShaderStatement.Variable)(
 				typename.value,
-				identifier.value,
+				identifier,
 				assign
 			);
 
 			return (globalVariable ? Res.ok(globalVariable) : Res.fail(String("Out of memory")));
 		} break declarationType;
 
-		case '(': break declarationType;
+		case '(': {
+			auto function_ = allocator.make!(ShaderStatement.Function)(
+				typename.value,
+				identifier
+			);
+
+			if (!function_) return Res.fail(String("Out of memory"));
+
+			for (;;) {
+				if (!lexer.next(lexeme)) {
+					return Res.fail(String("Unexpected end of file"));
+				}
+
+				ShaderVariable.Flags argFlags;
+
+				switch (lexeme.token) {
+					case Token.keyword: {
+						qualifierLoop: for (;;) {
+							if (lexeme.value == "const") {
+								argFlags |= ShaderVariable.Flags.isConst;
+							} else {
+								return Res.fail(String("Invalid keyword in function arguments"));
+							}
+
+							if (!lexer.next(lexeme)) {
+								return Res.fail(String("Unexpected end of line"));
+							}
+
+							if (lexeme.token == Token.identifier) {
+								break qualifierLoop;
+							} else if (lexeme.token != Token.keyword) {
+								return Res.fail(String(
+									"Expected qualifying keyword or identifier after keyword"
+								));
+							}
+						}
+
+						goto case Token.typename;
+					}
+
+					case Token.typename: {
+						const argTypename = lexeme.value;
+
+						if ((!lexer.next(lexeme)) || (lexeme.token != Token.identifier)) {
+							return Res.fail(String(
+								"Arguments must be supplied a valid identifier"
+							));
+						}
+
+						if (!function_.args.append(ShaderVariable(
+							argTypename,
+							lexeme.value,
+							argFlags
+						))) {
+							return Res.fail(String("Out of memory"));
+						}
+					} break;
+
+					case Token.symbol: {
+						if (lexeme.value[0] == ')') return Res.ok(function_);
+
+						goto default;
+					}
+
+					default: return Res.fail(String(
+						"Expected qualifying keyword, argument or `)` at function declaration"
+					));
+				}
+			}
+
+			break declarationType;
+		}
 
 		default: break declarationType;
 	}

@@ -186,7 +186,7 @@ version (OpenGL) {
 				this.glsl.write(function_.identifier);
 				this.glsl.write("{\n");
 
-				foreach (statement; function_.bodyOf().valuesOf()) {
+				foreach (statement; function_.body.valuesOf()) {
 					String error = statement.accept(this);
 
 					if (error) return error;
@@ -199,17 +199,17 @@ version (OpenGL) {
 
 			@nogc
 			override String visitVariableStatement(ShaderStatement.Variable variable) {
-				if (variable.hasFlag(ShaderStatement.Variable.Flags.isGlobal)) {
+				if (variable.variable.hasFlag(ShaderVariable.Flags.isGlobal)) {
 					this.glsl.write("out ");
 
-					if (variable.hasFlag(ShaderStatement.Variable.Flags.isConst)) {
+					if (variable.variable.hasFlag(ShaderVariable.Flags.isConst)) {
 						return String("Global variables cannot be constant");
 					}
 				}
 
-				this.glsl.write(variable.typename);
+				this.glsl.write(variable.variable.typename);
 				this.glsl.write(' ');
-				this.glsl.write(variable.identifier);
+				this.glsl.write(variable.variable.identifier);
 
 				if (variable.expression) {
 					String error = variable.expression.accept(this);
@@ -228,7 +228,7 @@ version (OpenGL) {
 				if_.expression.accept(this);
 				this.glsl.write("){\n");
 
-				foreach (statement; if_.bodyOf().valuesOf()) {
+				foreach (statement; if_.body.valuesOf()) {
 					String error = statement.accept(this);
 
 					if (!error) return error;
