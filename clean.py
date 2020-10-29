@@ -2,7 +2,8 @@
 
 from os import listdir, remove, path
 
-output_path = "./output"
+output_path = "output"
 
-for file_name in listdir(output_path):
-	remove(path.join(output_path, file_name))
+if (path.exists(output_path)):
+	for filename in listdir(output_path):
+		remove(path.join(output_path, filename))

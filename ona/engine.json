@@ -1,6 +1,13 @@
 {
 	"targetType": "executable",
-	"dependencies": ["core", "collections"],
-	"libraries": ["SDL2", "GL", "GLEW"],
-	"versions": ["OpenGL"]
+	"libraries": [
+		"dl",
+		"SDL2",
+		"GL",
+		"GLEW"
+	],
+	"dependencies": [
+		"core",
+		"collections"
+	]
 }

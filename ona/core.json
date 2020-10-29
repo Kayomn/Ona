@@ -1,4 +1,3 @@
 {
-	"targetType": "static-lib",
-	"dependencies": []
+	"targetType": "static-lib"
 }

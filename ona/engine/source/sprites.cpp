@@ -1,0 +1,230 @@
+#include "ona/engine/module.hpp"
+
+namespace Ona::Engine {
+	using namespace Ona::Core;
+	using namespace Ona::Engine;
+
+	struct Vertex2D {
+		Vector2 position;
+
+		Vector2 uv;
+	};
+
+	internal ResourceID spriteRendererID;
+
+	internal ResourceID spriteRectID;
+
+	internal bool LazyInitSpriteRenderer(GraphicsServer * graphics) {
+		static Chars const vertexSource = CharsFrom(
+			"#version 430 core\n"
+			"#define INSTANCE_COUNT 128\n"
+			"\n"
+			"in vec2 quadVertex;\n"
+			"in vec2 quadUv;\n"
+			"\n"
+			"out vec2 texCoords;\n"
+			"out vec4 texTint;\n"
+			"\n"
+			"layout(std140, row_major) uniform Renderer {\n"
+			"	mat4x4 projectionTransform;\n"
+			"	mat4x4 transforms[INSTANCE_COUNT];\n"
+			"	vec4 viewports[INSTANCE_COUNT];\n"
+			"};\n"
+			"\n"
+			"layout(std140, row_major) uniform Material {\n"
+			"	vec4 tintColor;\n"
+			"};\n"
+			"\n"
+			"uniform sampler2D spriteTexture;\n"
+			"\n"
+			"void main() {\n"
+			"	const vec4 viewport = viewports[gl_InstanceID];\n"
+			"\n"
+			"	texCoords = ((quadUv * viewport.zw) + viewport.xy);\n"
+			"	texTint = tintColor;\n"
+			"\n"
+			"	gl_Position = (\n"
+			"		projectionTransform * transforms[gl_InstanceID] * vec4(quadVertex, 0.0, 1.0)"
+			"	);\n"
+			"}\n"
+		);
+
+		static Chars const fragmentSource = CharsFrom(
+			"#version 430 core\n"
+			"\n"
+			"in vec2 texCoords;\n"
+			"in vec4 texTint;\n"
+			"out vec4 outColor;\n"
+			"\n"
+			"uniform sampler2D spriteTexture;\n"
+			"\n"
+			"void main() {\n"
+			"	const vec4 spriteTextureColor = (texture(spriteTexture, texCoords) * texTint);\n"
+			"\n"
+			"	if (spriteTextureColor.a == 0.0) discard;\n"
+			"\n"
+			"	outColor = spriteTextureColor;\n"
+			"}\n"
+		);
+
+		static Property const vertexProperties[] = {
+			Property{PropertyType::Float32, 2, String::From("quadVertex")},
+			Property{PropertyType::Float32, 2, String::From("quadUv")}
+		};
+
+		static Property const rendererProperties[] = {
+			Property{PropertyType::Float32, 16, String::From("projectionTransform")},
+			Property{PropertyType::Float32, (16 * 128), String::From("transforms")},
+			Property{PropertyType::Float32, (4 * 128), String::From("viewports")},
+		};
+
+		static Property const materialProperties[] = {
+			Property{PropertyType::Float32, 4, String::From("tintColor")}
+		};
+
+		if (!spriteRendererID) {
+			static Vertex2D const quadPoly[] = {
+				Vertex2D{Vector2{1.f, 1.f}, Vector2{1.f, 1.f}},
+				Vertex2D{Vector2{1.f, 0.f}, Vector2{1.f, 0.f}},
+				Vertex2D{Vector2{0.f, 1.f}, Vector2{0.f, 1.f}},
+				Vertex2D{Vector2{1.f, 0.f}, Vector2{1.f, 0.f}},
+				Vertex2D{Vector2{0.f, 0.f}, Vector2{0.f, 0.f}},
+				Vertex2D{Vector2{0.f, 1.f}, Vector2{0.f, 1.f}}
+			};
+
+			spriteRendererID = graphics->CreateRenderer(
+				vertexSource,
+				fragmentSource,
+				Slice<Property const>{.length = 2, .pointer = vertexProperties},
+				Slice<Property const>{.length = 3, .pointer = rendererProperties},
+				Slice<Property const>{.length = 1, .pointer = materialProperties}
+			);
+
+			if (spriteRendererID) {
+				spriteRectID = graphics->CreatePoly(
+					spriteRendererID,
+					SliceOf(quadPoly, 6).AsBytes()
+				);
+
+				if (spriteRectID) return true;
+			}
+
+			return false;
+		}
+
+		return true;
+	}
+
+	struct Material {
+		Vector4 tintColor;
+	};
+
+	Result<Sprite, SpriteError> CreateSprite(GraphicsServer * graphics, Image const & image) {
+		using Res = Result<Sprite, SpriteError>;
+
+		if (LazyInitSpriteRenderer(graphics)) {
+			ResourceID materialID = graphics->CreateMaterial(spriteRendererID, image);
+
+			if (materialID) {
+				Material material = Material{Vector4{1.f, 1.f, 1.f, 1.f}};
+
+				graphics->UpdateMaterialUserdata(materialID, AsBytes(material));
+
+				return Res::Ok(Sprite{
+					.polyId = spriteRectID,
+					.materialId = materialID,
+
+					.dimensions = Vector2{
+						static_cast<float>(image.dimensions.x),
+						static_cast<float>(image.dimensions.y)
+					}
+				});
+			}
+		}
+
+		return Res::Fail(SpriteError::GraphicsServer);
+	}
+
+	bool Sprite::Equals(Sprite const & that) const {
+		return (this->ToHash() == that.ToHash());
+	}
+
+	void Sprite::Free() {
+
+	}
+
+	uint64_t Sprite::ToHash() const {
+		return ((static_cast<uint64_t>(this->polyId) << 32) |
+				static_cast<uint64_t>(this->materialId));
+	}
+
+	void SpriteCommands::Dispatch(GraphicsServer * graphics) {
+		this->batches.ForItems([graphics](Sprite & sprite, BatchSet & batchSet) {
+			Batch * batch = (&batchSet.head);
+
+			while (batch && batch->count) {
+				graphics->UpdateRendererUserdata(spriteRendererID, AsBytes(batch->chunk));
+
+				graphics->RenderPolyInstanced(
+					spriteRendererID,
+					sprite.polyId,
+					sprite.materialId,
+					batch->count
+				);
+
+				batch->count = 0;
+				batch = batch->next;
+			}
+		});
+
+		this->batches.Clear();
+	}
+
+	void SpriteCommands::Draw(Sprite const & sprite, Vector2 position) {
+		BatchSet * batchSet = this->batches.Require(sprite, []() {
+			return BatchSet{};
+		});
+
+		if (batchSet) {
+			if (!batchSet->current) {
+				batchSet->current = (&batchSet->head);
+			}
+
+			Batch * currentBatch = batchSet->current;
+
+			if (currentBatch->count == Chunk::max) {
+				Slice<uint8_t> allocation = DefaultAllocator()->Allocate(sizeof(Batch));
+
+				if (allocation.length) {
+					Batch * batch = reinterpret_cast<Batch *>(allocation.pointer);
+					(*batch) = Batch{};
+					currentBatch->next = batch;
+					currentBatch = currentBatch->next;
+				}
+			}
+
+			// TODO: Remove hardcoded viewport sizes.
+			currentBatch->chunk.projectionTransform = OrthographicMatrix(0, 640, 480, 0, -1, 1);
+
+			currentBatch->chunk.transforms[currentBatch->count] = Matrix{
+				sprite.dimensions.x, 0.f, 0.f, position.x,
+				0.f, sprite.dimensions.y, 0.f, position.y,
+				0.f, 0.f, 1.f, 0.f,
+				0.f, 0.f, 0.f, 1.f
+			};
+
+			currentBatch->chunk.viewports[currentBatch->count] = Vector4{0.f, 0.f, 1.f, 1.f};
+			currentBatch->count += 1;
+		}
+
+		// TODO: Record failed render.
+	}
+
+	SpriteCommands::SpriteCommands(GraphicsServer * graphics) : batches{DefaultAllocator()} {
+		LazyInitSpriteRenderer(graphics);
+	}
+
+	SpriteCommands::~SpriteCommands() {
+		// TODO:
+	}
+}

@@ -5,10 +5,12 @@
             "includePath": [
                 "${workspaceFolder}/**"
             ],
-            "defines": ["version_OpenGL"],
-            "compilerPath": "/usr/bin/clang",
+            "defines": [
+                "VERSION_OPENGL"
+            ],
+            "compilerPath": "/usr/bin/clang++",
             "cStandard": "c11",
-            "cppStandard": "c++14",
+            "cppStandard": "c++20",
             "intelliSenseMode": "clang-x64"
         }
     ],
