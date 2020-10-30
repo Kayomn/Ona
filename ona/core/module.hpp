@@ -11,6 +11,22 @@
 #define internal static
 
 namespace Ona::Core {
+	constexpr float Max(float const a, float const b) {
+		return ((a > b) ? a : b);
+	}
+
+	constexpr float Min(float const a, float const b) {
+		return ((a < b) ? a : b);
+	}
+
+	constexpr float Clamp(float const value, float const lower, float const upper) {
+		return Max(lower, Min(value, upper));
+	}
+
+	constexpr float Floor(float const value) {
+		return std::floor(value);
+	}
+
 	struct Matrix {
 		static constexpr size_t dimensions = 4;
 
@@ -74,6 +90,14 @@ namespace Ona::Core {
 
 		constexpr Vector2 Div(Vector2 const & that) const {
 			return Vector2{(this->x / that.x), (this->y / that.y)};
+		}
+
+		constexpr Vector2 Floor() const {
+			return Vector2{Ona::Core::Floor(this->x), Ona::Core::Floor(this->y)};
+		}
+
+		constexpr Vector2 Normalized() const {
+			return Vector2{Clamp(this->x, -1.f, 1.f), Clamp(this->y, -1.f, 1.f)};
 		}
 	};
 

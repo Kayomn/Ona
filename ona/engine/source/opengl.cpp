@@ -312,6 +312,14 @@ namespace Ona::Engine {
 					switch (sdlEvent.type) {
 						case SDL_QUIT: return false;
 
+						case SDL_KEYDOWN: {
+							events->keysHeld[sdlEvent.key.keysym.scancode] = true;
+						} break;
+
+						case SDL_KEYUP: {
+							events->keysHeld[sdlEvent.key.keysym.scancode] = false;
+						} break;
+
 						default: break;
 					}
 				}

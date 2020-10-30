@@ -12,11 +12,22 @@ int main(int argv, char const * const * argc) {
 	if (graphics) {
 		Image image = Image::Solid(allocator, Point2{32, 32}, RGB(0xFF, 0xFF, 0xFF)).Value();
 		Sprite sprite = CreateSprite(graphics, image).Value();
-		Events events = Events{};
+		Events events = {};
+		Vector2 position = {32, 32};
 
 		while (graphics->ReadEvents(&events)) {
 			graphics->Clear();
-			spriteCommands->Draw(sprite, Vector2{32, 32});
+
+			{
+				Vector2 const velocity = {
+					((events.keysHeld[Key_D] - events.keysHeld[Key_A]) * events.deltaTime),
+					((events.keysHeld[Key_S] - events.keysHeld[Key_W]) * events.deltaTime)
+				};
+
+				position = position.Add(velocity.Normalized()).Floor();
+			}
+
+			spriteCommands->Draw(sprite, position);
 			spriteCommands->Dispatch(graphics);
 			graphics->Update();
 		}
