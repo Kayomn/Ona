@@ -23,12 +23,13 @@ namespace Ona::Core {
 
 	Chars String::AsChars() const {
 		return Chars{
+			.length = this->size,
+
 			.pointer = reinterpret_cast<char const *>(
 				this->IsDynamic() ?
 				this->buffer.dynamic :
 				this->buffer.static_
-			),
-			.length = this->size
+			)
 		};
 	}
 
@@ -41,16 +42,16 @@ namespace Ona::Core {
 				this->size = size;
 
 				return Slice<uint8_t>{
+					.length = size,
 					.pointer = (this->buffer.dynamic + sizeof(size_t)),
-					.length = size
 				};
 			}
 		} else {
 			this->size = size;
 
 			return Slice<uint8_t>{
+				.length = size,
 				.pointer = this->buffer.static_,
-				.length = size
 			};
 		}
 
@@ -100,7 +101,7 @@ namespace Ona::Core {
 	uint64_t String::ToHash() const {
 		uint64_t hash = 5381;
 
-		for (auto c; this->AsChars()) hash = (((hash << 5) + hash) ^ c);
+		for (auto c : this->AsChars()) hash = (((hash << 5) + hash) ^ c);
 
 		return hash;
 	}
