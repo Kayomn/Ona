@@ -9,6 +9,7 @@ import json
 
 processed_dependencies = []
 common_flags = ["-g", "-fno-exceptions", "-std=c++20", "-I."]
+assets_path = "assets"
 output_path = "output"
 input_path = "ona"
 
@@ -184,6 +185,9 @@ arg_parser = ArgumentParser(
 arg_parser.add_argument("component", help = "Component to compile")
 
 args = arg_parser.parse_args()
+
+if (not path.exists(assets_path)):
+	mkdir(assets_path)
 
 if (not path.exists(output_path)):
 	mkdir(output_path)
