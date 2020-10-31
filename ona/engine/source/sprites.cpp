@@ -158,11 +158,19 @@ namespace Ona::Engine {
 				static_cast<uint64_t>(this->materialId));
 	}
 
-	void SpriteCommands::Dispatch(GraphicsServer * graphics) {
-		this->batches.ForItems([graphics](Sprite & sprite, BatchSet & batchSet) {
-			Batch * batch = (&batchSet.head);
+	SpriteCommands::SpriteCommands(GraphicsServer * graphics) : batchSets{DefaultAllocator()} {
+		LazyInitSpriteRenderer(graphics);
+	}
 
-			while (batch && batch->count) {
+	SpriteCommands::~SpriteCommands() {
+		// TODO:
+	}
+
+	void SpriteCommands::Dispatch(GraphicsServer * graphics) {
+		this->batchSets.ForItems([graphics](Sprite & sprite, PackedStack<Batch> * batches) {
+			while (batches->Count()) {
+				Batch * batch = (&batches->Peek());
+
 				graphics->UpdateRendererUserdata(spriteRendererID, AsBytes(batch->chunk));
 
 				graphics->RenderPolyInstanced(
@@ -173,58 +181,55 @@ namespace Ona::Engine {
 				);
 
 				batch->count = 0;
-				batch = batch->next;
+
+				batches->Pop();
 			}
 		});
 
-		this->batches.Clear();
+		this->batchSets.Clear();
 	}
 
 	void SpriteCommands::Draw(Sprite const & sprite, Vector2 position) {
-		BatchSet * batchSet = this->batches.Require(sprite, []() {
-			return BatchSet{};
+		PackedStack<Batch> * * requiredBatches = this->batchSets.Require(sprite, []() {
+			Allocator * allocator = DefaultAllocator();
+			PackedStack<Batch> * stack = allocator->New<PackedStack<Batch>>(allocator);
+
+			if (stack && !stack->Push(Batch{})) allocator->Destroy(stack);
+
+			return stack;
 		});
 
-		if (batchSet) {
-			if (!batchSet->current) {
-				batchSet->current = (&batchSet->head);
-			}
+		if (requiredBatches) {
+			PackedStack<Batch> * batches = *requiredBatches;
 
-			Batch * currentBatch = batchSet->current;
+			if (batches) {
+				Batch * currentBatch = (&batches->Peek());
 
-			if (currentBatch->count == Chunk::max) {
-				Slice<uint8_t> allocation = DefaultAllocator()->Allocate(sizeof(Batch));
+				if (currentBatch->count == Chunk::max) {
+					currentBatch = batches->Push(Batch{});
 
-				if (allocation.length) {
-					Batch * batch = reinterpret_cast<Batch *>(allocation.pointer);
-					(*batch) = Batch{};
-					currentBatch->next = batch;
-					currentBatch = currentBatch->next;
+					if (!currentBatch) {
+						// Out of memory.
+						// TODO: Record failed render.
+						return;
+					}
 				}
+
+				// TODO: Remove hardcoded viewport sizes.
+				currentBatch->chunk.projectionTransform = OrthographicMatrix(0, 640, 480, 0, -1, 1);
+
+				currentBatch->chunk.transforms[currentBatch->count] = Matrix{
+					sprite.dimensions.x, 0.f, 0.f, position.x,
+					0.f, sprite.dimensions.y, 0.f, position.y,
+					0.f, 0.f, 1.f, 0.f,
+					0.f, 0.f, 0.f, 1.f
+				};
+
+				currentBatch->chunk.viewports[currentBatch->count] = Vector4{0.f, 0.f, 1.f, 1.f};
+				currentBatch->count += 1;
 			}
-
-			// TODO: Remove hardcoded viewport sizes.
-			currentBatch->chunk.projectionTransform = OrthographicMatrix(0, 640, 480, 0, -1, 1);
-
-			currentBatch->chunk.transforms[currentBatch->count] = Matrix{
-				sprite.dimensions.x, 0.f, 0.f, position.x,
-				0.f, sprite.dimensions.y, 0.f, position.y,
-				0.f, 0.f, 1.f, 0.f,
-				0.f, 0.f, 0.f, 1.f
-			};
-
-			currentBatch->chunk.viewports[currentBatch->count] = Vector4{0.f, 0.f, 1.f, 1.f};
-			currentBatch->count += 1;
 		}
 
 		// TODO: Record failed render.
-	}
-
-	SpriteCommands::SpriteCommands(GraphicsServer * graphics) : batches{DefaultAllocator()} {
-		LazyInitSpriteRenderer(graphics);
-	}
-
-	SpriteCommands::~SpriteCommands() {
-		// TODO:
 	}
 }

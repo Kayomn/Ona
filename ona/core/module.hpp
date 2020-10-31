@@ -518,10 +518,12 @@ namespace Ona::Core {
 			if (instance) {
 				new (instance) Type{args...};
 
-				if (!instance->IsInitialized()) {
-					this->Destroy(instance);
+				if constexpr (std::is_base_of_v<Object, Type>) {
+					if (!instance->IsInitialized()) {
+						this->Destroy(instance);
 
-					instance = nullptr;
+						instance = nullptr;
+					}
 				}
 			}
 

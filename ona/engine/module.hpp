@@ -173,20 +173,12 @@ namespace Ona::Engine {
 		};
 
 		struct Batch {
-			Batch * next;
-
 			size_t count;
 
 			Chunk chunk;
 		};
 
-		struct BatchSet {
-			Batch * current;
-
-			Batch head;
-		};
-
-		HashTable<Sprite, BatchSet> batches;
+		HashTable<Sprite, PackedStack<Batch> *> batchSets;
 
 		public:
 		SpriteCommands(GraphicsServer * graphicsServer);
