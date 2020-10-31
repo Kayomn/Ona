@@ -14,6 +14,7 @@
 		"type_traits": "cpp",
 		"hash_map": "cpp",
 		"bitset": "cpp",
-		"chrono": "cpp"
+		"chrono": "cpp",
+		"algorithm": "cpp"
 	}
 }
