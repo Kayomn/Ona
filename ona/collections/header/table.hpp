@@ -85,19 +85,19 @@ namespace Ona::Collections {
 			loadMaximum{0} { }
 
 		~HashTable() override {
-			static auto destroyChainAllocation = [](Allocator * allocator, Bucket * bucket) {
+			auto destroyChain = [this](Bucket * bucket) {
 				while (bucket) {
-					Bucket* nextBucket = bucket->next;
+					Bucket * nextBucket = bucket->next;
 
 					bucket->entry.key.~KeyType();
 					bucket->entry.value.~ValueType();
-					allocator->Deallocate(bucket);
+					this->allocator->Deallocate(bucket);
 
 					bucket = nextBucket;
 				}
 			};
 
-			destroyChainAllocation(this->allocator, this->freeBuckets);
+			destroyChain(this->allocator, this->freeBuckets);
 
 			size_t count = this->count;
 
@@ -105,7 +105,7 @@ namespace Ona::Collections {
 				Bucket * bucket = this->buckets.At(i);
 
 				if (bucket) {
-					destroyChainAllocation(this->allocator, bucket);
+					destroyChain(this->allocator, bucket);
 
 					count -= 1;
 				}
