@@ -97,7 +97,7 @@ namespace Ona::Collections {
 				}
 			};
 
-			destroyChain(this->allocator, this->freeBuckets);
+			destroyChain(this->freeBuckets);
 
 			size_t count = this->count;
 
@@ -105,7 +105,7 @@ namespace Ona::Collections {
 				Bucket * bucket = this->buckets.At(i);
 
 				if (bucket) {
-					destroyChain(this->allocator, bucket);
+					destroyChain(bucket);
 
 					count -= 1;
 				}
