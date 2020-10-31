@@ -16,5 +16,6 @@ namespace Ona::Collections {
 #include "ona/collections/header/array.hpp"
 #include "ona/collections/header/table.hpp"
 #include "ona/collections/header/slots.hpp"
+#include "ona/collections/header/stack.hpp"
 
 #endif
