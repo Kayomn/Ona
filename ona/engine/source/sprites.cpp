@@ -167,7 +167,7 @@ namespace Ona::Engine {
 	}
 
 	void SpriteCommands::Dispatch(GraphicsServer * graphics) {
-		this->batchSets.ForItems([graphics](Sprite & sprite, PackedStack<Batch> * batches) {
+		this->batchSets.ForItems([graphics](Sprite & sprite, ArrayStack<Batch> * batches) {
 			while (batches->Count()) {
 				Batch * batch = (&batches->Peek());
 
@@ -190,9 +190,9 @@ namespace Ona::Engine {
 	}
 
 	void SpriteCommands::Draw(Sprite const & sprite, Vector2 position) {
-		PackedStack<Batch> * * requiredBatches = this->batchSets.Require(sprite, []() {
+		ArrayStack<Batch> * * requiredBatches = this->batchSets.Require(sprite, []() {
 			Allocator * allocator = DefaultAllocator();
-			PackedStack<Batch> * stack = allocator->New<PackedStack<Batch>>(allocator);
+			ArrayStack<Batch> * stack = allocator->New<ArrayStack<Batch>>(allocator);
 
 			if (stack && !stack->Push(Batch{})) allocator->Destroy(stack);
 
@@ -200,7 +200,7 @@ namespace Ona::Engine {
 		});
 
 		if (requiredBatches) {
-			PackedStack<Batch> * batches = *requiredBatches;
+			ArrayStack<Batch> * batches = *requiredBatches;
 
 			if (batches) {
 				Batch * currentBatch = (&batches->Peek());

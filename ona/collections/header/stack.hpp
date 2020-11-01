@@ -13,7 +13,7 @@ namespace Ona::Collections {
 		virtual ValueType * Push(ValueType const & value) = 0;
 	};
 
-	template<typename ValueType> class PackedStack : public Object, public Stack<ValueType> {
+	template<typename ValueType> class ArrayStack : public Object, public Stack<ValueType> {
 		private:
 		Allocator * allocator;
 
@@ -22,10 +22,28 @@ namespace Ona::Collections {
 		Slice<ValueType> values;
 
 		public:
-		PackedStack(Allocator * allocator) : allocator{allocator}, values{}, count{} { }
+		ArrayStack(Allocator * allocator) : allocator{allocator}, values{}, count{} { }
 
-		~PackedStack() {
+		~ArrayStack() {
 			for (size_t i = 0; i < this->count; i += 1) this->values.At(i).~ValueType();
+
+			this->allocator->Deallocate(this->values.pointer);
+		}
+
+		Allocator * AllocatorOf() {
+			return this->allocator;
+		}
+
+		Allocator const * AllocatorOf() const {
+			return this->allocator;
+		}
+
+		ValueType & At(size_t index) {
+			return this->values.At(index);
+		}
+
+		ValueType const & At(size_t index) const {
+			return this->values.At(index);
 		}
 
 		size_t Capacity() const {
@@ -33,10 +51,25 @@ namespace Ona::Collections {
 		}
 
 		void Clear() {
+			for (size_t i = 0; i < this->count; i += 1) this->values[i].~ValueType();
+
 			this->count = 0;
 		}
 
-		size_t Count() const {
+		bool Compress() {
+			this->values = reinterpret_cast<ValueType *>(this->allocator->Reallocate(
+				this->values,
+				(sizeof(ValueType) * this->count)
+			).pointer);
+
+			bool const success = (this->values != nullptr);
+			this->capacity *= success;
+			this->count *= success;
+
+			return success;
+		}
+
+		size_t Count() const override {
 			return this->count;
 		}
 

@@ -150,7 +150,7 @@ namespace Ona::Collections {
 			}
 		}
 
-		size_t Count() const {
+		size_t Count() const override {
 			return this->count;
 		}
 

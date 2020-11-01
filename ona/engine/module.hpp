@@ -178,7 +178,7 @@ namespace Ona::Engine {
 			Chunk chunk;
 		};
 
-		HashTable<Sprite, PackedStack<Batch> *> batchSets;
+		HashTable<Sprite, ArrayStack<Batch> *> batchSets;
 
 		public:
 		SpriteCommands(GraphicsServer * graphicsServer);

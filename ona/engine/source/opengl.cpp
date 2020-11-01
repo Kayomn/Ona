@@ -5,6 +5,7 @@
 #include <GL/gl.h>
 
 namespace Ona::Engine {
+	using namespace Ona::Collections;
 	using namespace Ona::Core;
 
 	internal size_t CalculatePropertySize(Property const & property) {
@@ -138,14 +139,12 @@ namespace Ona::Engine {
 	}
 
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height) {
-		using Ona::Collections::Appender;
-
 		thread_local class OpenGlGraphicsServer final : public GraphicsServer {
-			Appender<Renderer> renderers;
+			ArrayStack<Renderer> renderers;
 
-			Appender<Material> materials;
+			ArrayStack<Material> materials;
 
-			Appender<Poly> polys;
+			ArrayStack<Poly> polys;
 
 			bool UpdateUniformBuffer(
 				GLuint uniformBufferHandle,
@@ -375,7 +374,7 @@ namespace Ona::Engine {
 									"Material"
 								), 1);
 
-								if (this->renderers.Append(Renderer{
+								if (this->renderers.Push(Renderer{
 									.shaderProgramHandle = shaderHandle,
 									.userdataBufferHandle = userdataBufferHandle,
 									.vertexProperties = vertexProperties,
@@ -462,7 +461,7 @@ namespace Ona::Engine {
 											offset += static_cast<GLuint>(size);
 										}
 
-										if (this->polys.Append(Poly{
+										if (this->polys.Push(Poly{
 											.rendererId = rendererID,
 											.vertexBufferHandle = vertexBufferHandle,
 											.vertexArrayHandle = vertexArrayHandle,
@@ -555,7 +554,7 @@ namespace Ona::Engine {
 											if (glGetError() != GL_NO_ERROR) return 0;
 										}
 
-										if (this->materials.Append(Material{
+										if (this->materials.Push(Material{
 											.rendererId = rendererID,
 											.textureHandle = textureHandle,
 											.userdataBufferHandle = userdataBufferHandle
