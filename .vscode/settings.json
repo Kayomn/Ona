@@ -15,6 +15,7 @@
 		"hash_map": "cpp",
 		"bitset": "cpp",
 		"chrono": "cpp",
-		"algorithm": "cpp"
+		"algorithm": "cpp",
+		"ranges": "cpp"
 	}
 }
