@@ -483,9 +483,13 @@ namespace Ona::Core {
 
 	class Object {
 		public:
+		Object() = default;
+
+		Object(Object const &) = delete;
+
 		virtual ~Object() {};
 
-		virtual bool IsInitialized() {
+		virtual bool IsInitialized() const {
 			return true;
 		}
 
