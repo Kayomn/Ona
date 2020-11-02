@@ -122,7 +122,7 @@ namespace Ona::Collections {
 			return this->allocator;
 		}
 
-		void Clear() {
+		void Clear() override {
 			if (this->count) {
 				for (size_t i = 0; i < this->buckets.length; i += 1) {
 					Bucket * rootBucket = this->buckets.At(i);

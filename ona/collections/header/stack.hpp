@@ -50,8 +50,8 @@ namespace Ona::Collections {
 			return this->values.length;
 		}
 
-		void Clear() {
-			for (size_t i = 0; i < this->count; i += 1) this->values[i].~ValueType();
+		void Clear() override {
+			for (size_t i = 0; i < this->count; i += 1) this->values.At(i).~ValueType();
 
 			this->count = 0;
 		}
