@@ -78,7 +78,7 @@ def build(name: str) -> (bool, str):
 	if (target_type == "static-lib"):
 		def link_static_lib() -> None:
 			print("Linking", name, "static library...")
-			call(["llvm-ar", "rc", binary_path] + object_paths)
+			call(["ar", "rc", binary_path] + object_paths)
 
 		binary_path += ".a"
 		link = link_static_lib
