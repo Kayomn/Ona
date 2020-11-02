@@ -94,6 +94,10 @@ namespace Ona::Engine {
 		virtual void Dispatch(GraphicsServer * graphicsServer) = 0;
 	};
 
+	struct Viewport {
+		Point2 size;
+	};
+
 	class GraphicsServer : public Object {
 		public:
 		virtual void Clear() = 0;
@@ -122,22 +126,26 @@ namespace Ona::Engine {
 			Ona::Core::Image const & texture
 		) = 0;
 
-		virtual void UpdateMaterialUserdata(
-			ResourceID materialID,
-			Slice<uint8_t const> const & userdata
-		) = 0;
-
-		virtual void UpdateRendererUserdata(
-			ResourceID rendererID,
-			Slice<uint8_t const> const & userdata
-		) = 0;
-
 		virtual void RenderPolyInstanced(
 			ResourceID rendererID,
 			ResourceID polyID,
 			ResourceID materialID,
 			size_t count
 		) = 0;
+
+		virtual void UpdateMaterialUserdata(
+			ResourceID materialID,
+			Slice<uint8_t const> const & userdata
+		) = 0;
+
+		virtual void UpdateProjection(Matrix const & projectionTransform) = 0;
+
+		virtual void UpdateRendererUserdata(
+			ResourceID rendererID,
+			Slice<uint8_t const> const & userdata
+		) = 0;
+
+		virtual Viewport const & ViewportOf() const = 0;
 	};
 
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height);
@@ -161,15 +169,13 @@ namespace Ona::Engine {
 		Image const & image
 	);
 
-	class SpriteCommands final : public GraphicsCommands, public Object {
+	class SpriteCommands final : public Object, public GraphicsCommands {
 		struct Chunk {
-			static constexpr size_t max = 128;
+			enum { Max = 128 };
 
-			Matrix projectionTransform;
+			Matrix transforms[Max];
 
-			Matrix transforms[max];
-
-			Vector4 viewports[max];
+			Vector4 viewports[Max];
 		};
 
 		struct Batch {
@@ -180,6 +186,8 @@ namespace Ona::Engine {
 
 		HashTable<Sprite, ArrayStack<Batch> *> batchSets;
 
+		bool isInitialized;
+
 		public:
 		SpriteCommands(GraphicsServer * graphicsServer);
 
@@ -188,6 +196,8 @@ namespace Ona::Engine {
 		void Dispatch(GraphicsServer * graphics) override;
 
 		void Draw(Sprite const & sprite, Vector2 position);
+
+		bool IsInitialized() const override;
 	};
 }
 

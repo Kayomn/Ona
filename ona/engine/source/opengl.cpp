@@ -83,7 +83,7 @@ namespace Ona::Engine {
 	struct Renderer {
 		GLuint shaderProgramHandle;
 
-		GLuint userdataBufferHandle;
+		GLuint rendererBufferHandle;
 
 		Slice<Property const> vertexProperties;
 
@@ -110,11 +110,15 @@ namespace Ona::Engine {
 		GLsizei vertexCount;
 	};
 
-	constexpr GLuint rendererBufferBindIndex = 0;
+	enum {
+		ViewportBufferBindIndex,
+		RendererBufferBindIndex,
+		MaterialBufferBindIndex
+	};
 
-	constexpr GLuint materialBufferBindIndex = 1;
-
-	constexpr GLuint materialTextureBindIndex = 0;
+	enum {
+		AlbedoTextureBindIndex,
+	};
 
 	internal GLenum TypeDescriptorToGl(PropertyType typeDescriptor) {
 		switch (typeDescriptor) {
@@ -258,6 +262,10 @@ namespace Ona::Engine {
 
 			void * context;
 
+			GLuint viewportBufferHandle;
+
+			Viewport viewport;
+
 			OpenGlGraphicsServer(Allocator * allocator) :
 				renderers{allocator},
 				materials{allocator},
@@ -266,7 +274,7 @@ namespace Ona::Engine {
 			~OpenGlGraphicsServer() override {
 				this->renderers.ForValues([](Renderer const & renderer) {
 					glDeleteProgram(renderer.shaderProgramHandle);
-					glDeleteBuffers(1, (&renderer.userdataBufferHandle));
+					glDeleteBuffers(1, (&renderer.rendererBufferHandle));
 				});
 
 				this->materials.ForValues([](Material const & material) {
@@ -279,6 +287,7 @@ namespace Ona::Engine {
 					glDeleteVertexArrays(1, (&poly.vertexArrayHandle));
 				});
 
+				glDeleteBuffers(1, (&this->viewportBufferHandle));
 				SDL_GL_DeleteContext(this->context);
 				SDL_GL_UnloadLibrary();
 				SDL_DestroyWindow(this->window);
@@ -337,54 +346,67 @@ namespace Ona::Engine {
 				Slice<Property const> const & rendererProperties,
 				Slice<Property const> const & materialProperties
 			) override {
-				size_t const userdataSize = CalculateUserdataSize(rendererProperties);
+				size_t const rendererSize = CalculateUserdataSize(rendererProperties);
 
 				if (
-					(userdataSize < PTRDIFF_MAX) &&
+					(rendererSize < PTRDIFF_MAX) &&
 					(CalculateUserdataSize(materialProperties) < PTRDIFF_MAX)
 				) {
-					GLuint userdataBufferHandle;
+					GLuint rendererBufferHandle;
 
-					glCreateBuffers(1, (&userdataBufferHandle));
+					glCreateBuffers(1, &rendererBufferHandle);
 
 					// Were the buffers allocated.
 					if (glGetError() == GL_NO_ERROR) {
 						glNamedBufferData(
-							userdataBufferHandle,
-							static_cast<GLsizeiptr>(userdataSize),
+							rendererBufferHandle,
+							sizeof(Matrix),
 							nullptr,
 							GL_DYNAMIC_DRAW
 						);
 
-						// Has the userdata buffer been initialized?
 						if (glGetError() == GL_NO_ERROR) {
-							GLuint const shaderHandle = this->CompileShaderSources(
-								vertexSource,
-								fragmentSource
+							glNamedBufferData(
+								rendererBufferHandle,
+								static_cast<GLsizeiptr>(rendererSize),
+								nullptr,
+								GL_DYNAMIC_DRAW
 							);
 
-							if (shaderHandle) {
-								glUniformBlockBinding(shaderHandle, glGetUniformBlockIndex(
-									shaderHandle,
-									"Renderer"
-								), 0);
+							if (glGetError() == GL_NO_ERROR) {
+								GLuint const shaderHandle = this->CompileShaderSources(
+									vertexSource,
+									fragmentSource
+								);
 
-								glUniformBlockBinding(shaderHandle, glGetUniformBlockIndex(
-									shaderHandle,
-									"Material"
-								), 1);
+								if (shaderHandle) {
+									glUniformBlockBinding(shaderHandle, glGetUniformBlockIndex(
+										shaderHandle,
+										"Viewport"
+									), ViewportBufferBindIndex);
 
-								if (this->renderers.Push(Renderer{
-									.shaderProgramHandle = shaderHandle,
-									.userdataBufferHandle = userdataBufferHandle,
-									.vertexProperties = vertexProperties,
-									.rendererProperties = rendererProperties,
-									.materialProperties = materialProperties
-								})) return static_cast<ResourceID>(this->renderers.Count());
+									glUniformBlockBinding(shaderHandle, glGetUniformBlockIndex(
+										shaderHandle,
+										"Renderer"
+									), RendererBufferBindIndex);
+
+									glUniformBlockBinding(shaderHandle, glGetUniformBlockIndex(
+										shaderHandle,
+										"Material"
+									), MaterialBufferBindIndex);
+
+									if (this->renderers.Push(Renderer{
+										.shaderProgramHandle = shaderHandle,
+										.rendererBufferHandle = rendererBufferHandle,
+										.vertexProperties = vertexProperties,
+										.rendererProperties = rendererProperties,
+										.materialProperties = materialProperties
+									})) return static_cast<ResourceID>(this->renderers.Count());
+								}
 							}
 						}
 
-						glDeleteBuffers(1, (&userdataBufferHandle));
+						glDeleteBuffers(1, &rendererBufferHandle);
 					}
 				}
 
@@ -571,6 +593,52 @@ namespace Ona::Engine {
 				return 0;
 			}
 
+			void RenderPolyInstanced(
+				ResourceID rendererID,
+				ResourceID polyID,
+				ResourceID materialID,
+				size_t count
+			) override {
+				if (rendererID && materialID && polyID) {
+					if (count <= INT32_MAX) {
+						Renderer * renderer = this->GetRenderer(rendererID);
+						Material * material = this->GetMaterial(materialID);
+						Poly * poly = this->GetPoly(polyID);
+
+						glBindBufferBase(
+							GL_UNIFORM_BUFFER,
+							RendererBufferBindIndex,
+							this->viewportBufferHandle
+						);
+
+						glBindBufferBase(
+							GL_UNIFORM_BUFFER,
+							RendererBufferBindIndex,
+							renderer->rendererBufferHandle
+						);
+
+						glBindBufferBase(
+							GL_UNIFORM_BUFFER,
+							MaterialBufferBindIndex,
+							material->userdataBufferHandle
+						);
+
+						glBindBuffer(GL_ARRAY_BUFFER, poly->vertexBufferHandle);
+						glBindVertexArray(poly->vertexArrayHandle);
+						glUseProgram(renderer->shaderProgramHandle);
+						glBindTextureUnit(AlbedoTextureBindIndex, material->textureHandle);
+
+						glDrawArraysInstanced(
+							GL_TRIANGLES,
+							0,
+							poly->vertexCount,
+							static_cast<GLsizei>(count)
+						);
+					}
+				}
+				// Bad ID.
+			}
+
 			void UpdateMaterialUserdata(
 				ResourceID materialID,
 				Slice<uint8_t const> const & userdata
@@ -598,6 +666,16 @@ namespace Ona::Engine {
 				// Material ID is zero.
 			}
 
+			void UpdateProjection(Matrix const & projectionTransform) override {
+				if (this->UpdateUniformBuffer(
+					this->viewportBufferHandle,
+					sizeof(Matrix),
+					AsBytes(projectionTransform)
+				)) {
+					// TODO: Error codes?
+				}
+			}
+
 			void UpdateRendererUserdata(
 				ResourceID rendererID,
 				Slice<uint8_t const> const & userdata
@@ -607,7 +685,7 @@ namespace Ona::Engine {
 
 					if (ValidateUserdata(renderer->rendererProperties, userdata)) {
 						if (this->UpdateUniformBuffer(
-							renderer->userdataBufferHandle,
+							renderer->rendererBufferHandle,
 							userdata.length,
 							userdata
 						)) {
@@ -621,44 +699,8 @@ namespace Ona::Engine {
 				// Renderer ID is zero.
 			}
 
-			void RenderPolyInstanced(
-				ResourceID rendererID,
-				ResourceID polyID,
-				ResourceID materialID,
-				size_t count
-			) override {
-				if (rendererID && materialID && polyID) {
-					if (count <= INT32_MAX) {
-						Renderer * renderer = this->GetRenderer(rendererID);
-						Material * material = this->GetMaterial(materialID);
-						Poly * poly = this->GetPoly(polyID);
-
-						glBindBufferBase(
-							GL_UNIFORM_BUFFER,
-							rendererBufferBindIndex,
-							renderer->userdataBufferHandle
-						);
-
-						glBindBufferBase(
-							GL_UNIFORM_BUFFER,
-							materialBufferBindIndex,
-							material->userdataBufferHandle
-						);
-
-						glBindBuffer(GL_ARRAY_BUFFER, poly->vertexBufferHandle);
-						glBindVertexArray(poly->vertexArrayHandle);
-						glUseProgram(renderer->shaderProgramHandle);
-						glBindTextureUnit(materialTextureBindIndex, material->textureHandle);
-
-						glDrawArraysInstanced(
-							GL_TRIANGLES,
-							0,
-							poly->vertexCount,
-							static_cast<GLsizei>(count)
-						);
-					}
-				}
-				// Bad ID.
+			Viewport const & ViewportOf() const override {
+				return this->viewport;
 			}
 		} graphicsServer = OpenGlGraphicsServer{DefaultAllocator()};
 
@@ -667,8 +709,10 @@ namespace Ona::Engine {
 		if (SDL_WasInit(initFlags) == initFlags) return &graphicsServer;
 
 		if (SDL_Init(initFlags) == 0) {
-			constexpr int32_t windowPosition = SDL_WINDOWPOS_UNDEFINED;
-			constexpr int32_t windowFlags = (SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+			enum {
+				windowPosition = SDL_WINDOWPOS_UNDEFINED,
+				windowFlags = (SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL)
+			};
 
 			// Fixes a bug on KDE desktops where launching the process disables the default
 			// compositor.
@@ -710,7 +754,32 @@ namespace Ona::Engine {
 						glViewport(0, 0, width, height);
 
 						if (glGetError() == GL_NO_ERROR) {
-							return &graphicsServer;
+							glCreateBuffers(1, (&graphicsServer.viewportBufferHandle));
+
+							if (glGetError() == GL_NO_ERROR) {
+								glNamedBufferData(
+									graphicsServer.viewportBufferHandle,
+									sizeof(Matrix),
+									nullptr,
+									GL_DYNAMIC_DRAW
+								);
+
+								if (glGetError() == GL_NO_ERROR) {
+									glBindBufferBase(
+										GL_UNIFORM_BUFFER,
+										ViewportBufferBindIndex,
+										graphicsServer.viewportBufferHandle
+									);
+
+									if (glGetError() == GL_NO_ERROR) {
+										graphicsServer.viewport = Viewport{
+											.size = Point2{width, height}
+										};
+
+										return &graphicsServer;
+									}
+								}
+							}
 						}
 					}
 				}

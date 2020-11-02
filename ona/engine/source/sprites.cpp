@@ -25,8 +25,11 @@ namespace Ona::Engine {
 			"out vec2 texCoords;\n"
 			"out vec4 texTint;\n"
 			"\n"
-			"layout(std140, row_major) uniform Renderer {\n"
+			"layout(std140, row_major) uniform Viewport {\n"
 			"	mat4x4 projectionTransform;\n"
+			"};\n"
+			"\n"
+			"layout(std140, row_major) uniform Renderer {\n"
 			"	mat4x4 transforms[INSTANCE_COUNT];\n"
 			"	vec4 viewports[INSTANCE_COUNT];\n"
 			"};\n"
@@ -73,7 +76,6 @@ namespace Ona::Engine {
 		};
 
 		static Property const rendererProperties[] = {
-			Property{PropertyType::Float32, 16, String::From("projectionTransform")},
 			Property{PropertyType::Float32, (16 * 128), String::From("transforms")},
 			Property{PropertyType::Float32, (4 * 128), String::From("viewports")},
 		};
@@ -158,35 +160,47 @@ namespace Ona::Engine {
 				static_cast<uint64_t>(this->materialId));
 	}
 
-	SpriteCommands::SpriteCommands(GraphicsServer * graphics) : batchSets{DefaultAllocator()} {
-		LazyInitSpriteRenderer(graphics);
-	}
+	SpriteCommands::SpriteCommands(GraphicsServer * graphics) :
+		batchSets{DefaultAllocator()},
+		isInitialized{LazyInitSpriteRenderer(graphics)} { }
 
 	SpriteCommands::~SpriteCommands() {
-		// TODO:
+		Allocator * allocator = DefaultAllocator();
+
+		this->batchSets.ForValues([allocator](ArrayStack<Batch> * batches) {
+			allocator->Destroy(batches);
+		});
 	}
 
 	void SpriteCommands::Dispatch(GraphicsServer * graphics) {
-		this->batchSets.ForItems([graphics](Sprite & sprite, ArrayStack<Batch> * batches) {
-			while (batches->Count()) {
-				Batch * batch = (&batches->Peek());
+		if (this->batchSets.Count()) {
+			Point2 const viewportSize = graphics->ViewportOf().size;
 
-				graphics->UpdateRendererUserdata(spriteRendererID, AsBytes(batch->chunk));
+			graphics->UpdateProjection(
+				OrthographicMatrix(0, viewportSize.x, viewportSize.y, 0, -1, 1)
+			);
 
-				graphics->RenderPolyInstanced(
-					spriteRendererID,
-					sprite.polyId,
-					sprite.materialId,
-					batch->count
-				);
+			this->batchSets.ForItems([graphics](Sprite & sprite, ArrayStack<Batch> * batches) {
+				while (batches->Count()) {
+					Batch * batch = (&batches->Peek());
 
-				batch->count = 0;
+					graphics->UpdateRendererUserdata(spriteRendererID, AsBytes(batch->chunk));
 
-				batches->Pop();
-			}
-		});
+					graphics->RenderPolyInstanced(
+						spriteRendererID,
+						sprite.polyId,
+						sprite.materialId,
+						batch->count
+					);
 
-		this->batchSets.Clear();
+					batch->count = 0;
+
+					batches->Pop();
+				}
+			});
+
+			this->batchSets.Clear();
+		}
 	}
 
 	void SpriteCommands::Draw(Sprite const & sprite, Vector2 position) {
@@ -194,7 +208,7 @@ namespace Ona::Engine {
 			Allocator * allocator = DefaultAllocator();
 			ArrayStack<Batch> * stack = allocator->New<ArrayStack<Batch>>(allocator);
 
-			if (stack && !stack->Push(Batch{})) allocator->Destroy(stack);
+			if (stack && (!stack->Push(Batch{}))) allocator->Destroy(stack);
 
 			return stack;
 		});
@@ -205,7 +219,7 @@ namespace Ona::Engine {
 			if (batches) {
 				Batch * currentBatch = (&batches->Peek());
 
-				if (currentBatch->count == Chunk::max) {
+				if (currentBatch->count == Chunk::Max) {
 					currentBatch = batches->Push(Batch{});
 
 					if (!currentBatch) {
@@ -214,9 +228,6 @@ namespace Ona::Engine {
 						return;
 					}
 				}
-
-				// TODO: Remove hardcoded viewport sizes.
-				currentBatch->chunk.projectionTransform = OrthographicMatrix(0, 640, 480, 0, -1, 1);
 
 				currentBatch->chunk.transforms[currentBatch->count] = Matrix{
 					sprite.dimensions.x, 0.f, 0.f, position.x,
@@ -231,5 +242,9 @@ namespace Ona::Engine {
 		}
 
 		// TODO: Record failed render.
+	}
+
+	bool SpriteCommands::IsInitialized() const {
+		return this->isInitialized;
 	}
 }
