@@ -19,6 +19,8 @@ namespace Ona::Collections {
 
 		virtual ValueType const * Lookup(KeyType const & key) const = 0;
 
+		virtual bool Remove(KeyType const & key) = 0;
+
 		virtual ValueType * Require(
 			KeyType const & key,
 			Callable<ValueType()> const & producer
@@ -259,11 +261,6 @@ namespace Ona::Collections {
 			return nullptr;
 		}
 
-		bool Remove(KeyType const & key) {
-			// TODO: Implement.
-			return false;
-		}
-
 		bool Rehash(size_t tableSize) {
 			Slice<Bucket *> oldBuckets = this->buckets;
 
@@ -322,6 +319,11 @@ namespace Ona::Collections {
 			}
 
 			return nullptr;
+		}
+
+		bool Remove(KeyType const & key) override {
+			// TODO: Implement.
+			return false;
 		}
 
 		ValueType * Require(KeyType const & key, Callable<ValueType()> const & producer) override {
