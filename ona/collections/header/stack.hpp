@@ -24,7 +24,7 @@ namespace Ona::Collections {
 		public:
 		ArrayStack(Allocator * allocator) : allocator{allocator}, values{}, count{} { }
 
-		~ArrayStack() {
+		~ArrayStack() override {
 			for (size_t i = 0; i < this->count; i += 1) this->values.At(i).~ValueType();
 
 			this->allocator->Deallocate(this->values.pointer);
