@@ -13,7 +13,7 @@ namespace Ona::Collections {
 		virtual ValueType * Push(ValueType const & value) = 0;
 	};
 
-	template<typename ValueType> class ArrayStack : public Object, public Stack<ValueType> {
+	template<typename ValueType> class PackedStack : public Object, public Stack<ValueType> {
 		private:
 		Allocator * allocator;
 
@@ -22,9 +22,9 @@ namespace Ona::Collections {
 		Slice<ValueType> values;
 
 		public:
-		ArrayStack(Allocator * allocator) : allocator{allocator}, values{}, count{} { }
+		PackedStack(Allocator * allocator) : allocator{allocator}, values{}, count{} { }
 
-		~ArrayStack() override {
+		~PackedStack() override {
 			for (size_t i = 0; i < this->count; i += 1) this->values.At(i).~ValueType();
 
 			this->allocator->Deallocate(this->values.pointer);

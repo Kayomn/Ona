@@ -8,7 +8,7 @@ namespace Ona::Engine {
 	using namespace Ona::Collections;
 	using namespace Ona::Core;
 
-	using ResourceID = uint32_t;
+	using ResourceKey = uint32_t;
 
 	enum {
 		Key_A = 4,
@@ -108,7 +108,7 @@ namespace Ona::Engine {
 
 		virtual void Update() = 0;
 
-		virtual ResourceID CreateRenderer(
+		virtual Result<ResourceKey> CreateRenderer(
 			Chars const & vertexSource,
 			Chars const & fragmentSource,
 			Slice<Property const> const & vertexProperties,
@@ -116,32 +116,32 @@ namespace Ona::Engine {
 			Slice<Property const> const & materialProperties
 		) = 0;
 
-		virtual ResourceID CreatePoly(
-			ResourceID rendererID,
+		virtual Result<ResourceKey> CreatePoly(
+			ResourceKey rendererKey,
 			Slice<uint8_t const> const & vertexData
 		) = 0;
 
-		virtual ResourceID CreateMaterial(
-			ResourceID rendererID,
+		virtual Result<ResourceKey> CreateMaterial(
+			ResourceKey rendererKey,
 			Ona::Core::Image const & texture
 		) = 0;
 
 		virtual void RenderPolyInstanced(
-			ResourceID rendererID,
-			ResourceID polyID,
-			ResourceID materialID,
+			ResourceKey rendererKey,
+			ResourceKey polyKey,
+			ResourceKey materialKey,
 			size_t count
 		) = 0;
 
 		virtual void UpdateMaterialUserdata(
-			ResourceID materialID,
+			ResourceKey materialKey,
 			Slice<uint8_t const> const & userdata
 		) = 0;
 
 		virtual void UpdateProjection(Matrix const & projectionTransform) = 0;
 
 		virtual void UpdateRendererUserdata(
-			ResourceID rendererID,
+			ResourceKey rendererKey,
 			Slice<uint8_t const> const & userdata
 		) = 0;
 
@@ -151,9 +151,9 @@ namespace Ona::Engine {
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height);
 
 	struct Sprite {
-		ResourceID polyId;
+		ResourceKey polyId;
 
-		ResourceID materialId;
+		ResourceKey materialId;
 
 		Vector2 dimensions;
 
@@ -164,10 +164,7 @@ namespace Ona::Engine {
 		uint64_t ToHash() const;
 	};
 
-	Result<Sprite, SpriteError> CreateSprite(
-		GraphicsServer * graphics,
-		Image const & image
-	);
+	Result<Sprite, SpriteError> CreateSprite(GraphicsServer * graphics, Image const & image);
 
 	class SpriteCommands final : public Object, public GraphicsCommands {
 		struct Chunk {
@@ -184,7 +181,7 @@ namespace Ona::Engine {
 			Chunk chunk;
 		};
 
-		HashTable<Sprite, ArrayStack<Batch> *> batchSets;
+		HashTable<Sprite, PackedStack<Batch> *> batchSets;
 
 		bool isInitialized;
 

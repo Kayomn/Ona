@@ -67,7 +67,7 @@ namespace Ona::Engine {
 	};
 
 	struct Material {
-		ResourceID rendererId;
+		ResourceKey rendererId;
 
 		GLuint textureHandle;
 
@@ -75,7 +75,7 @@ namespace Ona::Engine {
 	};
 
 	struct Poly {
-		ResourceID rendererId;
+		ResourceKey rendererId;
 
 		GLuint vertexBufferHandle;
 
@@ -118,11 +118,11 @@ namespace Ona::Engine {
 
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height) {
 		thread_local class OpenGlGraphicsServer final : public GraphicsServer {
-			ArrayStack<Renderer> renderers;
+			Index<Renderer, ResourceKey> renderers;
 
-			ArrayStack<Material> materials;
+			Index<Material, ResourceKey> materials;
 
-			ArrayStack<Poly> polys;
+			Index<Poly, ResourceKey> polys;
 
 			GLuint CompileShaderSources(Chars const & vertexSource, Chars const & fragmentSource) {
 				static auto compileObject = [](Chars const & source, GLenum shaderType) -> GLuint {
@@ -195,18 +195,6 @@ namespace Ona::Engine {
 				}
 
 				return 0;
-			}
-
-			Renderer * GetRenderer(ResourceID resourceID) {
-				return (&this->renderers.At(resourceID - 1));
-			}
-
-			Material * GetMaterial(ResourceID resourceID) {
-				return (&this->materials.At(resourceID - 1));
-			}
-
-			Poly * GetPoly(ResourceID resourceID) {
-				return (&this->polys.At(resourceID - 1));
 			}
 
 			public:
@@ -383,7 +371,7 @@ namespace Ona::Engine {
 				SDL_GL_SwapWindow(this->window);
 			}
 
-			ResourceID CreateRenderer(
+			Result<ResourceKey> CreateRenderer(
 				Chars const & vertexSource,
 				Chars const & fragmentSource,
 				Slice<Property const> const & vertexProperties,
@@ -438,13 +426,13 @@ namespace Ona::Engine {
 									MaterialBufferBindIndex
 								);
 
-								if (this->renderers.Push(Renderer{
+								return this->renderers.Insert(Renderer{
 									.shaderProgramHandle = shaderHandle,
 									.rendererBufferHandle = rendererBufferHandle,
 									.vertexProperties = vertexProperties,
 									.rendererProperties = rendererProperties,
 									.materialProperties = materialProperties
-								})) return static_cast<ResourceID>(this->renderers.Count());
+								});
 							}
 
 							glDeleteProgram(shaderHandle);
@@ -454,15 +442,16 @@ namespace Ona::Engine {
 					}
 				}
 
-				return 0;
+				return Result<ResourceKey>::Fail();
 			}
 
-			ResourceID CreatePoly(
-				ResourceID rendererID,
+			Result<ResourceKey> CreatePoly(
+				ResourceKey rendererKey,
 				Slice<uint8_t const> const & vertexData
 			) override {
-				if (rendererID) {
-					Renderer * renderer = this->GetRenderer(rendererID);
+				Renderer * renderer = this->renderers.Lookup(rendererKey);
+
+				if (renderer) {
 					GLsizei vertexSize = 0;
 
 					for (auto & property : renderer->vertexProperties) {
@@ -474,6 +463,7 @@ namespace Ona::Engine {
 
 						glCreateBuffers(1, (&vertexBufferHandle));
 
+						// Was the vertex buffer allocated?
 						if (glGetError() == GL_NO_ERROR) {
 							glNamedBufferStorage(
 								vertexBufferHandle,
@@ -482,11 +472,13 @@ namespace Ona::Engine {
 								GL_DYNAMIC_STORAGE_BIT
 							);
 
+							// Was the vertex buffer initialized.
 							if (glGetError() == GL_NO_ERROR) {
 								GLuint vertexArrayHandle;
 
 								glCreateVertexArrays(1, (&vertexArrayHandle));
 
+								// Was the vertex array allocated?
 								if (glGetError() == GL_NO_ERROR) {
 									glVertexArrayVertexBuffer(
 										vertexArrayHandle,
@@ -496,21 +488,22 @@ namespace Ona::Engine {
 										static_cast<GLsizei>(vertexSize)
 									);
 
+									// Was the vertex array initialized?
 									if (glGetError() == GL_NO_ERROR) {
 										GLuint offset = 0;
+										bool badVertexProperty = false;
 
-										for (size_t i = 0; i < renderer->vertexProperties.length; i += 1) {
+										for (size_t i = 0; i < renderer->vertexProperties.length && !badVertexProperty; i += 1) {
 											size_t const size = CalculatePropertySize(renderer->vertexProperties.At(i));
 
-											if (size >= UINT32_MAX) {
-												// Vertex too big for graphics API.
-												return 0;
-											}
+											badVertexProperty |= (size >= UINT32_MAX);
 
 											glEnableVertexArrayAttrib(
 												vertexArrayHandle,
 												i
 											);
+
+											badVertexProperty |= (glGetError() != GL_NO_ERROR);
 
 											glVertexArrayAttribFormat(
 												vertexArrayHandle,
@@ -521,26 +514,27 @@ namespace Ona::Engine {
 												offset
 											);
 
+											badVertexProperty |= (glGetError() != GL_NO_ERROR);
+
 											glVertexArrayAttribBinding(
 												vertexArrayHandle,
 												i,
 												0
 											);
 
+											badVertexProperty |= (glGetError() != GL_NO_ERROR);
 											offset += static_cast<GLuint>(size);
 										}
 
-										if (this->polys.Push(Poly{
-											.rendererId = rendererID,
+										if (!badVertexProperty) return this->polys.Insert(Poly{
+											.rendererId = rendererKey,
 											.vertexBufferHandle = vertexBufferHandle,
 											.vertexArrayHandle = vertexArrayHandle,
 
 											.vertexCount = static_cast<GLsizei>(
 												vertexData.length / vertexSize
 											)
-										})) {
-											return static_cast<ResourceID>(this->polys.Count());
-										}
+										});
 									}
 								}
 							}
@@ -548,23 +542,22 @@ namespace Ona::Engine {
 					}
 				}
 
-				return 0;
+				return Result<ResourceKey>::Fail();
 			}
 
-			ResourceID CreateMaterial(
-				ResourceID rendererID,
+			Result<ResourceKey> CreateMaterial(
+				ResourceKey rendererKey,
 				Image const & texture
 			) override {
-				if (rendererID) {
-					Renderer * renderer = this->GetRenderer(rendererID);
+				Renderer * renderer = this->renderers.Lookup(rendererKey);
+
+				if (renderer) {
 					GLuint userdataBufferHandle;
 
 					glCreateBuffers(1, (&userdataBufferHandle));
 
 					// Was the buffer allocated?
 					if (glGetError() == GL_NO_ERROR) {
-						GLuint textureHandle;
-
 						glNamedBufferData(
 							userdataBufferHandle,
 							CalculateUserdataSize(renderer->materialProperties),
@@ -574,6 +567,8 @@ namespace Ona::Engine {
 
 						// Was the buffer initialized?
 						if (glGetError() == GL_NO_ERROR) {
+							GLuint textureHandle;
+
 							glCreateTextures(GL_TEXTURE_2D, 1, (&textureHandle));
 
 							glTextureStorage2D(
@@ -625,34 +620,32 @@ namespace Ona::Engine {
 										GL_CLAMP_TO_EDGE
 									);
 
-									if (this->materials.Push(Material{
-										.rendererId = rendererID,
+									return this->materials.Insert(Material{
+										.rendererId = rendererKey,
 										.textureHandle = textureHandle,
 										.userdataBufferHandle = userdataBufferHandle
-									})) {
-										return static_cast<ResourceID>(this->materials.Count());
-									}
+									});
 								}
 							}
 						}
 					}
 				}
 
-				return 0;
+				return Result<ResourceKey>::Fail();
 			}
 
 			void RenderPolyInstanced(
-				ResourceID rendererID,
-				ResourceID polyID,
-				ResourceID materialID,
+				ResourceKey rendererKey,
+				ResourceKey polyKey,
+				ResourceKey materialKey,
 				size_t count
 			) override {
-				if (rendererID && materialID && polyID) {
-					if (count <= INT32_MAX) {
-						Renderer * renderer = this->GetRenderer(rendererID);
-						Material * material = this->GetMaterial(materialID);
-						Poly * poly = this->GetPoly(polyID);
+				Renderer * renderer = this->renderers.Lookup(rendererKey);
+				Material * material = this->materials.Lookup(materialKey);
+				Poly * poly = this->polys.Lookup(polyKey);
 
+				if (renderer && material && poly) {
+					if (count <= INT32_MAX) {
 						glBindBufferBase(
 							GL_UNIFORM_BUFFER,
 							RendererBufferBindIndex,
@@ -678,20 +671,20 @@ namespace Ona::Engine {
 						);
 					}
 				}
-				// Bad ID.
 			}
 
 			void UpdateMaterialUserdata(
-				ResourceID materialID,
+				ResourceKey materialKey,
 				Slice<uint8_t const> const & userdata
 			) override {
-				if (materialID) {
-					Material * material = this->GetMaterial(materialID);
-					ResourceID const rendererId = material->rendererId;
+				Material * material = this->materials.Lookup(materialKey);
 
-					if (rendererId) {
+				if (material) {
+					Renderer * renderer = this->renderers.Lookup(material->rendererId);
+
+					if (renderer) {
 						Slice<Property const> const materialProperties =
-								this->GetRenderer(rendererId)->materialProperties;
+								renderer->materialProperties;
 
 						size_t const materialSize = CalculateUserdataSize(materialProperties);
 
@@ -731,11 +724,12 @@ namespace Ona::Engine {
 			}
 
 			void UpdateRendererUserdata(
-				ResourceID rendererID,
+				ResourceKey rendererKey,
 				Slice<uint8_t const> const & userdata
 			) override {
-				if (rendererID) {
-					Renderer * renderer = this->GetRenderer(rendererID);
+				Renderer * renderer = this->renderers.Lookup(rendererKey);
+
+				if (renderer) {
 					Slice<Property const> const rendererProperties = renderer->rendererProperties;
 					size_t const rendererSize = CalculateUserdataSize(rendererProperties);
 

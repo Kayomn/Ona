@@ -10,91 +10,84 @@ namespace Ona::Engine {
 		Vector2 uv;
 	};
 
-	internal ResourceID spriteRendererID;
+	static ResourceKey spriteRendererKey = {};
 
-	internal ResourceID spriteRectID;
+	static ResourceKey spriteRectKey = {};
 
-	internal bool LazyInitSpriteRenderer(GraphicsServer * graphics) {
-		static Chars const vertexSource = CharsFrom(
-			"#version 430 core\n"
-			"#define INSTANCE_COUNT 128\n"
-			"\n"
-			"in vec2 quadVertex;\n"
-			"in vec2 quadUv;\n"
-			"\n"
-			"out vec2 texCoords;\n"
-			"out vec4 texTint;\n"
-			"\n"
-			"layout(std140, row_major) uniform Viewport {\n"
-			"	mat4x4 projectionTransform;\n"
-			"};\n"
-			"\n"
-			"layout(std140, row_major) uniform Renderer {\n"
-			"	mat4x4 transforms[INSTANCE_COUNT];\n"
-			"	vec4 viewports[INSTANCE_COUNT];\n"
-			"};\n"
-			"\n"
-			"layout(std140, row_major) uniform Material {\n"
-			"	vec4 tintColor;\n"
-			"};\n"
-			"\n"
-			"uniform sampler2D spriteTexture;\n"
-			"\n"
-			"void main() {\n"
-			"	const vec4 viewport = viewports[gl_InstanceID];\n"
-			"\n"
-			"	texCoords = ((quadUv * viewport.zw) + viewport.xy);\n"
-			"	texTint = tintColor;\n"
-			"\n"
-			"	gl_Position = (\n"
-			"		projectionTransform * transforms[gl_InstanceID] * vec4(quadVertex, 0.0, 1.0)"
-			"	);\n"
-			"}\n"
-		);
+	static bool LazyInitSpriteRenderer(GraphicsServer * graphics) {
+		static bool isInitialized = {};
 
-		static Chars const fragmentSource = CharsFrom(
-			"#version 430 core\n"
-			"\n"
-			"in vec2 texCoords;\n"
-			"in vec4 texTint;\n"
-			"out vec4 outColor;\n"
-			"\n"
-			"uniform sampler2D spriteTexture;\n"
-			"\n"
-			"void main() {\n"
-			"	const vec4 spriteTextureColor = (texture(spriteTexture, texCoords) * texTint);\n"
-			"\n"
-			"	if (spriteTextureColor.a == 0.0) discard;\n"
-			"\n"
-			"	outColor = spriteTextureColor;\n"
-			"}\n"
-		);
+		if (!isInitialized) {
+			static Chars const vertexSource = CharsFrom(
+				"#version 430 core\n"
+				"#define INSTANCE_COUNT 128\n"
+				"\n"
+				"in vec2 quadVertex;\n"
+				"in vec2 quadUv;\n"
+				"\n"
+				"out vec2 texCoords;\n"
+				"out vec4 texTint;\n"
+				"\n"
+				"layout(std140, row_major) uniform Viewport {\n"
+				"	mat4x4 projectionTransform;\n"
+				"};\n"
+				"\n"
+				"layout(std140, row_major) uniform Renderer {\n"
+				"	mat4x4 transforms[INSTANCE_COUNT];\n"
+				"	vec4 viewports[INSTANCE_COUNT];\n"
+				"};\n"
+				"\n"
+				"layout(std140, row_major) uniform Material {\n"
+				"	vec4 tintColor;\n"
+				"};\n"
+				"\n"
+				"uniform sampler2D spriteTexture;\n"
+				"\n"
+				"void main() {\n"
+				"	const vec4 viewport = viewports[gl_InstanceID];\n"
+				"\n"
+				"	texCoords = ((quadUv * viewport.zw) + viewport.xy);\n"
+				"	texTint = tintColor;\n"
+				"\n"
+				"	gl_Position = (\n"
+				"		projectionTransform * transforms[gl_InstanceID] * vec4(quadVertex, 0.0, 1.0)"
+				"	);\n"
+				"}\n"
+			);
 
-		static Property const vertexProperties[] = {
-			Property{PropertyType::Float32, 2, String::From("quadVertex")},
-			Property{PropertyType::Float32, 2, String::From("quadUv")}
-		};
+			static Chars const fragmentSource = CharsFrom(
+				"#version 430 core\n"
+				"\n"
+				"in vec2 texCoords;\n"
+				"in vec4 texTint;\n"
+				"out vec4 outColor;\n"
+				"\n"
+				"uniform sampler2D spriteTexture;\n"
+				"\n"
+				"void main() {\n"
+				"	const vec4 spriteTextureColor = (texture(spriteTexture, texCoords) * texTint);\n"
+				"\n"
+				"	if (spriteTextureColor.a == 0.0) discard;\n"
+				"\n"
+				"	outColor = spriteTextureColor;\n"
+				"}\n"
+			);
 
-		static Property const rendererProperties[] = {
-			Property{PropertyType::Float32, (16 * 128), String::From("transforms")},
-			Property{PropertyType::Float32, (4 * 128), String::From("viewports")},
-		};
-
-		static Property const materialProperties[] = {
-			Property{PropertyType::Float32, 4, String::From("tintColor")}
-		};
-
-		if (!spriteRendererID) {
-			static Vertex2D const quadPoly[] = {
-				Vertex2D{Vector2{1.f, 1.f}, Vector2{1.f, 1.f}},
-				Vertex2D{Vector2{1.f, 0.f}, Vector2{1.f, 0.f}},
-				Vertex2D{Vector2{0.f, 1.f}, Vector2{0.f, 1.f}},
-				Vertex2D{Vector2{1.f, 0.f}, Vector2{1.f, 0.f}},
-				Vertex2D{Vector2{0.f, 0.f}, Vector2{0.f, 0.f}},
-				Vertex2D{Vector2{0.f, 1.f}, Vector2{0.f, 1.f}}
+			static Property const vertexProperties[] = {
+				Property{PropertyType::Float32, 2, String::From("quadVertex")},
+				Property{PropertyType::Float32, 2, String::From("quadUv")}
 			};
 
-			spriteRendererID = graphics->CreateRenderer(
+			static Property const rendererProperties[] = {
+				Property{PropertyType::Float32, (16 * 128), String::From("transforms")},
+				Property{PropertyType::Float32, (4 * 128), String::From("viewports")},
+			};
+
+			static Property const materialProperties[] = {
+				Property{PropertyType::Float32, 4, String::From("tintColor")}
+			};
+
+			Result<ResourceKey> rendererKey = graphics->CreateRenderer(
 				vertexSource,
 				fragmentSource,
 				Slice<Property const>{.length = 2, .pointer = vertexProperties},
@@ -102,13 +95,28 @@ namespace Ona::Engine {
 				Slice<Property const>{.length = 1, .pointer = materialProperties}
 			);
 
-			if (spriteRendererID) {
-				spriteRectID = graphics->CreatePoly(
-					spriteRendererID,
+			if (rendererKey.IsOk()) {
+				spriteRendererKey = rendererKey.Value();
+
+				static Vertex2D const quadPoly[] = {
+					Vertex2D{Vector2{1.f, 1.f}, Vector2{1.f, 1.f}},
+					Vertex2D{Vector2{1.f, 0.f}, Vector2{1.f, 0.f}},
+					Vertex2D{Vector2{0.f, 1.f}, Vector2{0.f, 1.f}},
+					Vertex2D{Vector2{1.f, 0.f}, Vector2{1.f, 0.f}},
+					Vertex2D{Vector2{0.f, 0.f}, Vector2{0.f, 0.f}},
+					Vertex2D{Vector2{0.f, 1.f}, Vector2{0.f, 1.f}}
+				};
+
+				Result<ResourceKey> polyKey = graphics->CreatePoly(
+					spriteRendererKey,
 					SliceOf(quadPoly, 6).AsBytes()
 				);
 
-				if (spriteRectID) return true;
+				if (polyKey.IsOk()) {
+					spriteRectKey = polyKey.Value();
+
+					return true;
+				}
 			}
 
 			return false;
@@ -125,16 +133,16 @@ namespace Ona::Engine {
 		using Res = Result<Sprite, SpriteError>;
 
 		if (LazyInitSpriteRenderer(graphics)) {
-			ResourceID materialID = graphics->CreateMaterial(spriteRendererID, image);
+			Result<ResourceKey> materialKey = graphics->CreateMaterial(spriteRendererKey, image);
 
-			if (materialID) {
+			if (materialKey.IsOk()) {
 				Material material = Material{Vector4{1.f, 1.f, 1.f, 1.f}};
 
-				graphics->UpdateMaterialUserdata(materialID, AsBytes(material));
+				graphics->UpdateMaterialUserdata(materialKey.Value(), AsBytes(material));
 
 				return Res::Ok(Sprite{
-					.polyId = spriteRectID,
-					.materialId = materialID,
+					.polyId = spriteRectKey,
+					.materialId = materialKey.Value(),
 
 					.dimensions = Vector2{
 						static_cast<float>(image.dimensions.x),
@@ -156,8 +164,10 @@ namespace Ona::Engine {
 	}
 
 	uint64_t Sprite::ToHash() const {
-		return ((static_cast<uint64_t>(this->polyId) << 32) |
-				static_cast<uint64_t>(this->materialId));
+		return (
+			(static_cast<uint64_t>(this->polyId) << 32) |
+			static_cast<uint64_t>(this->materialId)
+		);
 	}
 
 	SpriteCommands::SpriteCommands(GraphicsServer * graphics) :
@@ -167,7 +177,7 @@ namespace Ona::Engine {
 	SpriteCommands::~SpriteCommands() {
 		Allocator * allocator = DefaultAllocator();
 
-		this->batchSets.ForValues([allocator](ArrayStack<Batch> * batches) {
+		this->batchSets.ForValues([allocator](PackedStack<Batch> * batches) {
 			allocator->Destroy(batches);
 		});
 	}
@@ -180,14 +190,14 @@ namespace Ona::Engine {
 				OrthographicMatrix(0, viewportSize.x, viewportSize.y, 0, -1, 1)
 			);
 
-			this->batchSets.ForItems([graphics](Sprite & sprite, ArrayStack<Batch> * batches) {
+			this->batchSets.ForItems([graphics](Sprite & sprite, PackedStack<Batch> * batches) {
 				while (batches->Count()) {
 					Batch * batch = (&batches->Peek());
 
-					graphics->UpdateRendererUserdata(spriteRendererID, AsBytes(batch->chunk));
+					graphics->UpdateRendererUserdata(spriteRendererKey, AsBytes(batch->chunk));
 
 					graphics->RenderPolyInstanced(
-						spriteRendererID,
+						spriteRendererKey,
 						sprite.polyId,
 						sprite.materialId,
 						batch->count
@@ -204,9 +214,9 @@ namespace Ona::Engine {
 	}
 
 	void SpriteCommands::Draw(Sprite const & sprite, Vector2 position) {
-		ArrayStack<Batch> * * requiredBatches = this->batchSets.Require(sprite, []() {
+		PackedStack<Batch> * * requiredBatches = this->batchSets.Require(sprite, []() {
 			Allocator * allocator = DefaultAllocator();
-			ArrayStack<Batch> * stack = allocator->New<ArrayStack<Batch>>(allocator);
+			PackedStack<Batch> * stack = allocator->New<PackedStack<Batch>>(allocator);
 
 			if (stack && (!stack->Push(Batch{}))) allocator->Destroy(stack);
 
@@ -214,7 +224,7 @@ namespace Ona::Engine {
 		});
 
 		if (requiredBatches) {
-			ArrayStack<Batch> * batches = *requiredBatches;
+			PackedStack<Batch> * batches = *requiredBatches;
 
 			if (batches) {
 				Batch * currentBatch = (&batches->Peek());
