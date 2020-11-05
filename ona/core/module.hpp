@@ -328,21 +328,33 @@ namespace Ona::Core {
 		return SliceOf(pointer, length);
 	}
 
-	template<typename ValueType, typename ErrorType> class Result final {
-		static constexpr size_t typeSize = std::max(sizeof(ValueType), sizeof(ErrorType));
+	template<typename ValueType, typename ErrorType = void> class Result final {
+		static constexpr size_t CalculateStoreSize() {
+			if constexpr (std::is_same_v<ErrorType, void>) {
+				return sizeof(ValueType);
+			} else {
+				return std::max(sizeof(ValueType), sizeof(ErrorType));
+			}
+		}
 
-		uint8_t store[typeSize + 1];
+		enum { StoreSize = CalculateStoreSize() };
+
+		uint8_t store[StoreSize + 1];
 
 		public:
 		Result() = default;
 
 		Result(Result const & that) {
-			this->store[typeSize] = that.store[typeSize];
+			this->store[StoreSize] = that.store[StoreSize];
 
-			if (this->store[typeSize]) {
-				this->Value() = that.Value();
+			if constexpr (std::is_same_v<ErrorType, void>) {
+				if (this->store[StoreSize]) new (this->store) ValueType{that.Value()};
 			} else {
-				this->Error() = that.Error();
+				if (this->store[StoreSize]) {
+					new (this->store) ValueType{that.Value()};
+				} else {
+					new (this->store) ErrorType{that.Error()};
+				}
 			}
 		}
 
@@ -360,32 +372,28 @@ namespace Ona::Core {
 			}
 		}
 
-		ErrorType & Error() {
-			assert((!this->store[typeSize]) && "Result is ok");
+		template<
+			typename Type = ErrorType
+		> Type const & Error() const requires (!std::is_same_v<Type, void>) {
+			assert((!this->IsOk()) && "Result is ok");
 
-			return (*reinterpret_cast<ErrorType *>(this->store));
-		}
-
-		ErrorType const & Error() const {
-			assert((!this->store[typeSize]) && "Result is ok");
-
-			return (*reinterpret_cast<ErrorType const *>(this->store));
+			return (*reinterpret_cast<Type const *>(this->store));
 		}
 
 		ValueType & Expect(Chars const & message) {
-			assert(this->store[typeSize] && message.pointer);
+			assert(this->IsOk() && message.pointer);
 
 			return (*reinterpret_cast<ValueType *>(this->store));
 		}
 
 		ValueType const & Expect(Chars const & message) const {
-			assert(this->store[typeSize] && message.pointer);
+			assert(this->IsOk() && message.pointer);
 
 			return (*reinterpret_cast<ValueType const *>(this->store));
 		}
 
 		bool IsOk() const {
-			return static_cast<bool>(this->store[typeSize]);
+			return static_cast<bool>(this->store[StoreSize]);
 		}
 
 		ValueType & Value() {
@@ -398,17 +406,19 @@ namespace Ona::Core {
 
 		static Result Ok(ValueType const & value) {
 			Result result = {};
-			result.store[typeSize] = 1;
+			result.store[StoreSize] = 1;
 
 			new (result.store) ValueType{value};
 
 			return result;
 		}
 
-		static Result Fail(ErrorType const & error) {
+		template<
+			typename Type = ErrorType
+		>static Result Fail(Type const & error) requires (!std::is_same_v<Type, void>) {
 			Result result = {};
 
-			new (result.store) ErrorType{error};
+			new (result.store) Type{error};
 
 			return result;
 		}
