@@ -414,13 +414,19 @@ namespace Ona::Core {
 		}
 
 		template<
-			typename Type = ErrorType
-		>static Result Fail(Type const & error) requires (!std::is_same_v<Type, void>) {
+			typename Dummy = void
+		>static Result Fail(ErrorType const & error) requires (!std::is_same_v<ErrorType, void>) {
 			Result result = {};
 
-			new (result.store) Type{error};
+			new (result.store) ErrorType{error};
 
 			return result;
+		}
+
+		template<
+			typename Dummy = void
+		> static Result Fail() requires (std::is_same_v<ErrorType, void>) {
+			return Result{};
 		}
 	};
 
