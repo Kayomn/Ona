@@ -213,9 +213,50 @@ namespace Ona::Engine {
 
 		Result<Sprite> CreateSprite(GraphicsServer * graphicsServer, Image const & sourceImage);
 
+		void DestroySprite(Sprite const & sprite);
+
 		void Draw(Sprite const & sprite, Vector2 position);
 
 		bool IsInitialized() const override;
+	};
+
+	class World : public Object {
+		public:
+		using Initializer = bool(*)(void * userdata, GraphicsServer * graphicsServer);
+
+		using Processor = void(*)(void * userdata, Events const * events);
+
+		using Finalizer = void(*)(void * userdata);
+
+		private:
+		struct System {
+			Slice<uint8_t> userdata;
+
+			Processor processor;
+
+			Finalizer finalizer;
+		};
+
+		Allocator * allocator;
+
+		PackedStack<System> systems;
+
+		public:
+		struct SystemInfo {
+			size_t userdataSize;
+
+			Initializer initializer;
+
+			Processor processor;
+
+			Finalizer finalizer;
+		};
+
+		World(Allocator * allocator) : allocator{allocator}, systems{allocator} { }
+
+		bool SpawnSystem(GraphicsServer * graphicsServer, SystemInfo const & systemInfo);
+
+		void Update(Events const & events);
 	};
 }
 

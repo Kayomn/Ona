@@ -220,6 +220,10 @@ namespace Ona::Engine {
 		return Res::Fail();
 	}
 
+	void SpriteRenderer::DestroySprite(Sprite const & sprite) {
+		// TODO.
+	}
+
 	void SpriteRenderer::Draw(Sprite const & sprite, Vector2 position) {
 		PackedStack<Batch> * * requiredBatches = this->batchSets.Require(sprite, []() {
 			Allocator * allocator = DefaultAllocator();
