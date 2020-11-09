@@ -205,13 +205,10 @@ namespace Ona::Core {
 		dlclose(this->context);
 	}
 
-	Library OpenLibrary(String const & filePath, LibraryError * error) {
+	Result<Library> OpenLibrary(String const & filePath) {
+		using Res = Result<Library>;
 		Library library = {dlopen(String::Sentineled(filePath).AsChars().pointer, RTLD_NOW)};
 
-		if ((!library.context) && error) {
-			(*error) = LibraryError::CantLoad;
-		}
-
-		return library;
+		return (library.context ? Res::Ok(library) : Res::Fail());
 	}
 }

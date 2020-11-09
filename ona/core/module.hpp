@@ -652,12 +652,7 @@ namespace Ona::Core {
 		void Free();
 	};
 
-	enum class LibraryError {
-		None,
-		CantLoad
-	};
-
-	Result<Library, LibraryError> OpenLibrary(Chars filePath);
+	Result<Library> OpenLibrary(String const & filePath);
 
 	struct Point2 {
 		int32_t x, y;
