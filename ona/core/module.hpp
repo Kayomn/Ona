@@ -10,6 +10,11 @@
 
 #define internal static
 
+#define $(arr) Ona::Core::Slice<std::remove_reference_t<decltype(*arr)>>{\
+	.length = (sizeof(arr) / sizeof(*arr)),\
+	.pointer = arr\
+}
+
 namespace Ona::Core {
 	constexpr float Max(float const a, float const b) {
 		return ((a > b) ? a : b);
