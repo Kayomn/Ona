@@ -295,6 +295,12 @@ namespace Ona::Core {
 		public:
 		Callable() = default;
 
+		Callable(Callable const & that) {
+			for (size_t i = 0; i < BufferSize; i += 1) this->buffer[i] = that.buffer[i];
+
+			this->context = reinterpret_cast<Context *>(this->buffer);
+		}
+
 		template<typename Type> Callable(Type const & functor) {
 			class Functor : public Context {
 				private:
@@ -310,7 +316,7 @@ namespace Ona::Core {
 
 			static_assert((sizeof(Type) <= BufferSize), "Functor cannot be larger than buffer");
 
-			this->context = new (buffer) Functor{functor};
+			this->context = new (this->buffer) Functor{functor};
 		}
 
 		Return Invoke(Args const &... args) const {
