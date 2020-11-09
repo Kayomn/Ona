@@ -1,59 +1,72 @@
 #include "ona/engine/module.hpp"
 
-using namespace Ona::Core;
-using namespace Ona::Engine;
-using namespace Ona::Collections;
+namespace Ona::Engine {
+	struct System {
+		Slice<uint8_t> userdata;
+
+		SystemProcessor processor;
+
+		SystemFinalizer finalizer;
+	};
+
+	static PackedStack<System> loadedSystems = {DefaultAllocator()};
+
+	static void(* moduleInitializer)(GraphicsServer * graphicsServer);
+
+	static void(* moduleFinalizer)();
+}
 
 int main(int argv, char const * const * argc) {
-	Allocator * defaultAllocator = DefaultAllocator();
-	GraphicsServer * graphicsServer = LoadOpenGl(String::From("Ona"), 640, 480);
+	using namespace Ona::Core;
+	using namespace Ona::Collections;
+	using namespace Ona::Engine;
 
-	if (graphicsServer) {
-		Events events = {};
-		World world = {defaultAllocator};
+	Result<File, FileOpenError> configFile = OpenFile(
+		String::From("./main.lua"),
+		File::OpenRead
+	);
 
-		struct TestSystem {
-			SpriteRenderer * renderer;
+	if (configFile.IsOk()) {
+		LuaEngine lua = {DefaultAllocator()};
 
-			Sprite sprite;
-		};
+		if (lua.ExecuteSourceFile(Slice<LuaVar>{}, configFile.Value()).Length() == 0) {
+			LuaVar config = lua.GetGlobal(String::From("Config"));
 
-		world.SpawnSystem(graphicsServer, World::SystemInfo{
-			.userdataSize = sizeof(TestSystem),
+			if (lua.VarType(config) == LuaType::Table) {
+				GraphicsServer * graphicsServer = LoadOpenGl(String::From("Ona"), 640, 480);
+				LuaVar nativeModule = lua.GetField(config, String::From("module"));
+				Result<Library> loadedModuleLibrary = OpenLibrary(lua.VarString(nativeModule));
 
-			.initializer = [](void * userdata, GraphicsServer * graphicsServer) {
-				TestSystem * system = reinterpret_cast<TestSystem *>(userdata);
-				system->renderer = SpriteRenderer::Acquire(graphicsServer);
+				if (loadedModuleLibrary.IsOk()) {
+					Library moduleLibrary = loadedModuleLibrary.Value();
 
-				if (system->renderer) {
-					Image image = Image::Solid(DefaultAllocator(), Point2{32, 32}, RGB(0xFF, 0xFF, 0xFF)).Value();
-					system->sprite = system->renderer->CreateSprite(graphicsServer, image).Value();
+					moduleInitializer = reinterpret_cast<decltype(moduleInitializer)>(
+						moduleLibrary.FindSymbol(String::From("OnaModuleInit"))
+					);
 
-					image.Free();
-
-					return true;
+					moduleFinalizer = reinterpret_cast<decltype(moduleFinalizer)>(
+						moduleLibrary.FindSymbol(String::From("OnaModuleExit"))
+					);
 				}
 
-				return false;
-			},
+				if (graphicsServer) {
+					Events events = {};
 
-			.processor = [](void * userdata, Events const * events) {
-				TestSystem * system = reinterpret_cast<TestSystem *>(userdata);
+					while (graphicsServer->ReadEvents(&events)) {
+						graphicsServer->Clear();
 
-				system->renderer->Draw(system->sprite, Vector2{100, 100});
-			},
+						loadedSystems.ForValues([&events](System & system) {
+							if (system.processor) {
+								system.processor(system.userdata.pointer, &events);
+							}
+						});
 
-			.finalizer = [](void * userdata) {
-				TestSystem * system = reinterpret_cast<TestSystem *>(userdata);
-
-				system->renderer->DestroySprite(system->sprite);
-			},
-		});
-
-		while (graphicsServer->ReadEvents(&events)) {
-			graphicsServer->Clear();
-			world.Update(events);
-			graphicsServer->Update();
+						graphicsServer->Update();
+					}
+				}
+			}
 		}
+
+		configFile.Value().Free();
 	}
 }

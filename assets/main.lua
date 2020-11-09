@@ -1,0 +1,4 @@
+
+Config = {
+	module = "test"
+};

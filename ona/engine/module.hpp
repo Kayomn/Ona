@@ -220,44 +220,43 @@ namespace Ona::Engine {
 		bool IsInitialized() const override;
 	};
 
-	class World : public Object {
-		public:
-		using Initializer = bool(*)(void * userdata, GraphicsServer * graphicsServer);
-
-		using Processor = void(*)(void * userdata, Events const * events);
-
-		using Finalizer = void(*)(void * userdata);
-
-		private:
-		struct System {
-			Slice<uint8_t> userdata;
-
-			Processor processor;
-
-			Finalizer finalizer;
-		};
-
-		Allocator * allocator;
-
-		PackedStack<System> systems;
-
-		public:
-		struct SystemInfo {
-			size_t userdataSize;
-
-			Initializer initializer;
-
-			Processor processor;
-
-			Finalizer finalizer;
-		};
-
-		World(Allocator * allocator) : allocator{allocator}, systems{allocator} { }
-
-		bool SpawnSystem(GraphicsServer * graphicsServer, SystemInfo const & systemInfo);
-
-		void Update(Events const & events);
+	enum class LuaType {
+		Nil,
+		Number,
+		Integer,
+		String,
+		Function,
+		Table,
 	};
+
+	struct LuaVar {
+
+	};
+
+	class LuaEngine : public Object {
+		public:
+		LuaEngine(Allocator * allocator) { }
+
+		~LuaEngine() override;
+
+		String ExecuteSourceFile(Slice<LuaVar> const & returnVars, File const & file);
+
+		String ExecuteSourceScript(Slice<LuaVar> const & returnVars, String const & scriptSource);
+
+		LuaVar GetGlobal(String const & globalName);
+
+		LuaVar GetField(LuaVar const & tableVar, String const & fieldName);
+
+		String VarString(LuaVar const & var);
+
+		LuaType VarType(LuaVar const & var);
+	};
+
+	using SystemInitializer = bool(*)(void * userdata, GraphicsServer * graphicsServer);
+
+	using SystemProcessor = void(*)(void * userdata, Events const * events);
+
+	using SystemFinalizer = void(*)(void * userdata);
 }
 
 #endif

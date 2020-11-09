@@ -4,7 +4,8 @@
 		"dl",
 		"SDL2",
 		"GL",
-		"GLEW"
+		"GLEW",
+		"lua5.3"
 	],
 	"dependencies": [
 		"core",
