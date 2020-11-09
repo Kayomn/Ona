@@ -124,6 +124,8 @@ namespace Ona::Engine {
 
 			Index<Poly, ResourceKey> polys;
 
+			PackedStack<Callable<void()>> dispatchers;
+
 			GLuint CompileShaderSources(Chars const & vertexSource, Chars const & fragmentSource) {
 				static auto compileObject = [](Chars const & source, GLenum shaderType) -> GLuint {
 					GLuint const shaderHandle = glCreateShader(shaderType);
@@ -219,6 +221,7 @@ namespace Ona::Engine {
 				renderers{allocator},
 				materials{allocator},
 				polys{allocator},
+				dispatchers{allocator},
 				isInitialized{}
 			{
 				enum { InitFlags = SDL_INIT_EVERYTHING };
@@ -368,6 +371,10 @@ namespace Ona::Engine {
 			}
 
 			void Update() override {
+				this->dispatchers.ForValues([](Callable<void()> dispatcher) {
+					dispatcher.Invoke();
+				});
+
 				SDL_GL_SwapWindow(this->window);
 			}
 
@@ -632,6 +639,10 @@ namespace Ona::Engine {
 				}
 
 				return Result<ResourceKey>::Fail();
+			}
+
+			void RegisterDispatcher(Callable<void()> dispatcher) override {
+				this->dispatchers.Push(dispatcher);
 			}
 
 			void RenderPolyInstanced(

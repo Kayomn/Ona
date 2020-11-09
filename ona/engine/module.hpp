@@ -87,25 +87,34 @@ namespace Ona::Engine {
 		GraphicsServer,
 	};
 
-	class GraphicsServer;
-
-	class GraphicsCommands {
-		public:
-		virtual void Dispatch(GraphicsServer * graphicsServer) = 0;
-	};
-
 	struct Viewport {
 		Point2 size;
 	};
 
 	class GraphicsServer : public Object {
 		public:
+		/**
+		 * Clears the backbuffer to black.
+		 */
 		virtual void Clear() = 0;
 
+		/**
+		 * Clears the backbuffer to the color value of `color`.
+		 */
 		virtual void ColoredClear(Color color) = 0;
 
+		/**
+		 * Reads any and all event information known to the `GraphicsServer` at the current frame
+		 * and writes it to `events`.
+		 *
+		 * If the exit signal is received, `false` is returned. Otherwise, `true` is returned to
+		 * indicate continued processing.
+		 */
 		virtual bool ReadEvents(Events * events) = 0;
 
+		/**
+		 * Updates the internal state of the `GraphicsServer` and displays the new framebuffer.
+		 */
 		virtual void Update() = 0;
 
 		virtual Result<ResourceKey> CreateRenderer(
@@ -125,6 +134,12 @@ namespace Ona::Engine {
 			ResourceKey rendererKey,
 			Ona::Core::Image const & texture
 		) = 0;
+
+		/**
+		 * Registers `dispatcher` as a new event to be called just before displaying the new
+		 * framebuffer during calls to `GraphicsServer::Update`.
+		 */
+		virtual void RegisterDispatcher(Callable<void()> dispatcher) = 0;
 
 		virtual void RenderPolyInstanced(
 			ResourceKey rendererKey,
@@ -164,9 +179,7 @@ namespace Ona::Engine {
 		uint64_t ToHash() const;
 	};
 
-	Result<Sprite, SpriteError> CreateSprite(GraphicsServer * graphics, Image const & image);
-
-	class SpriteCommands final : public Object, public GraphicsCommands {
+	class SpriteRenderer : public Object {
 		struct Chunk {
 			enum { Max = 128 };
 
@@ -181,16 +194,24 @@ namespace Ona::Engine {
 			Chunk chunk;
 		};
 
+		Allocator * allocator;
+
+		ResourceKey rendererKey;
+
+		ResourceKey rectPolyKey;
+
 		HashTable<Sprite, PackedStack<Batch> *> batchSets;
 
 		bool isInitialized;
 
+		SpriteRenderer(GraphicsServer * graphicsServer);
+
 		public:
-		SpriteCommands(GraphicsServer * graphicsServer);
+		~SpriteRenderer() override;
 
-		~SpriteCommands() override;
+		static SpriteRenderer * Acquire(GraphicsServer * graphicsServer);
 
-		void Dispatch(GraphicsServer * graphics) override;
+		Result<Sprite> CreateSprite(GraphicsServer * graphicsServer, Image const & sourceImage);
 
 		void Draw(Sprite const & sprite, Vector2 position);
 
