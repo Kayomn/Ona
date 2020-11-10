@@ -1,72 +1,45 @@
 #include "ona/engine/module.hpp"
 
-namespace Ona::Engine {
-	struct System {
-		Slice<uint8_t> userdata;
-
-		SystemProcessor processor;
-
-		SystemFinalizer finalizer;
-	};
-
-	static PackedStack<System> loadedSystems = {DefaultAllocator()};
-
-	static void(* moduleInitializer)(GraphicsServer * graphicsServer);
-
-	static void(* moduleFinalizer)();
-}
-
 int main(int argv, char const * const * argc) {
 	using namespace Ona::Core;
 	using namespace Ona::Collections;
 	using namespace Ona::Engine;
 
-	Result<File, FileOpenError> configFile = OpenFile(
-		String::From("./main.lua"),
-		File::OpenRead
-	);
+	struct System {
 
-	if (configFile.IsOk()) {
-		LuaEngine lua = {DefaultAllocator()};
+	};
 
-		if (lua.ExecuteSourceFile(Slice<LuaVar>{}, configFile.Value()).Length() == 0) {
-			LuaVar config = lua.GetGlobal(String::From("Config"));
+	Result<String, FileOpenError> mainLuaSource = LoadText(String::From("main.lua"));
 
-			if (lua.VarType(config) == LuaType::Table) {
-				GraphicsServer * graphicsServer = LoadOpenGl(String::From("Ona"), 640, 480);
-				LuaVar nativeModule = lua.GetField(config, String::From("module"));
-				Result<Library> loadedModuleLibrary = OpenLibrary(lua.VarString(nativeModule));
+	if (mainLuaSource.IsOk()) {
+		Allocator * defaultAllocator = DefaultAllocator();
+		PackedStack<System> loadedSystems = {defaultAllocator};
+		LuaEngine lua = {defaultAllocator};
+		ScriptVar ona = lua.NewObject();
 
-				if (loadedModuleLibrary.IsOk()) {
-					Library moduleLibrary = loadedModuleLibrary.Value();
+		lua.WriteGlobal(String::From("Ona"), ona);
 
-					moduleInitializer = reinterpret_cast<decltype(moduleInitializer)>(
-						moduleLibrary.FindSymbol(String::From("OnaModuleInit"))
-					);
+		if (lua.ExecuteSource(mainLuaSource.Value()).IsOk()) {
+			GraphicsServer * graphicsServer = LoadOpenGl(String::From("Ona"), 640, 480);
 
-					moduleFinalizer = reinterpret_cast<decltype(moduleFinalizer)>(
-						moduleLibrary.FindSymbol(String::From("OnaModuleExit"))
-					);
+			if (graphicsServer) {
+				ScriptVar initializer = ona.ReadObject(String::From("init"));
+				ScriptVar processor = ona.ReadObject(String::From("process"));
+				ScriptVar finalizer = ona.ReadObject(String::From("exit"));
+				Events events = {};
+
+				if (initializer.type == ScriptVar::Type::Callable) initializer.Call();
+
+				while (graphicsServer->ReadEvents(&events)) {
+					graphicsServer->Clear();
+
+					if (processor.type == ScriptVar::Type::Callable) processor.Call();
+
+					graphicsServer->Update();
 				}
 
-				if (graphicsServer) {
-					Events events = {};
-
-					while (graphicsServer->ReadEvents(&events)) {
-						graphicsServer->Clear();
-
-						loadedSystems.ForValues([&events](System & system) {
-							if (system.processor) {
-								system.processor(system.userdata.pointer, &events);
-							}
-						});
-
-						graphicsServer->Update();
-					}
-				}
+				if (finalizer.type == ScriptVar::Type::Callable) finalizer.Call();
 			}
 		}
-
-		configFile.Value().Free();
 	}
 }

@@ -220,43 +220,60 @@ namespace Ona::Engine {
 		bool IsInitialized() const override;
 	};
 
-	enum class LuaType {
-		Nil,
-		Number,
-		Integer,
-		String,
-		Function,
-		Table,
+	class ScriptEngine;
+
+	struct ScriptVar {
+		enum class Type {
+			Nil,
+			Number,
+			Integer,
+			String,
+			Callable,
+			Array,
+			Object
+		};
+
+		union {
+			float number;
+
+			int32_t integer;
+
+			uint32_t reference;
+		} as;
+
+		Type type;
+
+		ScriptEngine * engine;
+
+		ScriptVar Call();
+
+		ScriptVar ReadObject(String const & fieldName);
+
+		void WriteObject(String const & fieldName, ScriptVar const & valueVar);
 	};
 
-	struct LuaVar {
-
+	enum class ScriptError {
+		Syntax,
+		Runtime,
+		OutOfMemory
 	};
 
-	class LuaEngine : public Object {
+	using ScriptResult = Result<ScriptVar, ScriptError>;
+
+	class ScriptEngine {
 		public:
-		LuaEngine(Allocator * allocator) { }
+		virtual ScriptResult ExecuteBinary(Slice<uint8_t> const & data) = 0;
 
-		~LuaEngine() override;
+		virtual ScriptResult ExecuteSource(String const & script) = 0;
 
-		String ExecuteSourceFile(Slice<LuaVar> const & returnVars, File const & file);
+		virtual ScriptVar NewObject() = 0;
 
-		String ExecuteSourceScript(Slice<LuaVar> const & returnVars, String const & scriptSource);
+		virtual ScriptVar ReadGlobal(String const & name) = 0;
 
-		LuaVar GetGlobal(String const & globalName);
-
-		LuaVar GetField(LuaVar const & tableVar, String const & fieldName);
-
-		String VarString(LuaVar const & var);
-
-		LuaType VarType(LuaVar const & var);
+		virtual void WriteGlobal(String const & name, ScriptVar const & valueVar) = 0;
 	};
-
-	using SystemInitializer = bool(*)(void * userdata, GraphicsServer * graphicsServer);
-
-	using SystemProcessor = void(*)(void * userdata, Events const * events);
-
-	using SystemFinalizer = void(*)(void * userdata);
 }
+
+#include "ona/engine/header/lua.hpp"
 
 #endif

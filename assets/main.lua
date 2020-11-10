@@ -1,4 +1,8 @@
 
-Config = {
-	module = "test"
-};
+function Ona.init()
+
+end
+
+function Ona.exit()
+
+end

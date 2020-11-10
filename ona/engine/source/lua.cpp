@@ -1,40 +1,49 @@
 #include "ona/engine/module.hpp"
 
+#include "lua5.3/lua.hpp"
+
 namespace Ona::Engine {
+	ScriptVar ScriptVar::Call() {
+		return ScriptVar{};
+	}
+
+	ScriptVar ScriptVar::ReadObject(String const & fieldName) {
+		return ScriptVar{};
+	}
+
+	void ScriptVar::WriteObject(String const & fieldName, ScriptVar const & valueVar) {
+
+	}
+
+	LuaEngine::LuaEngine(Allocator * allocator) : state{luaL_newstate()} {
+
+	}
+
 	LuaEngine::~LuaEngine() {
-
+		lua_close(this->state);
 	}
 
-	String LuaEngine::ExecuteSourceFile(Slice<LuaVar> const & returnVars, File const & file) {
-		// TODO
-		return String{};
+	ScriptResult LuaEngine::ExecuteBinary(Slice<uint8_t> const & binary) {
+		// TODO:
+		return ScriptResult::Fail(String::From("Not implemented"));
 	}
 
-	String LuaEngine::ExecuteSourceScript(
-		Slice<LuaVar> const & returnVars,
-		String const & scriptSource
-	) {
-		// TODO
-		return String{};
+	ScriptResult LuaEngine::ExecuteSource(String const & script) {
+		// TODO:
+		return ScriptResult::Fail(String::From("Not implemented"));
 	}
 
-	LuaVar LuaEngine::GetGlobal(String const & globalName) {
-		// TODO
-		return LuaVar{};
+	ScriptVar LuaEngine::NewObject() {
+		// TODO:
+		return ScriptVar{};
 	}
 
-	LuaVar LuaEngine::GetField(LuaVar const & tableVar, String const & fieldName) {
-		// TODO
-		return LuaVar{};
+	ScriptVar LuaEngine::ReadGlobal(String const & name) {
+		// TODO:
+		return ScriptVar{};
 	}
 
-	String LuaEngine::VarString(LuaVar const & var) {
-		// TODO
-		return String{};
-	}
-
-	LuaType LuaEngine::VarType(LuaVar const & var) {
-		// TODO
-		return LuaType{};
+	void LuaEngine::WriteGlobal(String const & name, ScriptVar const & valueVar) {
+		// TODO:
 	}
 }
