@@ -644,6 +644,8 @@ namespace Ona::Core {
 
 	Result<File, FileOpenError> OpenFile(String const & filePath, File::OpenFlags flags);
 
+	Result<String, FileOpenError> LoadText(String const & filePath);
+
 	struct Library {
 		void * context;
 

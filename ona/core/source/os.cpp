@@ -197,6 +197,11 @@ namespace Ona::Core {
 		return 0;
 	}
 
+	Result<String, FileOpenError> LoadText(String const & filePath) {
+		// TODO.
+		return Result<String, FileOpenError>::Fail(FileOpenError::NotFound);
+	}
+
 	void * Library::FindSymbol(String const & symbolName) {
 		return dlsym(this->context, String::Sentineled(symbolName).AsChars().pointer);
 	}
