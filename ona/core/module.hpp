@@ -506,6 +506,8 @@ namespace Ona::Core {
 		static String Sentineled(String const & string);
 
 		uint64_t ToHash() const;
+
+		String ZeroSentineled() const;
 	};
 
 	class Object {

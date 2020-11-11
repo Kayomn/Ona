@@ -105,4 +105,17 @@ namespace Ona::Core {
 
 		return hash;
 	}
+
+	String String::ZeroSentineled() const {
+		String sentineledString = String{};
+		Slice<uint8_t> buffer = sentineledString.CreateBuffer(this->Length() + 1);
+
+		if (buffer.length) {
+			sentineledString.length = this->length;
+
+			CopyMemory(buffer.AsBytes(), this->AsBytes());
+		}
+
+		return sentineledString;
+	}
 }
