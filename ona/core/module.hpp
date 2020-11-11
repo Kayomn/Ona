@@ -482,12 +482,7 @@ namespace Ona::Core {
 
 		Chars AsChars() const;
 
-		constexpr Slice<uint8_t const> AsBytes() const {
-			return SliceOf(
-				(this->IsDynamic() ? this->buffer.dynamic : this->buffer.static_),
-				this->size
-			);
-		}
+		Slice<uint8_t const> AsBytes() const;
 
 		bool Equals(String const & that) const;
 
@@ -502,8 +497,6 @@ namespace Ona::Core {
 		constexpr size_t Length() const {
 			return this->length;
 		}
-
-		static String Sentineled(String const & string);
 
 		uint64_t ToHash() const;
 
@@ -573,16 +566,17 @@ namespace Ona::Core {
 
 	bool CheckFile(String const & filePath);
 
-	enum class FileOpenError {
-		BadAccess,
-		NotFound
+	struct FileContents {
+		Allocator * allocator;
+
+		Slice<uint8_t> bytes;
+
+		void Free();
+
+		String ToString() const;
 	};
 
-	enum class FileLoadError {
-		NotFound,
-		BadAccess,
-		Resources
-	};
+	FileContents LoadFile(Allocator * allocator, String const & filePath);
 
 	union FileDescriptor {
 		int unixHandle;
@@ -591,8 +585,8 @@ namespace Ona::Core {
 
 		void Clear();
 
-		constexpr bool IsEmpty() {
-			return (this->userdata != nullptr);
+		constexpr bool IsEmpty() const {
+			return (this->userdata == nullptr);
 		}
 	};
 
@@ -625,9 +619,11 @@ namespace Ona::Core {
 
 		void Free();
 
+		bool IsOpen() const;
+
 		void Print(String const & string);
 
-		size_t Read(Slice<uint8_t> const & output);
+		size_t Read(Slice<uint8_t> output);
 
 		int64_t SeekHead(int64_t offset);
 
@@ -644,19 +640,19 @@ namespace Ona::Core {
 
 	Allocator * DefaultAllocator();
 
-	Result<File, FileOpenError> OpenFile(String const & filePath, File::OpenFlags flags);
-
-	Result<String, FileOpenError> LoadText(String const & filePath);
+	File OpenFile(String const & filePath, File::OpenFlags flags);
 
 	struct Library {
 		void * context;
 
 		void * FindSymbol(String const & symbolName);
 
+		bool IsOpen() const;
+
 		void Free();
 	};
 
-	Result<Library> OpenLibrary(String const & filePath);
+	Library OpenLibrary(String const & filePath);
 
 	struct Point2 {
 		int32_t x, y;
