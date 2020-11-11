@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dlfcn.h>
-#include <errno.h>
 
 namespace Ona::Core {
 	FileOperations osFileOperations = {
@@ -35,17 +34,12 @@ namespace Ona::Core {
 		},
 	};
 
-	Result<File, FileOpenError> OpenFile(String const & filePath, File::OpenFlags flags) {
-		using Res = Result<File, FileOpenError>;
+	File OpenFile(String const & filePath, File::OpenFlags flags) {
 		int unixAccessFlags = 0;
 
-		if (flags & File::OpenRead) {
-			unixAccessFlags |= O_RDONLY;
-		}
+		if (flags & File::OpenRead) unixAccessFlags |= O_RDONLY;
 
-		if (flags & File::OpenWrite) {
-			unixAccessFlags |= (O_WRONLY | O_CREAT);
-		}
+		if (flags & File::OpenWrite) unixAccessFlags |= (O_WRONLY | O_CREAT);
 
 		/**
 		*         Read Write Execute
@@ -55,20 +49,12 @@ namespace Ona::Core {
 		* Other | yes  no    no
 		*/
 		int const handle = open(
-			String::Sentineled(filePath).AsChars().pointer,
+			filePath.ZeroSentineled().AsChars().pointer,
 			unixAccessFlags,
 			(S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR)
 		);
 
-		if (handle == -1) {
-			switch (errno) {
-				case ENOENT: return Res::Fail(FileOpenError::NotFound);
-
-				default: return Res::Fail(FileOpenError::BadAccess);
-			}
-		}
-
-		return Res::Ok(File{
+		return ((handle == -1) ? File{} : File{
 			.operations = &osFileOperations,
 			.descriptor = FileDescriptor{handle}
 		});
@@ -118,7 +104,7 @@ namespace Ona::Core {
 	}
 
 	bool CheckFile(String const & filePath) {
-		return (access(String::Sentineled(filePath).AsChars().pointer, F_OK) != -1);
+		return (access(filePath.ZeroSentineled().AsChars().pointer, F_OK) != -1);
 	}
 
 	void File::Free() {
@@ -133,7 +119,7 @@ namespace Ona::Core {
 		}
 	}
 
-	size_t File::Read(Slice<uint8_t> const & output) {
+	size_t File::Read(Slice<uint8_t> output) {
 		if (this->operations && this->operations->reader) {
 			return this->operations->reader(this->descriptor, output);
 		}
@@ -197,23 +183,52 @@ namespace Ona::Core {
 		return 0;
 	}
 
-	Result<String, FileOpenError> LoadText(String const & filePath) {
-		// TODO.
-		return Result<String, FileOpenError>::Fail(FileOpenError::NotFound);
+	void FileContents::Free() {
+		if (this->allocator) this->allocator->Deallocate(this->bytes.pointer);
+	}
+
+	bool File::IsOpen() const {
+		return (!this->descriptor.IsEmpty());
+	}
+
+	String FileContents::ToString() const {
+		return String::From(this->bytes.As<char const>());
+	}
+
+	FileContents LoadFile(Allocator * allocator, String const & filePath) {
+		File file = OpenFile(filePath, File::OpenRead);
+
+		if (file.IsOpen()) {
+			file.SeekTail(0);
+
+			Slice<uint8_t> bytes = allocator->Allocate(file.Tell());
+
+			file.SeekHead(0);
+			file.Read(bytes);
+			file.Free();
+
+			if (bytes.pointer) return FileContents{
+				.allocator = allocator,
+				.bytes = bytes
+			};
+		}
+
+		return FileContents{};
 	}
 
 	void * Library::FindSymbol(String const & symbolName) {
-		return dlsym(this->context, String::Sentineled(symbolName).AsChars().pointer);
+		return dlsym(this->context, symbolName.ZeroSentineled().AsChars().pointer);
+	}
+
+	bool Library::IsOpen() const {
+		return (this->context != nullptr);
 	}
 
 	void Library::Free() {
 		dlclose(this->context);
 	}
 
-	Result<Library> OpenLibrary(String const & filePath) {
-		using Res = Result<Library>;
-		Library library = {dlopen(String::Sentineled(filePath).AsChars().pointer, RTLD_NOW)};
-
-		return (library.context ? Res::Ok(library) : Res::Fail());
+	Library OpenLibrary(String const & filePath) {
+		return Library{dlopen(filePath.ZeroSentineled().AsChars().pointer, RTLD_NOW)};
 	}
 }

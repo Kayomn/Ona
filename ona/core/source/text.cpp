@@ -21,13 +21,25 @@ namespace Ona::Core {
 		}
 	}
 
+	Slice<uint8_t const> String::AsBytes() const {
+			return Slice<uint8_t const>{
+				.length = this->size,
+
+				.pointer = (
+					this->IsDynamic() ?
+					(this->buffer.dynamic + sizeof(size_t)) :
+					this->buffer.static_
+				)
+			};
+		}
+
 	Chars String::AsChars() const {
 		return Chars{
 			.length = this->size,
 
 			.pointer = reinterpret_cast<char const *>(
 				this->IsDynamic() ?
-				this->buffer.dynamic :
+				(this->buffer.dynamic + sizeof(size_t)) :
 				this->buffer.static_
 			)
 		};
@@ -67,11 +79,14 @@ namespace Ona::Core {
 
 		while (*(data + size)) size += 1;
 
-		return From(SliceOf(data, size));
+		return From(Slice<char const>{
+			.length = size,
+			.pointer = data
+		});
 	}
 
 	String String::From(Chars const & data) {
-		String string = String{};
+		String string = {};
 		Slice<uint8_t> buffer = string.CreateBuffer(data.length);
 
 		if (buffer.length) {
@@ -85,19 +100,6 @@ namespace Ona::Core {
 		return string;
 	}
 
-	String String::Sentineled(String const & string) {
-		String sentineledString = String{};
-		Slice<uint8_t> buffer = sentineledString.CreateBuffer(string.Length() + 1);
-
-		if (buffer.length) {
-			sentineledString.length = string.length;
-
-			CopyMemory(buffer.AsBytes(), string.AsBytes());
-		}
-
-		return sentineledString;
-	}
-
 	uint64_t String::ToHash() const {
 		uint64_t hash = 5381;
 
@@ -107,15 +109,21 @@ namespace Ona::Core {
 	}
 
 	String String::ZeroSentineled() const {
-		String sentineledString = String{};
-		Slice<uint8_t> buffer = sentineledString.CreateBuffer(this->Length() + 1);
+		if (this->AsChars().At(this->size - 1) != 0) {
+			// String is not zero-sentineled, so make a copy that is.
+			String sentineledString = {};
+			Slice<uint8_t> buffer = sentineledString.CreateBuffer(this->size + 1);
 
-		if (buffer.length) {
-			sentineledString.length = this->length;
+			if (buffer.length) {
+				sentineledString.length = this->length;
+				buffer.At(buffer.length - 1) = 0;
 
-			CopyMemory(buffer.AsBytes(), this->AsBytes());
+				CopyMemory(buffer.AsBytes(), this->AsBytes());
+			}
+
+			return sentineledString;
 		}
 
-		return sentineledString;
+		return *this;
 	}
 }
