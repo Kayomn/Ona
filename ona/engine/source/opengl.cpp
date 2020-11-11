@@ -237,7 +237,7 @@ namespace Ona::Engine {
 					SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 
 					this->window = SDL_CreateWindow(
-						String::Sentineled(title).AsChars().pointer,
+						title.ZeroSentineled().AsChars().pointer,
 						WindowPosition,
 						WindowPosition,
 						width,
