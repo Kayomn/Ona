@@ -339,7 +339,8 @@ namespace Ona::Core {
 		return SliceOf(pointer, length);
 	}
 
-	template<typename ValueType, typename ErrorType = void> class Result final {
+	template<typename ValueType, typename ErrorType = void> struct Result final {
+		private:
 		static constexpr size_t CalculateStoreSize() {
 			if constexpr (std::is_same_v<ErrorType, void>) {
 				return sizeof(ValueType);
@@ -438,6 +439,30 @@ namespace Ona::Core {
 			typename Type = ErrorType
 		> static Result Fail() requires (std::is_same_v<Type, void>) {
 			return Result{};
+		}
+	};
+
+	template<typename Type> struct Unique {
+		Type value;
+
+		private:
+		bool exists;
+
+		public:
+		Unique() = default;
+
+		Unique(Type const & value) : value{value}, exists{true} { };
+
+		Unique(Unique const & that) = delete;
+
+		~Unique() {
+			if (this->exists) this->value.Free();
+		}
+
+		Unique & Release() {
+			this->exists = false;
+
+			return this->value;
 		}
 	};
 
