@@ -3,8 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**",
-                "/usr/include/lua5.3"
+                "${workspaceFolder}/**"
             ],
             "defines": [
                 "VERSION_OPENGL"
