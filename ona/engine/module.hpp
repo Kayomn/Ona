@@ -219,59 +219,6 @@ namespace Ona::Engine {
 
 		bool IsInitialized() const override;
 	};
-
-	class ScriptEngine;
-
-	struct ScriptVar {
-		enum class Type {
-			Nil,
-			Number,
-			Integer,
-			String,
-			Callable,
-			Array,
-			Object
-		};
-
-		union {
-			float number;
-
-			int32_t integer;
-
-			uint32_t reference;
-		} as;
-
-		Type type;
-
-		ScriptEngine * engine;
-
-		ScriptVar Call();
-
-		ScriptVar ReadObject(String const & fieldName);
-
-		void WriteObject(String const & fieldName, ScriptVar const & valueVar);
-	};
-
-	enum class ScriptError {
-		Syntax,
-		Runtime,
-		OutOfMemory
-	};
-
-	using ScriptResult = Result<ScriptVar, ScriptError>;
-
-	class ScriptEngine {
-		public:
-		virtual ScriptResult ExecuteBinary(Slice<uint8_t> const & data) = 0;
-
-		virtual ScriptResult ExecuteSource(String const & script) = 0;
-
-		virtual ScriptVar NewObject() = 0;
-
-		virtual ScriptVar ReadGlobal(String const & name) = 0;
-
-		virtual void WriteGlobal(String const & name, ScriptVar const & valueVar) = 0;
-	};
 }
 
 #include "ona/engine/header/lua.hpp"

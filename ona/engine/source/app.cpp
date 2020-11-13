@@ -9,37 +9,31 @@ int main(int argv, char const * const * argc) {
 
 	};
 
-	Result<String, FileOpenError> mainLuaSource = LoadText(String::From("main.lua"));
+	Allocator * defaultAllocator = DefaultAllocator();
+	PackedStack<System> loadedSystems = {defaultAllocator};
+	LuaEngine main = {defaultAllocator};
 
-	if (mainLuaSource.IsOk()) {
-		Allocator * defaultAllocator = DefaultAllocator();
-		PackedStack<System> loadedSystems = {defaultAllocator};
-		LuaEngine lua = {defaultAllocator};
-		ScriptVar ona = lua.NewObject();
+	if (main.ExecuteSource(Unique<FileContents>{
+		LoadFile(defaultAllocator, String::From("main.lua"))
+	}.value.ToString()) == ScriptState::Ok) {
+		GraphicsServer * graphicsServer = LoadOpenGl(String::From("Ona"), 640, 480);
 
-		lua.WriteGlobal(String::From("Ona"), ona);
+		if (graphicsServer) {
+			Events events = {};
 
-		if (lua.ExecuteSource(mainLuaSource.Value()).IsOk()) {
-			GraphicsServer * graphicsServer = LoadOpenGl(String::From("Ona"), 640, 480);
+			main.CallInitializer();
 
-			if (graphicsServer) {
-				ScriptVar initializer = ona.ReadObject(String::From("init"));
-				ScriptVar processor = ona.ReadObject(String::From("process"));
-				ScriptVar finalizer = ona.ReadObject(String::From("exit"));
-				Events events = {};
+			while (graphicsServer->ReadEvents(&events)) {
+				graphicsServer->Clear();
 
-				if (initializer.type == ScriptVar::Type::Callable) initializer.Call();
+				loadedSystems.ForValues([](System & system) {
 
-				while (graphicsServer->ReadEvents(&events)) {
-					graphicsServer->Clear();
+				});
 
-					if (processor.type == ScriptVar::Type::Callable) processor.Call();
-
-					graphicsServer->Update();
-				}
-
-				if (finalizer.type == ScriptVar::Type::Callable) finalizer.Call();
+				graphicsServer->Update();
 			}
+
+			main.CallFinalizer();
 		}
 	}
 }

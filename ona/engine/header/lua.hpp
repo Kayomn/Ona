@@ -2,7 +2,14 @@
 struct lua_State;
 
 namespace Ona::Engine {
-	class LuaEngine : public Object, public ScriptEngine {
+	enum class ScriptState {
+		Ok,
+		SyntaxError,
+		RuntimeError,
+		OutOfMemory,
+	};
+
+	class LuaEngine : public Object {
 		Allocator * allocator;
 
 		lua_State * state;
@@ -12,14 +19,16 @@ namespace Ona::Engine {
 
 		~LuaEngine() override;
 
-		ScriptResult ExecuteBinary(Slice<uint8_t> const & data) override;
+		void CallInitializer();
 
-		ScriptResult ExecuteSource(String const & script) override;
+		void CallFinalizer();
 
-		ScriptVar NewObject() override;
+		void CallProcessor(Events const & events);
 
-		ScriptVar ReadGlobal(String const & name) override;
+		ScriptState ExecuteBinary(Slice<uint8_t const> const & data);
 
-		void WriteGlobal(String const & name, ScriptVar const & valueVar) override;
+		ScriptState ExecuteSource(String const & script);
+
+		void ReportError(Chars const & message);
 	};
 }
