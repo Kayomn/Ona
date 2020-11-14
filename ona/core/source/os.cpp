@@ -49,7 +49,7 @@ namespace Ona::Core {
 		* Other | yes  no    no
 		*/
 		int const handle = open(
-			filePath.ZeroSentineled().AsChars().pointer,
+			filePath.ZeroSentineled().Chars().pointer,
 			unixAccessFlags,
 			(S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR)
 		);
@@ -104,7 +104,7 @@ namespace Ona::Core {
 	}
 
 	bool CheckFile(String const & filePath) {
-		return (access(filePath.ZeroSentineled().AsChars().pointer, F_OK) != -1);
+		return (access(filePath.ZeroSentineled().Chars().pointer, F_OK) != -1);
 	}
 
 	void File::Free() {
@@ -115,7 +115,7 @@ namespace Ona::Core {
 
 	void File::Print(String const & string) {
 		if (this->operations && this->operations->writer) {
-			this->operations->writer(this->descriptor, string.AsBytes());
+			this->operations->writer(this->descriptor, string.Bytes());
 		}
 	}
 
@@ -192,7 +192,7 @@ namespace Ona::Core {
 	}
 
 	String FileContents::ToString() const {
-		return String::From(this->bytes.As<char const>());
+		return String{this->bytes.As<char const>()};
 	}
 
 	FileContents LoadFile(Allocator * allocator, String const & filePath) {
@@ -217,7 +217,7 @@ namespace Ona::Core {
 	}
 
 	void * Library::FindSymbol(String const & symbolName) {
-		return dlsym(this->context, symbolName.ZeroSentineled().AsChars().pointer);
+		return dlsym(this->context, symbolName.ZeroSentineled().Chars().pointer);
 	}
 
 	bool Library::IsOpen() const {
@@ -229,6 +229,6 @@ namespace Ona::Core {
 	}
 
 	Library OpenLibrary(String const & filePath) {
-		return Library{dlopen(filePath.ZeroSentineled().AsChars().pointer, RTLD_NOW)};
+		return Library{dlopen(filePath.ZeroSentineled().Chars().pointer, RTLD_NOW)};
 	}
 }

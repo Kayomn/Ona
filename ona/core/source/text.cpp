@@ -1,6 +1,99 @@
 #include "ona/core/module.hpp"
 
 namespace Ona::Core {
+	String::String(char const * data) : size{0}, length{0} {
+		for (char const * c = (data + this->size); (*c) != 0; c += 1) {
+			this->size += 1;
+			this->length += (((*c) & 0xC0) != 0x80);
+		}
+
+		if (this->size > StaticBufferSize) {
+			this->buffer.dynamic = DefaultAllocator()->Allocate(
+				sizeof(size_t) + this->size
+			).pointer;
+
+			if (this->buffer.dynamic) {
+				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
+
+				CopyMemory(Slice<uint8_t>{
+					.length = this->size,
+					.pointer = this->buffer.dynamic,
+				}, Slice<uint8_t const>{
+					.length = this->size,
+					.pointer = reinterpret_cast<uint8_t const *>(data)
+				});
+			}
+		} else {
+			CopyMemory(Slice<uint8_t>{
+				.length = this->size,
+				.pointer = this->buffer.static_,
+			}, Slice<uint8_t const>{
+				.length = this->size,
+				.pointer = reinterpret_cast<uint8_t const *>(data)
+			});
+		}
+	}
+
+	String::String(Core::Chars const & chars) {
+		if (chars.length > StaticBufferSize) {
+			this->buffer.dynamic = DefaultAllocator()->Allocate(
+				sizeof(size_t) + chars.length
+			).pointer;
+
+			if (this->buffer.dynamic) {
+				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
+				this->size = chars.length;
+				this->length = 0;
+
+				for (size_t i = 0; (i < chars.length); i += 1) {
+					this->length += ((chars.At(i) & 0xC0) != 0x80);
+				}
+
+				CopyMemory(Slice<uint8_t>{
+					.length = this->size,
+					.pointer = this->buffer.dynamic,
+				}, chars.AsBytes());
+			}
+		} else {
+			this->size = chars.length;
+			this->length = 0;
+
+			for (size_t i = 0; (i < chars.length); i += 1) {
+				this->length += ((chars.At(i) & 0xC0) != 0x80);
+			}
+
+			CopyMemory(Slice<uint8_t>{
+				.length = this->size,
+				.pointer = this->buffer.static_,
+			}, chars.AsBytes());
+		}
+	}
+
+	String::String(char const c, uint32_t const count) {
+		if (count > StaticBufferSize) {
+			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(size_t) + count).pointer;
+
+			if (this->buffer.dynamic) {
+				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
+				this->size = count;
+				this->length = count;
+
+				WriteMemory(Slice<uint8_t>{
+					.length = this->size,
+					.pointer = this->buffer.dynamic,
+				}, c);
+			}
+		} else {
+			this->size = count;
+			this->length = count;
+
+			WriteMemory(Slice<uint8_t>{
+				.length = this->size,
+				.pointer = this->buffer.static_,
+			}, c);
+		}
+	}
+
 	String::String(String const & that) {
 		this->length = that.length;
 		this->size = that.size;
@@ -21,7 +114,7 @@ namespace Ona::Core {
 		}
 	}
 
-	Slice<uint8_t const> String::AsBytes() const {
+	Slice<uint8_t const> String::Bytes() const {
 			return Slice<uint8_t const>{
 				.length = this->size,
 
@@ -33,8 +126,8 @@ namespace Ona::Core {
 			};
 		}
 
-	Chars String::AsChars() const {
-		return Chars{
+	Chars String::Chars() const {
+		return Core::Chars{
 			.length = this->size,
 
 			.pointer = reinterpret_cast<char const *>(
@@ -45,80 +138,41 @@ namespace Ona::Core {
 		};
 	}
 
-	Slice<uint8_t> String::CreateBuffer(size_t size) {
-		if (size > staticBufferSize) {
-			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(size_t) + size).pointer;
-
-			if (this->buffer.dynamic) {
-				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
-				this->size = size;
-
-				return Slice<uint8_t>{
-					.length = size,
-					.pointer = (this->buffer.dynamic + sizeof(size_t)),
-				};
-			}
-		} else {
-			this->size = size;
-
-			return Slice<uint8_t>{
-				.length = size,
-				.pointer = this->buffer.static_,
-			};
-		}
-
-		return Slice<uint8_t>{};
-	}
-
 	bool String::Equals(String const & that) const {
-		return this->AsBytes().Equals(that.AsBytes());
-	}
-
-	String String::From(char const * data) {
-		size_t size = 0;
-
-		while (*(data + size)) size += 1;
-
-		return From(Slice<char const>{
-			.length = size,
-			.pointer = data
-		});
-	}
-
-	String String::From(Chars const & data) {
-		String string = {};
-		Slice<uint8_t> buffer = string.CreateBuffer(data.length);
-
-		if (buffer.length) {
-			for (size_t i = 0; (i < data.length); i += 1) {
-				string.length += ((data.At(i) & 0xC0) != 0x80);
-			}
-
-			CopyMemory(buffer, data.AsBytes());
-		}
-
-		return string;
+		return this->Bytes().Equals(that.Bytes());
 	}
 
 	uint64_t String::ToHash() const {
 		uint64_t hash = 5381;
 
-		for (auto c : this->AsChars()) hash = (((hash << 5) + hash) ^ c);
+		for (auto c : this->Chars()) hash = (((hash << 5) + hash) ^ c);
 
 		return hash;
 	}
 
+	String String::ToString() const {
+		return *this;
+	}
+
 	String String::ZeroSentineled() const {
-		if (this->AsChars().At(this->size - 1) != 0) {
+		if (this->Chars().At(this->size - 1) != 0) {
 			// String is not zero-sentineled, so make a copy that is.
-			String sentineledString = {};
-			Slice<uint8_t> buffer = sentineledString.CreateBuffer(this->size + 1);
+			String sentineledString = {'\0', (this->size + 1)};
 
-			if (buffer.length) {
+			if (sentineledString.size) {
 				sentineledString.length = this->length;
-				buffer.At(buffer.length - 1) = 0;
 
-				CopyMemory(buffer.AsBytes(), this->AsBytes());
+				if (this->IsDynamic()) {
+					CopyMemory(Slice<uint8_t>{
+						.length = sentineledString.length,
+						.pointer = sentineledString.buffer.dynamic
+					}, this->Bytes());
+				} else {
+					CopyMemory(Slice<uint8_t>{
+						.length = sentineledString.length,
+						.pointer = sentineledString.buffer.static_
+					}, this->Bytes());
+				}
 			}
 
 			return sentineledString;

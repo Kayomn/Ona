@@ -484,7 +484,7 @@ namespace Ona::Core {
 	 */
 	struct String {
 		private:
-		static constexpr size_t staticBufferSize = 24;
+		enum { StaticBufferSize = 24 };
 
 		uint32_t size;
 
@@ -493,30 +493,30 @@ namespace Ona::Core {
 		union {
 			uint8_t * dynamic;
 
-			uint8_t static_[staticBufferSize];
+			uint8_t static_[StaticBufferSize];
 		} buffer;
-
-		Slice<uint8_t> CreateBuffer(size_t size);
 
 		public:
 		String() = default;
+
+		String(char const * data);
+
+		String(Chars const & chars);
+
+		String(char const c, uint32_t const count);
 
 		String(String const & that);
 
 		~String();
 
-		Chars AsChars() const;
+		Slice<uint8_t const> Bytes() const;
 
-		Slice<uint8_t const> AsBytes() const;
+		Chars Chars() const;
 
 		bool Equals(String const & that) const;
 
-		static String From(char const * data);
-
-		static String From(Chars const & data);
-
 		constexpr bool IsDynamic() const {
-			return (this->size > staticBufferSize);
+			return (this->size > StaticBufferSize);
 		}
 
 		constexpr size_t Length() const {
@@ -524,6 +524,8 @@ namespace Ona::Core {
 		}
 
 		uint64_t ToHash() const;
+
+		String ToString() const;
 
 		String ZeroSentineled() const;
 	};
@@ -549,7 +551,7 @@ namespace Ona::Core {
 		}
 
 		virtual String ToString() const {
-			return String::From("{}");
+			return String{"{}"};
 		}
 	};
 
