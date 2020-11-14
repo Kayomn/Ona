@@ -562,33 +562,6 @@ namespace Ona::Core {
 		virtual void Deallocate(void * allocation) = 0;
 
 		virtual Slice<uint8_t> Reallocate(void * allocation, size_t size) = 0;
-
-		template<typename Type, typename... Args> Type * New(Args const &... args) {
-			Type * instance = reinterpret_cast<Type *>(
-				ZeroMemory(this->Allocate(sizeof(Type))).pointer
-			);
-
-			if (instance) {
-				new (instance) Type{args...};
-
-				if constexpr (std::is_base_of_v<Object, Type>) {
-					if (!instance->IsInitialized()) {
-						this->Destroy(instance);
-
-						instance = nullptr;
-					}
-				}
-			}
-
-			return instance;
-		}
-
-		template<typename Type> void Destroy(Type * & object) {
-			object->~Type();
-			this->Deallocate(object);
-
-			object = nullptr;
-		}
 	};
 
 	bool CheckFile(String const & filePath);
@@ -725,5 +698,9 @@ namespace Ona::Core {
 		);
 	};
 }
+
+void * operator new(size_t count, Ona::Core::Allocator * allocator);
+
+void operator delete(void * pointer, Ona::Core::Allocator * allocator);
 
 #endif

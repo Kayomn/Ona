@@ -35,3 +35,11 @@ namespace Ona::Core {
 		return destination;
 	}
 }
+
+void * operator new(size_t count, Ona::Core::Allocator * allocator) {
+	return allocator->Allocate(count).pointer;
+}
+
+void operator delete(void * pointer, Ona::Core::Allocator * allocator) {
+	allocator->Deallocate(pointer);
+}

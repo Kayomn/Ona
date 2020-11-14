@@ -56,7 +56,7 @@ namespace Ona::Collections {
 				if (this->entries[i].isOccupied) this->entries[i].occupied.~ValueType();
 			}
 
-			this->allocator->Destroy(this->entries);
+			this->allocator->Deallocate(this->entries);
 		}
 
 		void Clear() override {
