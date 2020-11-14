@@ -17,7 +17,7 @@ namespace Ona::Core {
 
 				CopyMemory(Slice<uint8_t>{
 					.length = this->size,
-					.pointer = this->buffer.dynamic,
+					.pointer = (this->buffer.dynamic + sizeof(size_t)),
 				}, Slice<uint8_t const>{
 					.length = this->size,
 					.pointer = reinterpret_cast<uint8_t const *>(data)
@@ -51,7 +51,7 @@ namespace Ona::Core {
 
 				CopyMemory(Slice<uint8_t>{
 					.length = this->size,
-					.pointer = this->buffer.dynamic,
+					.pointer = (this->buffer.dynamic + sizeof(size_t)),
 				}, chars.AsBytes());
 			}
 		} else {
@@ -80,7 +80,7 @@ namespace Ona::Core {
 
 				WriteMemory(Slice<uint8_t>{
 					.length = this->size,
-					.pointer = this->buffer.dynamic,
+					.pointer = (this->buffer.dynamic + sizeof(size_t)),
 				}, c);
 			}
 		} else {
