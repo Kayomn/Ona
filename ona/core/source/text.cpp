@@ -165,7 +165,7 @@ namespace Ona::Core {
 				if (this->IsDynamic()) {
 					CopyMemory(Slice<uint8_t>{
 						.length = sentineledString.length,
-						.pointer = sentineledString.buffer.dynamic
+						.pointer = (sentineledString.buffer.dynamic + sizeof(size_t))
 					}, this->Bytes());
 				} else {
 					CopyMemory(Slice<uint8_t>{
