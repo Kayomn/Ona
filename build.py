@@ -8,9 +8,9 @@ from concurrent import futures
 import json
 
 processed_dependencies = []
-common_flags = ["-g", "-fno-exceptions", "-std=c++20", "-I."]
-assets_path = "assets"
-output_path = "output"
+common_flags = ["-g", "-fno-exceptions", "-std=c++20", "-I.", "-fPIC"]
+assets_path = "./assets"
+output_path = "./output"
 input_path = "ona"
 
 required_properties = [
@@ -82,17 +82,24 @@ def build(name: str) -> (bool, str):
 
 		binary_path += ".a"
 		link = link_static_lib
-	elif (target_type == "executable"):
-		def link_executable() -> None:
-			print("Linking", name, "executable...")
+	else:
+		def link_executable_or_shared_lib() -> None:
+			args = (["clang++", "-L./output"] + object_paths)
 
-			args = (
-				["clang++"] +
-				object_paths +
-				dependency_paths +
-				["-o" + path.join(output_path, name)] +
-				common_flags
-			)
+			for dependency_path in dependency_paths:
+				if (dependency_path.endswith(".so")):
+					args.append("-l" + path.splitext(path.split(dependency_path)[1])[0])
+				else:
+					args.append(dependency_path)
+
+			if (target_type == "shared-lib"):
+				print("Linking", name, "shared library...")
+
+				args += (["-shared", "-o" + path.join(output_path, ("lib" + name + ".so"))] + common_flags)
+			else:
+				print("Linking", name, "executable...")
+
+				args += (["-o" + path.join(output_path, name)] + common_flags)
 
 			if ("libraries" in build_config):
 				for library in build_config["libraries"]:
@@ -100,17 +107,8 @@ def build(name: str) -> (bool, str):
 
 			call(args)
 
-		link = link_executable
-	elif (target_type == "shared-lib"):
-		def link_shared_lib() -> None:
-			print("Linking", name, "shared library...")
-			# TODO: Implement shared object linking support.
-
 		binary_path += ".so"
-		link = link_shared_lib
-	else:
-		print("Invalid target type specified in module config for", name)
-		exit(1)
+		link = link_executable_or_shared_lib
 
 	print("Building", (name + "..."))
 
