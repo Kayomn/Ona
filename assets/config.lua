@@ -1,0 +1,4 @@
+
+return {
+	modules = {"./test.so"}
+}
