@@ -8,11 +8,13 @@
 			"name": "(gdb) Launch",
 			"type": "cppdbg",
 			"request": "launch",
-			"program": "${workspaceFolder}/output/engine",
+			"program": "${workspaceFolder}/output/editor",
 			"args": [],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}/assets",
-			"environment": [],
+			"environment": [
+				{"name": "LD_LIBRARY_PATH", "value": "${workspaceFolder}/output"}
+			],
 			"externalConsole": false,
 			"MIMode": "gdb",
 			"setupCommands": [
