@@ -8,7 +8,7 @@
 			"name": "(gdb) Launch",
 			"type": "cppdbg",
 			"request": "launch",
-			"program": "${workspaceFolder}/output/editor",
+			"program": "${workspaceFolder}/output/engine",
 			"args": [],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}/assets",

@@ -83,10 +83,6 @@ namespace Ona::Engine {
 		String name;
 	};
 
-	enum class SpriteError {
-		GraphicsServer,
-	};
-
 	struct Viewport {
 		Point2 size;
 	};
@@ -164,63 +160,9 @@ namespace Ona::Engine {
 	};
 
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height);
-
-	struct Sprite {
-		ResourceKey polyId;
-
-		ResourceKey materialId;
-
-		Vector2 dimensions;
-
-		bool Equals(Sprite const & that) const;
-
-		void Free();
-
-		uint64_t ToHash() const;
-	};
-
-	class SpriteRenderer : public Object {
-		struct Chunk {
-			enum { Max = 128 };
-
-			Matrix transforms[Max];
-
-			Vector4 viewports[Max];
-		};
-
-		struct Batch {
-			size_t count;
-
-			Chunk chunk;
-		};
-
-		Allocator * allocator;
-
-		ResourceKey rendererKey;
-
-		ResourceKey rectPolyKey;
-
-		HashTable<Sprite, PackedStack<Batch> *> batchSets;
-
-		bool isInitialized;
-
-		SpriteRenderer(GraphicsServer * graphicsServer);
-
-		public:
-		~SpriteRenderer() override;
-
-		static SpriteRenderer * Acquire(GraphicsServer * graphicsServer);
-
-		Result<Sprite> CreateSprite(GraphicsServer * graphicsServer, Image const & sourceImage);
-
-		void DestroySprite(Sprite const & sprite);
-
-		void Draw(Sprite const & sprite, Vector2 position);
-
-		bool IsInitialized() const override;
-	};
 }
 
-#include "ona/engine/header/lua.hpp"
+#include "ona/engine/header/rendering.hpp"
+#include "ona/engine/header/scripting.hpp"
 
 #endif

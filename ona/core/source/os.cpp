@@ -229,6 +229,24 @@ namespace Ona::Core {
 	}
 
 	Library OpenLibrary(String const & filePath) {
-		return Library{dlopen(filePath.ZeroSentineled().Chars().pointer, RTLD_NOW)};
+		Library library = {dlopen(filePath.ZeroSentineled().Chars().pointer, RTLD_NOW)};
+
+		if (!library.context) {
+			char const * errorMessage = dlerror();
+			size_t errorMessageLength = 0;
+
+			while (*(errorMessage + errorMessageLength)) errorMessageLength += 1;
+
+			if (errorMessage) {
+				File outFile = OutFile();
+
+				outFile.Write(Slice<uint8_t const>{
+					.length = errorMessageLength,
+					.pointer = reinterpret_cast<uint8_t const *>(errorMessage)
+				});
+			}
+		}
+
+		return library;
 	}
 }

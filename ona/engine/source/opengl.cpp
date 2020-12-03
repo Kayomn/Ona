@@ -237,7 +237,7 @@ namespace Ona::Engine {
 					SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 
 					this->window = SDL_CreateWindow(
-						title.ZeroSentineled().AsChars().pointer,
+						title.ZeroSentineled().Chars().pointer,
 						WindowPosition,
 						WindowPosition,
 						width,
@@ -287,8 +287,8 @@ namespace Ona::Engine {
 										) -> void {
 											File outFile = OutFile();
 
-											outFile.Print(String::From(message));
-											outFile.Print(String::From("\n"));
+											outFile.Print(String{message});
+											outFile.Print(String{"\n"});
 										}, 0);
 
 										glViewport(0, 0, width, height);

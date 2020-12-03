@@ -18,10 +18,6 @@ namespace Ona::Engine {
 		return (this->ToHash() == that.ToHash());
 	}
 
-	void Sprite::Free() {
-
-	}
-
 	uint64_t Sprite::ToHash() const {
 		return (
 			(static_cast<uint64_t>(this->polyId) << 32) |
@@ -90,17 +86,17 @@ namespace Ona::Engine {
 		);
 
 		static Property const vertexProperties[] = {
-			Property{PropertyType::Float32, 2, String::From("quadVertex")},
-			Property{PropertyType::Float32, 2, String::From("quadUv")}
+			Property{PropertyType::Float32, 2, String{"quadVertex"}},
+			Property{PropertyType::Float32, 2, String{"quadUv"}}
 		};
 
 		static Property const rendererProperties[] = {
-			Property{PropertyType::Float32, (16 * 128), String::From("transforms")},
-			Property{PropertyType::Float32, (4 * 128), String::From("viewports")},
+			Property{PropertyType::Float32, (16 * 128), String{"transforms"}},
+			Property{PropertyType::Float32, (4 * 128), String{"viewports"}},
 		};
 
 		static Property const materialProperties[] = {
-			Property{PropertyType::Float32, 4, String::From("tintColor")}
+			Property{PropertyType::Float32, 4, String{"tintColor"}}
 		};
 
 		Result<ResourceKey> rendererKey = graphicsServer->CreateRenderer(
@@ -174,7 +170,7 @@ namespace Ona::Engine {
 
 	SpriteRenderer::~SpriteRenderer() {
 		this->batchSets.ForValues([this](PackedStack<Batch> * batches) {
-			this->allocator->Destroy(batches);
+			delete (this->allocator, batches);
 		});
 
 		// TODO: Graphics resources leak. Figure out how to solve this.
@@ -223,9 +219,9 @@ namespace Ona::Engine {
 	void SpriteRenderer::Draw(Sprite const & sprite, Vector2 position) {
 		PackedStack<Batch> * * requiredBatches = this->batchSets.Require(sprite, []() {
 			Allocator * allocator = DefaultAllocator();
-			PackedStack<Batch> * stack = allocator->New<PackedStack<Batch>>(allocator);
+			PackedStack<Batch> * stack = new (allocator) PackedStack<Batch>{allocator};
 
-			if (stack && (!stack->Push(Batch{}))) allocator->Destroy(stack);
+			if (stack && (!stack->Push(Batch{}))) delete (allocator, stack);
 
 			return stack;
 		});
