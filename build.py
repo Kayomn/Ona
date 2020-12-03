@@ -5,6 +5,7 @@ from sys import exit
 from os import path, listdir, mkdir
 from subprocess import call
 from concurrent import futures
+from collections import namedtuple
 import json
 
 processed_dependencies = []
@@ -17,7 +18,66 @@ required_properties = [
 	"targetType"
 ]
 
-def build(name: str) -> (bool, str):
+def link_executable(build_config: dict, object_paths: list, dependency_paths: list) -> None:
+	args = (
+		["clang++", "-o" + build_config["binary_path"], "-L./output"] +
+		common_flags +
+		object_paths
+	)
+
+	for dependency_path in dependency_paths:
+		if (dependency_path.endswith(".so")):
+			# output/libfile.so -> file
+			args.append("-l" + path.splitext(path.split(dependency_path)[1])[0][3:])
+		else:
+			args.append(dependency_path)
+
+	if ("libraries" in build_config):
+		for library in build_config["libraries"]:
+			args.append("-l" + library)
+
+	call(args)
+
+def link_shared_lib(build_config: dict, object_paths: list, dependency_paths: list) -> None:
+	args = (["clang++", "-L./output"] + object_paths)
+
+	for dependency_path in dependency_paths:
+		if (dependency_path.endswith(".so")):
+			# output/libfile.so -> file
+			args.append("-l" + path.splitext(path.split(dependency_path)[1])[0][3:])
+		else:
+			args.append(dependency_path)
+
+	args += (["-shared", "-o" + build_config["binary_path"]] + common_flags)
+
+	if ("libraries" in build_config):
+		for library in build_config["libraries"]:
+			args.append("-l" + library)
+
+	call(args)
+
+TargetType = namedtuple("TargetType", ["linker", "namer"])
+
+target_types = {
+	"executable": TargetType(link_executable, lambda binary_path: binary_path),
+
+	"static-lib": TargetType(lambda build_config, object_paths, dependency_paths: call(
+			["ar", "rc", build_config["binary_path"]] +
+			object_paths
+		),
+
+		lambda binary_path: (binary_path + ".a")
+	),
+
+	"shared-lib": TargetType(link_shared_lib, lambda binary_path: ("lib" + binary_path + ".so")),
+}
+
+class BuildInfo:
+	def __init__(self, needed_rebuild: bool, binary_path: str):
+		self.needed_rebuild = needed_rebuild
+		self.binary_path = binary_path
+
+def build(name: str) -> BuildInfo:
 	def load_build_config(file_path: str) -> dict:
 		if (not path.exists(file_path)):
 			print("No build.json exists for", name)
@@ -65,50 +125,20 @@ def build(name: str) -> (bool, str):
 	if ("dependencies" in build_config):
 		for dependency in build_config["dependencies"]:
 			if (not dependency in processed_dependencies):
-				build_result, dependency_path = build(dependency)
-				needs_recompile |= build_result
+				build_info = build(dependency)
+				needs_recompile |= build_info.needed_rebuild
 
-				dependency_paths.append(dependency_path)
+				dependency_paths.append(build_info.binary_path)
 				processed_dependencies.append(dependency)
 
 	target_type = build_config["targetType"]
-	binary_path = path.join(output_path, name)
-	link = None
+	binary_path = ""
 
-	if (target_type == "static-lib"):
-		def link_static_lib() -> None:
-			print("Linking", name, "static library...")
-			call(["ar", "rc", binary_path] + object_paths)
-
-		binary_path += ".a"
-		link = link_static_lib
+	if ("binary_path" in build_config):
+		binary_path = build_config["binary_path"]
 	else:
-		def link_executable_or_shared_lib() -> None:
-			args = (["clang++", "-L./output"] + object_paths)
-
-			for dependency_path in dependency_paths:
-				if (dependency_path.endswith(".so")):
-					args.append("-l" + path.splitext(path.split(dependency_path)[1])[0])
-				else:
-					args.append(dependency_path)
-
-			if (target_type == "shared-lib"):
-				print("Linking", name, "shared library...")
-
-				args += (["-shared", "-o" + path.join(output_path, ("lib" + name + ".so"))] + common_flags)
-			else:
-				print("Linking", name, "executable...")
-
-				args += (["-o" + path.join(output_path, name)] + common_flags)
-
-			if ("libraries" in build_config):
-				for library in build_config["libraries"]:
-					args.append("-l" + library)
-
-			call(args)
-
-		binary_path += ".so"
-		link = link_executable_or_shared_lib
+		binary_path = target_types[target_type].namer(path.join(output_path, name))
+		build_config["binary_path"] = binary_path
 
 	print("Building", (name + "..."))
 
@@ -172,9 +202,10 @@ def build(name: str) -> (bool, str):
 				exit(exit_code)
 
 		if (needs_recompile):
-			link()
+			print("Linking", name, target_type, "...")
+			target_types[target_type].linker(build_config, object_paths, dependency_paths)
 
-	return needs_recompile, binary_path
+	return BuildInfo(needs_recompile, binary_path)
 
 arg_parser = ArgumentParser(
 	description = "Builds an Ona engine component and all of its dependencies."
@@ -190,5 +221,5 @@ if (not path.exists(assets_path)):
 if (not path.exists(output_path)):
 	mkdir(output_path)
 
-if (not build(args.component)[0]):
+if (not build(args.component).needed_rebuild):
 	print("Nothing to be done")
