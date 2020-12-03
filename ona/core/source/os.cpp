@@ -70,7 +70,7 @@ namespace Ona::Core {
 	}
 
 	Allocator * DefaultAllocator() {
-		static class : public Object, public Allocator {
+		static class : public Allocator {
 			Slice<uint8_t> Allocate(size_t size) override {
 				uint8_t * allocationAddress = reinterpret_cast<uint8_t *>(malloc(size));
 				size *= (allocationAddress != nullptr);

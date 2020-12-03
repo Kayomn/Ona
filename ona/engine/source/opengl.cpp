@@ -8,7 +8,7 @@ namespace Ona::Engine {
 	using namespace Ona::Collections;
 	using namespace Ona::Core;
 
-	internal size_t CalculatePropertySize(Property const & property) {
+	static size_t CalculatePropertySize(Property const & property) {
 		size_t size;
 
 		switch (property.type) {
@@ -39,7 +39,7 @@ namespace Ona::Engine {
 		return (size * property.components);
 	}
 
-	internal size_t CalculateUserdataSize(Slice<Property const> const & properties) {
+	static size_t CalculateUserdataSize(Slice<Property const> const & properties) {
 		constexpr size_t attributeAlignment = 4;
 		size_t size = 0;
 
@@ -94,7 +94,7 @@ namespace Ona::Engine {
 		AlbedoTextureBindIndex,
 	};
 
-	internal GLenum TypeDescriptorToGl(PropertyType typeDescriptor) {
+	static GLenum TypeDescriptorToGl(PropertyType typeDescriptor) {
 		switch (typeDescriptor) {
 			case PropertyType::Int8: return GL_BYTE;
 			case PropertyType::Uint8: return GL_UNSIGNED_BYTE;
@@ -107,7 +107,7 @@ namespace Ona::Engine {
 		}
 	}
 
-	internal Vector4 NormalizeColor(Color const & color) {
+	static Vector4 NormalizeColor(Color const & color) {
 		return Vector4{
 			(color.r / (static_cast<float>(0xFF))),
 			(color.g / (static_cast<float>(0xFF))),

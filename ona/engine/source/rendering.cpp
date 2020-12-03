@@ -102,9 +102,9 @@ namespace Ona::Engine {
 		Result<ResourceKey> rendererKey = graphicsServer->CreateRenderer(
 			vertexSource,
 			fragmentSource,
-			$(vertexProperties),
-			$(rendererProperties),
-			$(materialProperties)
+			$slice(vertexProperties),
+			$slice(rendererProperties),
+			$slice(materialProperties)
 		);
 
 		if (rendererKey.IsOk()) {
@@ -121,7 +121,7 @@ namespace Ona::Engine {
 
 			Result<ResourceKey> polyKey = graphicsServer->CreatePoly(
 				this->rendererKey,
-				$(quadPoly).AsBytes()
+				$slice(quadPoly).AsBytes()
 			);
 
 			if (polyKey.IsOk()) {
