@@ -21,9 +21,9 @@ namespace Ona::Core {
 	struct Image {
 		Allocator * allocator;
 
-		Point2 dimensions;
+		Color * pixels;
 
-		Slice<Color> pixels;
+		Point2 dimensions;
 
 		void Free();
 

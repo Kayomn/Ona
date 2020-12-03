@@ -597,7 +597,7 @@ namespace Ona::Engine {
 									texture.dimensions.y,
 									GL_RGBA,
 									GL_UNSIGNED_BYTE,
-									texture.pixels.pointer
+									texture.pixels
 								);
 
 								// Was the texture pixel data assigned?
