@@ -7,6 +7,7 @@ namespace Ona::Collections {
 	using namespace Ona::Core;
 
 	template<typename ValueType> class Collection {
+		public:
 		virtual void Clear() = 0;
 
 		virtual size_t Count() const = 0;
