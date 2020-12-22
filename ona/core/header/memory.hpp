@@ -26,7 +26,7 @@ namespace Ona::Core {
 			if (this->exists) this->value.Free();
 		}
 
-		Unique & Release() {
+		Type & Release() {
 			this->exists = false;
 
 			return this->value;
