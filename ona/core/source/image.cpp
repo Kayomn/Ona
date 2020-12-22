@@ -1,6 +1,15 @@
 #include "ona/core/module.hpp"
 
 namespace Ona::Core {
+	Vector4 Color::Normalized() const {
+		return Vector4{
+			(this->r / 0xFF),
+			(this->g / 0xFF),
+			(this->b / 0xFF),
+			(this->a / 0xFF)
+		};
+	}
+
 	void Image::Free() {
 		if (this->pixels) {
 			this->allocator->Deallocate(this->pixels);

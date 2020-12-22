@@ -2,6 +2,8 @@
 namespace Ona::Core {
 	struct Color {
 		uint8_t r, g, b, a;
+
+		Vector4 Normalized() const;
 	};
 
 	constexpr Color Greyscale(uint8_t const value) {
