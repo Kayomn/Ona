@@ -3,10 +3,10 @@
 namespace Ona::Core {
 	Vector4 Color::Normalized() const {
 		return Vector4{
-			(this->r / 0xFF),
-			(this->g / 0xFF),
-			(this->b / 0xFF),
-			(this->a / 0xFF)
+			(this->r / static_cast<float>(0xFF)),
+			(this->g / static_cast<float>(0xFF)),
+			(this->b / static_cast<float>(0xFF)),
+			(this->a / static_cast<float>(0xFF))
 		};
 	}
 
