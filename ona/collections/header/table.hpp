@@ -221,11 +221,11 @@ namespace Ona::Collections {
 		ValueType * Insert(KeyType const & key, ValueType const & value) override {
 			if (!(this->buckets.length)) this->Rehash(defaultHashSize);
 
-			size_t const hash = (key.ToHash() % this->buckets.length);
+			size_t const hash = (KeyHash(key) % this->buckets.length);
 			Bucket * bucket = this->buckets.At(hash);
 
 			if (bucket) {
-				if (bucket->entry.key.Equals(key)) {
+				if (KeyEquals(bucket->entry.key, key)) {
 					bucket->entry.value = value;
 
 					return (&bucket->entry.value);
@@ -233,7 +233,7 @@ namespace Ona::Collections {
 					while (bucket->next) {
 						bucket = bucket->next;
 
-						if (bucket->entry.key.Equals(key)) {
+						if (KeyEquals(bucket->entry.key, key)) {
 							bucket->entry.value = value;
 
 							return &bucket->entry.value;
@@ -289,16 +289,32 @@ namespace Ona::Collections {
 			return false;
 		}
 
+		static bool KeyEquals(KeyType const & a, KeyType const & b) {
+			if constexpr (std::is_pointer_v<KeyType>) {
+				return (a == b);
+			} else {
+				return a.Equals(b);
+			}
+		}
+
+		static uint64_t KeyHash(KeyType const & key) {
+			if constexpr (std::is_pointer_v<KeyType>) {
+				return reinterpret_cast<uint64_t>(key);
+			} else {
+				return key.ToHash();
+			}
+		}
+
 		float LoadFactor() const {
 			return (this->count / this->buckets.length);
 		}
 
 		ValueType * Lookup(KeyType const & key) override {
 			if (this->buckets.length && this->count) {
-				Bucket * bucket = this->buckets.At(key.ToHash() % this->buckets.length);
+				Bucket * bucket = this->buckets.At(KeyHash(key) % this->buckets.length);
 
 				if (bucket) {
-					while (!bucket->entry.key.Equals(key)) bucket = bucket->next;
+					while (!KeyEquals(bucket->entry.key, key)) bucket = bucket->next;
 
 					if (bucket) return &bucket->entry.value;
 				}
@@ -309,10 +325,10 @@ namespace Ona::Collections {
 
 		ValueType const * Lookup(KeyType const & key) const override {
 			if (this->buckets.length && this->count) {
-				Bucket const * bucket = this->buckets.At(key.ToHash() % this->buckets.length);
+				Bucket const * bucket = this->buckets.At(KeyHash(key) % this->buckets.length);
 
 				if (bucket) {
-					while (!bucket->entry.key.Equals(key)) bucket = bucket->next;
+					while (!KeyEquals(bucket->entry.key, key)) bucket = bucket->next;
 
 					if (bucket) return &bucket->entry.value;
 				}
