@@ -16,7 +16,7 @@ namespace Ona::Core {
 		Unique(Type const & value) : value{value} { }
 
 		~Unique() override {
-			if (this->value[sizeof(Type)]) this->ValueOf().Free();
+			this->value.Free();
 		}
 
 		Type & ValueOf() {
