@@ -175,6 +175,10 @@ namespace Ona::Core {
 		Return Invoke(Args const &... args) const {
 			return this->context->Invoke(args...);
 		}
+
+		bool IsEmpty() {
+			return (this->context != nullptr);
+		}
 	};
 
 	using Chars = Slice<char const>;
