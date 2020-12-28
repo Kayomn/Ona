@@ -1,7 +1,7 @@
 #include "ona/core/module.hpp"
 
 namespace Ona::Core {
-	size_t CopyMemory(Slice<uint8_t> destination, Slice<uint8_t const> source) {
+	size_t CopyMemory(Slice<uint8_t> destination, Slice<uint8_t const> const & source) {
 		size_t const size = (
 			(destination.length < source.length) ?
 			destination.length :

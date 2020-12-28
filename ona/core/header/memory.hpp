@@ -9,31 +9,22 @@ namespace Ona::Core {
 		virtual Slice<uint8_t> Reallocate(void * allocation, size_t size) = 0;
 	};
 
-	template<typename Type> struct Unique {
+	template<typename Type> class Unique final : public Object {
 		Type value;
 
-		private:
-		bool exists;
-
 		public:
-		Unique() = default;
+		Unique(Type const & value) : value{value} { }
 
-		Unique(Type const & value) : value{value}, exists{true} { };
-
-		Unique(Unique const & that) = delete;
-
-		~Unique() {
-			if (this->exists) this->value.Free();
+		~Unique() override {
+			if (this->value[sizeof(Type)]) this->ValueOf().Free();
 		}
 
-		Type & Release() {
-			this->exists = false;
-
+		Type & ValueOf() {
 			return this->value;
 		}
 	};
 
-	size_t CopyMemory(Slice<uint8_t> destination, Slice<uint8_t const> source);
+	size_t CopyMemory(Slice<uint8_t> destination, Slice<uint8_t const> const & source);
 
 	Slice<uint8_t> WriteMemory(Slice<uint8_t> destination, uint8_t value);
 
