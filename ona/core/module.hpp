@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <type_traits>
+#include <initializer_list>
 
 #define $slice(arr) Ona::Core::Slice<std::remove_reference_t<decltype(*arr)>>{\
 	.length = (sizeof(arr) / sizeof(*arr)),\
