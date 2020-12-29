@@ -1,5 +1,5 @@
 {
-	"targetType": "static-lib",
+	"isExecutable": false,
 	"dependencies": [
 		"core"
 	]

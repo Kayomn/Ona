@@ -1,5 +1,5 @@
 {
-	"targetType": "executable",
+	"isExecutable": true,
 	"libraries": [
 		"dl",
 		"SDL2",

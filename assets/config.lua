@@ -1,4 +1,2 @@
 
-return {
-	modules = {"./test.so"}
-}
+Extensions = {"./player"}
