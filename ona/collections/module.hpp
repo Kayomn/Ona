@@ -19,7 +19,6 @@ namespace Ona::Collections {
 }
 
 #include "ona/collections/header/table.hpp"
-#include "ona/collections/header/index.hpp"
 #include "ona/collections/header/stack.hpp"
 
 #endif
