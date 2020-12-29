@@ -114,6 +114,43 @@ namespace Ona::Core {
 		}
 	}
 
+	String String::Concat(std::initializer_list<String> const & args) {
+		uint32_t length = 0;
+		uint32_t offset = 0;
+
+		for (String const & arg : args) {
+			length += arg.Length();
+		}
+
+		String str = {'\0', length};
+
+		if (str.IsDynamic()) {
+			for (String const & arg : args) {
+				size_t argLength = arg.Length();
+
+				CopyMemory(Slice<uint8_t>{
+					.length = argLength,
+					.pointer = (str.buffer.dynamic + offset)
+				}, arg.Bytes());
+
+				offset += argLength;
+			}
+		} else {
+			for (String const & arg : args) {
+				size_t argLength = arg.Length();
+
+				CopyMemory(Slice<uint8_t>{
+					.length = argLength,
+					.pointer = (str.buffer.static_ + offset)
+				}, arg.Bytes());
+
+				offset += argLength;
+			}
+		}
+
+		return str;
+	}
+
 	Slice<uint8_t const> String::Bytes() const {
 			return Slice<uint8_t const>{
 				.length = this->size,

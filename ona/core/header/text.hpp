@@ -36,6 +36,8 @@ namespace Ona::Core {
 
 		bool Equals(String const & that) const;
 
+		static String Concat(std::initializer_list<String> const & args);
+
 		constexpr bool IsDynamic() const {
 			return (this->size > StaticBufferSize);
 		}
