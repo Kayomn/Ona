@@ -13,6 +13,9 @@ namespace Ona::Core {
 	void Image::Free() {
 		if (this->pixels) {
 			this->allocator->Deallocate(this->pixels);
+
+			this->pixels = nullptr;
+			this->dimensions = Point2{};
 		}
 	}
 
