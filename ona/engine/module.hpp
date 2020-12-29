@@ -8,8 +8,6 @@ namespace Ona::Engine {
 	using namespace Ona::Collections;
 	using namespace Ona::Core;
 
-	using ResourceKey = uint32_t;
-
 	enum {
 		Key_A = 4,
 		Key_B = 5,
@@ -83,9 +81,7 @@ namespace Ona::Engine {
 		String name;
 	};
 
-	struct Viewport {
-		Point2 size;
-	};
+	struct Material;
 
 	class GraphicsServer : public Object {
 		public:
@@ -100,6 +96,11 @@ namespace Ona::Engine {
 		virtual void ColoredClear(Color color) = 0;
 
 		/**
+		 * Creates a material from the pixel data in `image`.
+		 */
+		virtual Material * CreateMaterial(Image const & image) = 0;
+
+		/**
 		 * Reads any and all event information known to the `GraphicsServer` at the current frame
 		 * and writes it to `events`.
 		 *
@@ -109,60 +110,27 @@ namespace Ona::Engine {
 		virtual bool ReadEvents(Events * events) = 0;
 
 		/**
-		 * Updates the internal state of the `GraphicsServer` and displays the new framebuffer.
+		 * Renders `spriteMaterial` on the `GraphicsServer` as a flat 2D quadrant at `position`,
+		 * with `tint` as the tint color.
+		 *
+		 * `Vector3::z` of `position` used to determine the rendering priority of the sprite
+		 * relative to the dispatch event.
 		 */
-		virtual void Update() = 0;
-
-		virtual Result<ResourceKey> CreateRenderer(
-			Chars const & vertexSource,
-			Chars const & fragmentSource,
-			Slice<Property const> const & vertexProperties,
-			Slice<Property const> const & rendererProperties,
-			Slice<Property const> const & materialProperties
-		) = 0;
-
-		virtual Result<ResourceKey> CreatePoly(
-			ResourceKey rendererKey,
-			Slice<uint8_t const> const & vertexData
-		) = 0;
-
-		virtual Result<ResourceKey> CreateMaterial(
-			ResourceKey rendererKey,
-			Ona::Core::Image const & texture
+		virtual void RenderSprite(
+			Material * spriteMaterial,
+			Vector3 const & position,
+			Color tint
 		) = 0;
 
 		/**
-		 * Registers `dispatcher` as a new event to be called just before displaying the new
-		 * framebuffer during calls to `GraphicsServer::Update`.
+		 * Updates the internal state of the `GraphicsServer` and displays the new framebuffer.
 		 */
-		virtual void RegisterDispatcher(Callable<void()> dispatcher) = 0;
-
-		virtual void RenderPolyInstanced(
-			ResourceKey rendererKey,
-			ResourceKey polyKey,
-			ResourceKey materialKey,
-			size_t count
-		) = 0;
-
-		virtual void UpdateMaterialUserdata(
-			ResourceKey materialKey,
-			Slice<uint8_t const> const & userdata
-		) = 0;
-
-		virtual void UpdateProjection(Matrix const & projectionTransform) = 0;
-
-		virtual void UpdateRendererUserdata(
-			ResourceKey rendererKey,
-			Slice<uint8_t const> const & userdata
-		) = 0;
-
-		virtual Viewport const & ViewportOf() const = 0;
+		virtual void Update() = 0;
 	};
 
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height);
 }
 
-#include "ona/engine/header/rendering.hpp"
-#include "ona/engine/header/scripting.hpp"
+#include "ona/engine/header/config.hpp"
 
 #endif

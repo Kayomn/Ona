@@ -6,7 +6,7 @@ using namespace Ona::Core;
 using namespace Ona::Collections;
 using namespace Ona::Engine;
 
-using ModuleInitializer = bool(*)(Ona_API const * api);
+using ModuleInitializer = bool(*)(Ona_CoreContext const * core);
 
 struct System {
 	void * userdata;
@@ -18,83 +18,123 @@ struct System {
 	decltype(Ona_SystemInfo::exit) finalizer;
 };
 
-static PackedStack<Library> modules = {DefaultAllocator()};
+static PackedStack<Library> extensions = {DefaultAllocator()};
 
 static PackedStack<System> systems = {DefaultAllocator()};
 
-static bool SpawnSystem(Ona_SystemInfo const * info) {
-	void * userdata = DefaultAllocator()->Allocate(info->size).pointer;
+static GraphicsServer * graphicsServer = nullptr;
 
-	if (userdata && systems.Push(System{
-		.userdata = userdata,
-		.initializer = info->init,
-		.processor = info->process,
-		.finalizer = info->exit,
-	})) {
-		return true;
-	}
+static Ona_CoreContext const coreContext = {
+	.spawnSystem = [](Ona_SystemInfo const * info) {
+		void * userdata = DefaultAllocator()->Allocate(info->size).pointer;
 
-	return false;
-}
+		if (userdata && systems.Push(System{
+			.userdata = userdata,
+			.initializer = info->init,
+			.processor = info->process,
+			.finalizer = info->exit,
+		})) {
+			return true;
+		}
+
+		return false;
+	},
+
+	.defaultAllocator = DefaultAllocator,
+
+	.imageSolid = [](
+		Ona_Allocator * allocator,
+		Ona_Point2 dimensions,
+		Ona_Color color,
+		Ona_Image * result
+	) -> bool {
+		Result<Image, ImageError> imageResult = Image::Solid(allocator, dimensions, color);
+
+		if (imageResult.IsOk()) {
+			if (result) {
+				(*result) = imageResult.Value();
+			} else {
+				imageResult.Value().Free();
+			}
+
+			return true;
+		}
+
+		return false;
+	},
+
+	.imageFree = [](Ona_Image * imageResult) {
+		imageResult->Free();
+	},
+
+	.createMaterial = [](Ona_Image const * image) -> Ona_Material * {
+		return graphicsServer->CreateMaterial(*image);
+	},
+};
+
+static Ona_GraphicsContext graphicsContext = {
+	.renderSprite = [](
+		Ona_Material * spriteMaterial,
+		Ona_Vector3 const * position,
+		Ona_Color tint
+	) {
+		graphicsServer->RenderSprite(static_cast<Material *>(spriteMaterial), *position, tint);
+	},
+};
 
 int main(int argv, char const * const * argc) {
 	Allocator * defaultAllocator = DefaultAllocator();
-	GraphicsServer * graphicsServer = LoadOpenGl(String{"Ona"}, 640, 480);
+	graphicsServer = LoadOpenGl(String{"Ona"}, 640, 480);
 
 	if (graphicsServer) {
-		LuaEngine lua = {defaultAllocator};
+		LuaConfig config = {};
 
-		LuaVar configTable = lua.ExecuteScript(
-			Unique<FileContents>{LoadFile(defaultAllocator, String{"config.lua"})}.value.ToString()
-		);
+		if (config.Load(Unique<FileContents>{
+			LoadFile(defaultAllocator, String{"config.lua"})
+		}.ValueOf().ToString())) {
+			Unique<ConfigValue> extensionNames = config.ReadGlobal(String{"Extensions"});
+			uint32_t const extensionsCount = config.ValueLength(extensionNames.ValueOf());
+			Events events = {};
 
-		if (configTable.type == LuaType::Table) {
-			LuaVar moduleTable = lua.ReadTable(configTable, String{"modules"});
+			for (uint32_t i = 0; i < extensionsCount; i += 1) {
+				String moduleName = config.ValueString(Unique<ConfigValue>{
+					config.ReadArray(extensionNames.ValueOf(), i)
+				}.ValueOf());
 
-			if (moduleTable.type == LuaType::Table) {
-				size_t const moduleTableLength = lua.VarLength(moduleTable);
-				Events events = {};
+				Library moduleLibrary = OpenLibrary(String::Concat({moduleName, String{".so"}}));
 
-				Ona_API const api = {
-					.spawnSystem = SpawnSystem,
-				};
+				if (moduleLibrary.IsOpen()) {
+					auto initializer = reinterpret_cast<ModuleInitializer>(
+						moduleLibrary.FindSymbol(String{"OnaInit"})
+					);
 
-				for (size_t i = 0; i < moduleTableLength; i += 1) {
-					Library moduleLibrary = OpenLibrary(lua.VarIndex(moduleTable, i).ToString());
+					if (initializer) initializer(&coreContext);
 
-					if (moduleLibrary.IsOpen()) {
-						auto initializer = reinterpret_cast<ModuleInitializer>(
-							moduleLibrary.FindSymbol(String{"OnaInit"})
-						);
-
-						if (initializer) initializer(&api);
-
-						modules.Push(moduleLibrary);
-					}
+					extensions.Push(moduleLibrary);
 				}
-
-				systems.ForValues([](System const & system) {
-					if (system.initializer) system.initializer(system.userdata);
-				});
-
-				while (graphicsServer->ReadEvents(&events)) {
-					graphicsServer->Clear();
-
-					systems.ForValues([](System const & system) {
-						if (system.processor) system.processor(system.userdata);
-					});
-
-					graphicsServer->Update();
-				}
-
-				systems.ForValues([](System const & system) {
-					if (system.finalizer) system.finalizer(system.userdata);
-				});
-
-				modules.ForValues([](Library & module_) {
-					module_.Free();
-				});
 			}
+
+			systems.ForValues([](System const & system) {
+				if (system.initializer) system.initializer(&coreContext, system.userdata);
+			});
+
+			while (graphicsServer->ReadEvents(&events)) {
+				graphicsServer->Clear();
+
+				systems.ForValues([](System const & system) {
+					if (system.processor) system.processor(&graphicsContext, system.userdata);
+				});
+
+				graphicsServer->Update();
+			}
+
+			systems.ForValues([](System const & system) {
+				if (system.finalizer) system.finalizer(&coreContext, system.userdata);
+			});
+
+			extensions.ForValues([](Library & module_) {
+				module_.Free();
+			});
 		}
 	}
 }
