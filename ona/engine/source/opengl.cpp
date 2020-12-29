@@ -87,7 +87,7 @@ namespace Ona::Engine {
 			if (glGetError() == GL_NO_ERROR) {
 				glNamedBufferStorage(
 					this->bufferHandle,
-					vertices.length,
+					(sizeof(Vector4) * vertices.length),
 					vertices.pointer,
 					GL_DYNAMIC_STORAGE_BIT
 				);
@@ -99,7 +99,7 @@ namespace Ona::Engine {
 						glVertexArrayVertexBuffer(
 							this->arrayHandle,
 							0,
-							this->arrayHandle,
+							this->bufferHandle,
 							0,
 							sizeof(Vector4)
 						);
@@ -305,7 +305,7 @@ namespace Ona::Engine {
 				spriteBatchSets{allocator},
 				isInitialized{}
 			{
-				enum { InitFlags = SDL_INIT_EVERYTHING };
+				enum { InitFlags = SDL_INIT_VIDEO };
 
 				if (SDL_Init(InitFlags) == 0) {
 					enum {
