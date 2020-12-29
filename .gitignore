@@ -1,2 +1,4 @@
 
 output
+assets/*.so
+assets/*.dll
