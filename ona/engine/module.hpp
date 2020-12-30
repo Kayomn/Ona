@@ -2,6 +2,7 @@
 #define ENGINE_H
 
 #include "ona/core/module.hpp"
+#include "ona/api.h"
 #include "ona/collections/module.hpp"
 
 namespace Ona::Engine {
@@ -54,13 +55,7 @@ namespace Ona::Engine {
 		Key_Space = 44,
 	};
 
-	struct Events {
-		using Keys = bool[512];
-
-		float deltaTime;
-
-		Keys keysHeld;
-	};
+	using Events = Ona_Events;
 
 	enum class PropertyType : uint8_t {
 		Int8,

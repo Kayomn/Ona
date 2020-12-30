@@ -1,7 +1,5 @@
 #include "ona/engine/module.hpp"
 
-#include "ona/api.h"
-
 using namespace Ona::Core;
 using namespace Ona::Collections;
 using namespace Ona::Engine;
@@ -68,7 +66,7 @@ static Ona_CoreContext const coreContext = {
 	},
 
 	.createMaterial = [](Ona_Image const * image) -> Ona_Material * {
-		return graphicsServer->CreateMaterial(*image);
+		return reinterpret_cast<Ona_Material *>(graphicsServer->CreateMaterial(*image));
 	},
 };
 
@@ -78,7 +76,7 @@ static Ona_GraphicsContext graphicsContext = {
 		Ona_Vector3 const * position,
 		Ona_Color tint
 	) {
-		graphicsServer->RenderSprite(static_cast<Material *>(spriteMaterial), *position, tint);
+		graphicsServer->RenderSprite(reinterpret_cast<Material *>(spriteMaterial), *position, tint);
 	},
 };
 
@@ -115,21 +113,27 @@ int main(int argv, char const * const * argc) {
 			}
 
 			systems.ForValues([](System const & system) {
-				if (system.initializer) system.initializer(&coreContext, system.userdata);
+				if (system.initializer) system.initializer(system.userdata, &coreContext);
 			});
 
 			while (graphicsServer->ReadEvents(&events)) {
 				graphicsServer->Clear();
 
-				systems.ForValues([](System const & system) {
-					if (system.processor) system.processor(&graphicsContext, system.userdata);
+				systems.ForValues([&events](System const & system) {
+					if (system.processor) {
+						system.processor(
+							system.userdata,
+							&events,
+							&graphicsContext
+						);
+					}
 				});
 
 				graphicsServer->Update();
 			}
 
 			systems.ForValues([](System const & system) {
-				if (system.finalizer) system.finalizer(&coreContext, system.userdata);
+				if (system.finalizer) system.finalizer(system.userdata, &coreContext);
 			});
 
 			extensions.ForValues([](Library & module_) {

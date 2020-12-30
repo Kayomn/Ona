@@ -20,7 +20,23 @@ struct PlayerController {
 		core->imageFree(&image);
 	}
 
-	void Process(Ona_GraphicsContext const * graphics) {
+	void Process(Ona_Events const * events, Ona_GraphicsContext const * graphics) {
+		if (events->keysHeld[Ona_W]) {
+			this->playerPosition.y -= events->deltaTime;
+		}
+
+		if (events->keysHeld[Ona_A]) {
+			this->playerPosition.x -= events->deltaTime;
+		}
+
+		if (events->keysHeld[Ona_S]) {
+			this->playerPosition.y += events->deltaTime;
+		}
+
+		if (events->keysHeld[Ona_D]) {
+			this->playerPosition.x += events->deltaTime;
+		}
+
 		Ona_Vector3 position = {this->playerPosition.x, this->playerPosition.y, 0.0f};
 
 		graphics->renderSprite(this->playerSprite, &position, Ona_Color{0xFF, 0xFF, 0xFF, 0xFF});
