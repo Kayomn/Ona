@@ -31,7 +31,7 @@ namespace Ona::Engine {
 		"	mat4x4 projectionTransform;\n"
 		"};\n"
 		"\n"
-		"layout(std140, row_major) uniform Canvas {\n"
+		"layout(std140, row_major) uniform Renderdata {\n"
 		"	mat4x4 transforms[INSTANCE_COUNT];\n"
 		"	vec4 viewports[INSTANCE_COUNT];\n"
 		"	vec4 tints[INSTANCE_COUNT];\n"
@@ -121,54 +121,17 @@ namespace Ona::Engine {
 		}
 	};
 
-	struct GLUniformBuffer {
-		GLuint handle;
-
-		GLuint length;
-
-		void BindBase(GLuint bindIndex) {
-			glBindBufferBase(GL_UNIFORM_BUFFER, bindIndex, this->handle);
-		}
-
-		bool Load(GLuint size) {
-			glCreateBuffers(1, (&this->handle));
-
-			if (glGetError() == GL_NO_ERROR) {
-				glNamedBufferData(this->handle, sizeof(Matrix), nullptr, GL_DYNAMIC_DRAW);
-
-				if (glGetError() == GL_NO_ERROR) {
-					this->length = size;
-
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		GLuint Write(Slice<uint8_t const> const & data) {
-			uint8_t * mappedBuffer = reinterpret_cast<uint8_t *>(
-				glMapNamedBuffer(this->handle, GL_WRITE_ONLY)
-			);
-
-			if (mappedBuffer) {
-				// The number of bytes written will never be bigger than the max size of a GLBuffer.
-				GLuint const bytesWritten = static_cast<GLuint>(CopyMemory(Slice<uint8_t>{
-					.length = this->length,
-					.pointer = mappedBuffer,
-				}, data));
-
-				glUnmapNamedBuffer(this->handle);
-
-				return bytesWritten;
-			}
-
-			return 0;
-		}
+	enum UniformBinding {
+		ViewportBinding,
+		RenderdataBinding,
 	};
 
 	struct GLShader {
-		GLuint handle;
+		GLuint programHandle;
+
+		GLuint renderdataBufferHandle;
+
+		GLuint renderdataBufferLength;
 
 		void DrawPolyInstanced(
 			GLPolyBuffer const & polyBuffer,
@@ -176,13 +139,23 @@ namespace Ona::Engine {
 			GLsizei count
 		) {
 			glBindTextureUnit(0, material.textureHandle);
+			glBindBufferBase(GL_UNIFORM_BUFFER, RenderdataBinding, this->renderdataBufferHandle);
 			glBindBuffer(GL_ARRAY_BUFFER, polyBuffer.bufferHandle);
 			glBindVertexArray(polyBuffer.arrayHandle);
-			glUseProgram(this->handle);
+			glUseProgram(this->programHandle);
 			glDrawArraysInstanced(GL_TRIANGLES, 0, polyBuffer.vertexCount, count);
 		}
 
-		bool Load(Chars const & vertexSource, Chars const & fragmentSource) {
+		void Free() {
+			glDeleteBuffers(1, &this->renderdataBufferHandle);
+			glDeleteProgram(this->programHandle);
+
+			this->programHandle = 0;
+			this->renderdataBufferHandle = 0;
+			this->renderdataBufferLength = 0;
+		}
+
+		bool Load(Chars const & vertexSource, Chars const & fragmentSource, GLuint renderdataSize) {
 			static auto compileObject = [](Chars const & source, GLenum shaderType) -> GLuint {
 				GLuint const shaderHandle = glCreateShader(shaderType);
 
@@ -226,34 +199,85 @@ namespace Ona::Engine {
 
 				// Did the fragment shader compile successfully?
 				if (fragmentObjectHandle) {
-					this->handle = glCreateProgram();
+					this->programHandle = glCreateProgram();
 
 					// Did the shader program allocate?
-					if (this->handle) {
+					if (this->programHandle) {
 						GLint success;
 
-						glAttachShader(this->handle, vertexObjectHandle);
-						glAttachShader(this->handle, fragmentObjectHandle);
-						glLinkProgram(this->handle);
-						glDetachShader(this->handle, vertexObjectHandle);
-						glDetachShader(this->handle, fragmentObjectHandle);
+						glAttachShader(this->programHandle, vertexObjectHandle);
+						glAttachShader(this->programHandle, fragmentObjectHandle);
+						glLinkProgram(this->programHandle);
+						glDetachShader(this->programHandle, vertexObjectHandle);
+						glDetachShader(this->programHandle, fragmentObjectHandle);
 						glDeleteShader(vertexObjectHandle);
 						glDeleteShader(fragmentObjectHandle);
-						glGetProgramiv(this->handle, GL_LINK_STATUS, (&success));
+						glGetProgramiv(this->programHandle, GL_LINK_STATUS, (&success));
 
 						// Did the shader program link properly?
 						if (success) {
-							glValidateProgram(this->handle);
-							glGetProgramiv(this->handle, GL_LINK_STATUS, (&success));
+							glValidateProgram(this->programHandle);
+							glGetProgramiv(this->programHandle, GL_LINK_STATUS, (&success));
 
 							// Is the shader program valid?
-							return static_cast<bool>(success);
+							if (success) {
+								glUniformBlockBinding(
+									this->programHandle,
+									glGetUniformBlockIndex(this->programHandle, "Viewport"),
+									ViewportBinding
+								);
+
+								glUniformBlockBinding(
+									this->programHandle,
+									glGetUniformBlockIndex(this->programHandle, "Renderdata"),
+									RenderdataBinding
+								);
+
+								glCreateBuffers(1, (&this->renderdataBufferHandle));
+
+								if (glGetError() == GL_NO_ERROR) {
+									glNamedBufferData(
+										this->renderdataBufferHandle,
+										renderdataSize,
+										nullptr,
+										GL_DYNAMIC_DRAW
+									);
+
+									if (glGetError() == GL_NO_ERROR) {
+										this->renderdataBufferLength = renderdataSize;
+
+										return true;
+									}
+								}
+
+								return true;
+							}
 						}
 					}
 				}
 			}
 
 			return false;
+		}
+
+		GLuint WriteRenderdata(Slice<uint8_t const> const & renderdata) {
+			uint8_t * mappedBuffer = reinterpret_cast<uint8_t *>(
+				glMapNamedBuffer(this->renderdataBufferHandle, GL_WRITE_ONLY)
+			);
+
+			if (mappedBuffer) {
+				// The number of bytes written will never be bigger than the max size of a GLBuffer.
+				GLuint const bytesWritten = static_cast<GLuint>(CopyMemory(Slice<uint8_t>{
+					.length = this->renderdataBufferLength,
+					.pointer = mappedBuffer,
+				}, renderdata));
+
+				glUnmapNamedBuffer(this->renderdataBufferHandle);
+
+				return bytesWritten;
+			}
+
+			return 0;
 		}
 	};
 
@@ -288,11 +312,9 @@ namespace Ona::Engine {
 
 			GLPolyBuffer quadPolyBuffer;
 
-			GLUniformBuffer viewportUniformBuffer;
-
-			GLUniformBuffer canvasUniformBuffer;
-
 			GLShader canvasShader;
+
+			GLuint viewportBufferHandle;
 
 			bool isInitialized;
 
@@ -336,46 +358,65 @@ namespace Ona::Engine {
 						glewExperimental = true;
 
 						// Initialize all immediately dependent resources.
-						if (
-							this->context &&
-							(glewInit() == GLEW_OK) &&
-							this->viewportUniformBuffer.Load(sizeof(Matrix)) &&
-							this->canvasUniformBuffer.Load(sizeof(SpriteBatch::Chunk)) &&
-							this->canvasShader.Load(canvasVertexSource, canvasFragmentSource) &&
-							this->quadPolyBuffer.Load($slice(quadVertices))
-						) {
-							this->viewportUniformBuffer.BindBase(0);
-							this->canvasUniformBuffer.BindBase(1);
-							glEnable(GL_DEBUG_OUTPUT);
-							glEnable(GL_DEPTH_TEST);
+						if (this->context && (glewInit() == GLEW_OK)) {
+							glCreateBuffers(1, (&this->viewportBufferHandle));
 
-							// Error logger
-							glDebugMessageCallback([](
-								GLenum source,
-								GLenum type,
-								GLuint id,
-								GLenum severity,
-								GLsizei length,
-								GLchar const * message,
-								void const * userParam
-							) -> void {
-								File outFile = OutFile();
+							if (glGetError() == GL_NO_ERROR) {
+								glNamedBufferData(
+									this->viewportBufferHandle,
+									sizeof(Matrix),
+									nullptr,
+									GL_DYNAMIC_DRAW
+								);
 
-								outFile.Print(String{message});
-								outFile.Print(String{"\n"});
-							}, 0);
+								if (glGetError() == GL_NO_ERROR) {
+									glBindBufferBase(
+										GL_UNIFORM_BUFFER,
+										ViewportBinding,
+										this->viewportBufferHandle
+									);
 
-							glViewport(0, 0, width, height);
+									if (
+										this->canvasShader.Load(
+											canvasVertexSource,
+											canvasFragmentSource,
+											sizeof(SpriteBatch::Chunk)
+										) &&
+										this->quadPolyBuffer.Load($slice(quadVertices))
+									) {
+										glEnable(GL_DEBUG_OUTPUT);
+										glEnable(GL_DEPTH_TEST);
 
-							this->viewportSize = Point2{width, height};
-							this->isInitialized = true;
+										// Error logger
+										glDebugMessageCallback([](
+											GLenum source,
+											GLenum type,
+											GLuint id,
+											GLenum severity,
+											GLsizei length,
+											GLchar const * message,
+											void const * userParam
+										) -> void {
+											File outFile = OutFile();
+
+											outFile.Print(String{message});
+											outFile.Print(String{"\n"});
+										}, 0);
+
+										glViewport(0, 0, width, height);
+
+										this->viewportSize = Point2{width, height};
+										this->isInitialized = true;
+									}
+								}
+							}
 						}
 					}
 				}
 			}
 
 			~OpenGlGraphicsServer() override {
-				// this->canvasRenderer.Free();
+				this->canvasShader.Free();
 				SDL_GL_DeleteContext(this->context);
 				SDL_GL_UnloadLibrary();
 				SDL_DestroyWindow(this->window);
@@ -470,16 +511,22 @@ namespace Ona::Engine {
 
 			void Update() override {
 				if (this->spriteBatchSets.Count()) {
-					Matrix const projectionTransform = OrthographicMatrix(
-						0,
-						this->viewportSize.x,
-						this->viewportSize.y,
-						0,
-						-1,
-						1
+					Matrix * mappedViewport = reinterpret_cast<Matrix *>(
+						glMapNamedBuffer(this->viewportBufferHandle, GL_WRITE_ONLY)
 					);
 
-					this->viewportUniformBuffer.Write(AsBytes(projectionTransform));
+					if (mappedViewport) {
+						(*mappedViewport) = OrthographicMatrix(
+							0,
+							this->viewportSize.x,
+							this->viewportSize.y,
+							0,
+							-1,
+							1
+						);
+
+						glUnmapNamedBuffer(this->viewportBufferHandle);
+					}
 
 					this->spriteBatchSets.ForItems([this](
 						Material * spriteMaterial,
@@ -489,7 +536,7 @@ namespace Ona::Engine {
 							while (spriteBatches->Count()) {
 								SpriteBatch * spriteBatch = (&spriteBatches->Peek());
 
-								this->canvasUniformBuffer.Write(AsBytes(spriteBatch->chunk));
+								this->canvasShader.WriteRenderdata(AsBytes(spriteBatch->chunk));
 
 								this->canvasShader.DrawPolyInstanced(
 									this->quadPolyBuffer,
