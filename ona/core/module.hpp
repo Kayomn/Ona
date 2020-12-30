@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <type_traits>
 #include <initializer_list>
+#include <memory>
 
 #define $slice(arr) Ona::Core::Slice<std::remove_reference_t<decltype(*arr)>>{\
 	.length = (sizeof(arr) / sizeof(*arr)),\
@@ -192,7 +193,7 @@ namespace Ona::Core {
 		return SliceOf(pointer, length);
 	}
 
-	template<typename ValueType, typename ErrorType = void> struct Result final {
+	template<typename ValueType, typename ErrorType> struct Result final {
 		private:
 		static constexpr size_t CalculateStoreSize() {
 			if constexpr (std::is_same_v<ErrorType, void>) {
@@ -237,12 +238,10 @@ namespace Ona::Core {
 			}
 		}
 
-		template<
-			typename Type = ErrorType
-		> Type const & Error() const requires (!std::is_same_v<Type, void>) {
+		ErrorType const & Error() const {
 			assert((!this->IsOk()) && "Result is ok");
 
-			return (*reinterpret_cast<Type const *>(this->store));
+			return (*reinterpret_cast<ErrorType const *>(this->store));
 		}
 
 		ValueType & Expect(Chars const & message) {
@@ -278,20 +277,12 @@ namespace Ona::Core {
 			return result;
 		}
 
-		template<
-			typename Type = ErrorType
-		>static Result Fail(Type const & error) requires (!std::is_same_v<Type, void>) {
+		static Result Fail(ErrorType const & error) {
 			Result result = {};
 
-			new (result.store) Type{error};
+			new (result.store) ErrorType{error};
 
 			return result;
-		}
-
-		template<
-			typename Type = ErrorType
-		> static Result Fail() requires (std::is_same_v<Type, void>) {
-			return Result{};
 		}
 	};
 }

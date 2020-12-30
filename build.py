@@ -7,11 +7,12 @@ from concurrent import futures
 import json
 
 processed_dependencies = []
-common_flags = ["-g", "-fno-exceptions", "-std=c++20", "-I.", "-fPIC"]
+common_flags = ["-g", "-fno-exceptions", "-std=c++17", "-I.", "-fPIC"]
 assets_path = "./assets"
 output_path = "./output"
 input_path = "ona"
 extensions_path = "ext"
+compiler = "clang++"
 
 required_properties = ["isExecutable"]
 
@@ -101,7 +102,7 @@ def build(name: str) -> BuildInfo:
 		def compile_source(source_path: str, object_path: str) -> int:
 			print(source_path)
 
-			return call(["clang++", source_path, ("-o" + object_path), "-c"] + common_flags)
+			return call([compiler, source_path, ("-o" + object_path), "-c"] + common_flags)
 
 		compilation_futures = []
 
@@ -149,7 +150,7 @@ def build(name: str) -> BuildInfo:
 				print("Linking", name, "executable...")
 
 				args = (
-					["clang++", "-o" + binary_path, "-L./output"] +
+					[compiler, "-o" + binary_path, "-L./output"] +
 					common_flags +
 					object_paths
 				)
@@ -192,7 +193,7 @@ for file_name in listdir(extensions_path):
 	):
 		print("Recompiling extension:", extension_name)
 
-		call(["clang++", source_path, "-shared", ("-o" + library_path)] + common_flags)
+		call([compiler, source_path, "-shared", ("-o" + library_path)] + common_flags)
 
 if (not build("engine").needed_rebuild):
 	print("Nothing to be done")
