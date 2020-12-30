@@ -491,9 +491,9 @@ namespace Ona::Engine {
 				this->timeLast = this->timeNow;
 				this->timeNow = SDL_GetPerformanceCounter();
 
-				events->deltaTime = (
+				events->deltaTime = static_cast<float>(
 					(this->timeNow - this->timeLast) *
-					(1000 / static_cast<float>(SDL_GetPerformanceFrequency()))
+					(1000 / static_cast<double>(SDL_GetPerformanceFrequency()))
 				);
 
 				while (SDL_PollEvent(&sdlEvent)) {
