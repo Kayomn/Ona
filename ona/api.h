@@ -98,7 +98,9 @@ typedef struct Ona_CoreContext {
 
 	void(* imageFree)(Ona_Image * image);
 
-	Ona_Material *(* createMaterial)(Ona_Image const * image);
+	Ona_Material *(* materialCreate)(Ona_Image const * image);
+
+	void(* materialFree)(Ona_Material * * material);
 } Ona_CoreContext;
 
 typedef enum {

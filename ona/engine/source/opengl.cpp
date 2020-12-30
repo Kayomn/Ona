@@ -480,6 +480,12 @@ namespace Ona::Engine {
 				return nullptr;
 			}
 
+			void DeleteMaterial(Material * & material) override {
+				delete material;
+
+				material = nullptr;
+			}
+
 			bool ReadEvents(Events * events) override {
 				thread_local SDL_Event sdlEvent;
 				this->timeLast = this->timeNow;

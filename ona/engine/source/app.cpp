@@ -65,8 +65,12 @@ static Ona_CoreContext const coreContext = {
 		imageResult->Free();
 	},
 
-	.createMaterial = [](Ona_Image const * image) -> Ona_Material * {
+	.materialCreate = [](Ona_Image const * image) -> Ona_Material * {
 		return reinterpret_cast<Ona_Material *>(graphicsServer->CreateMaterial(*image));
+	},
+
+	.materialFree = [](Ona_Material * * material) {
+		graphicsServer->DeleteMaterial(*reinterpret_cast<Material * *>(material));
 	},
 };
 

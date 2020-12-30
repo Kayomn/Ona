@@ -91,9 +91,14 @@ namespace Ona::Engine {
 		virtual void ColoredClear(Color color) = 0;
 
 		/**
-		 * Creates a material from the pixel data in `image`.
+		 * Creates a `Material` from the pixel data in `image`.
 		 */
 		virtual Material * CreateMaterial(Image const & image) = 0;
+
+		/**
+		 * Attempts to delete the `Material` from the graphics server located at `material`.
+		 */
+		virtual void DeleteMaterial(Material * & material) = 0;
 
 		/**
 		 * Reads any and all event information known to the `GraphicsServer` at the current frame

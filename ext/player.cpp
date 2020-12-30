@@ -15,7 +15,7 @@ struct PlayerController {
 			&image
 		));
 
-		this->playerSprite = core->createMaterial(&image);
+		this->playerSprite = core->materialCreate(&image);
 		assert(this->playerSprite);
 		core->imageFree(&image);
 	}
@@ -43,7 +43,7 @@ struct PlayerController {
 	}
 
 	void Exit(Ona_CoreContext const * core) {
-
+		core->materialFree(&this->playerSprite);
 	}
 };
 
