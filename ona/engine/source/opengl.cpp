@@ -155,7 +155,7 @@ namespace Ona::Engine {
 			this->renderdataBufferLength = 0;
 		}
 
-		bool Load(Chars const & vertexSource, Chars const & fragmentSource, GLuint renderdataSize) {
+		bool Load(Chars const & vertexSource, Chars const & fragmentSource) {
 			static auto compileObject = [](Chars const & source, GLenum shaderType) -> GLuint {
 				GLuint const shaderHandle = glCreateShader(shaderType);
 
@@ -221,6 +221,20 @@ namespace Ona::Engine {
 
 							// Is the shader program valid?
 							if (success) {
+								GLuint const renderdataIndex = glGetUniformBlockIndex(
+									this->programHandle,
+									"Renderdata"
+								);
+
+								GLint renderdataSize;
+
+								glGetActiveUniformBlockiv(
+									this->programHandle,
+									renderdataIndex,
+									GL_UNIFORM_BLOCK_DATA_SIZE,
+									&renderdataSize
+								);
+
 								glUniformBlockBinding(
 									this->programHandle,
 									glGetUniformBlockIndex(this->programHandle, "Viewport"),
@@ -229,7 +243,7 @@ namespace Ona::Engine {
 
 								glUniformBlockBinding(
 									this->programHandle,
-									glGetUniformBlockIndex(this->programHandle, "Renderdata"),
+									renderdataIndex,
 									RenderdataBinding
 								);
 
@@ -482,8 +496,7 @@ namespace Ona::Engine {
 									if (
 										this->canvasShader.Load(
 											canvasVertexSource,
-											canvasFragmentSource,
-											sizeof(OpenGLGraphicsQueue::SpriteBatch::Chunk)
+											canvasFragmentSource
 										) &&
 										this->quadPolyBuffer.Load($slice(quadVertices))
 									) {
