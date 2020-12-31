@@ -169,7 +169,7 @@ namespace Ona::Core {
 				};
 			};
 
-			static_assert((sizeof(Type) <= BufferSize), "Functor cannot be larger than buffer");
+			static_assert((sizeof(Functor) <= BufferSize), "Functor cannot be larger than buffer");
 
 			this->context = new (this->buffer) Functor{functor};
 		}
