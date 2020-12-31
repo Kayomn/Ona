@@ -32,14 +32,14 @@ namespace Ona::Collections {
 		typename ValueType
 	> class HashTable : public Object, public Table<KeyType, ValueType> {
 		private:
-		struct Entry {
+		struct Item {
 			KeyType key;
 
 			ValueType value;
 		};
 
 		struct Bucket {
-			Entry entry;
+			Item item;
 
 			Bucket * next;
 		};
@@ -60,7 +60,7 @@ namespace Ona::Collections {
 			if (this->freeBuckets) {
 				Bucket * bucket = this->freeBuckets;
 				this->freeBuckets = this->freeBuckets->next;
-				(*bucket) = Bucket{Entry{key, value}, nullptr};
+				(*bucket) = Bucket{Item{key, value}, nullptr};
 
 				return bucket;
 			} else {
@@ -69,7 +69,7 @@ namespace Ona::Collections {
 				);
 
 				if (bucket) {
-					(*bucket) = Bucket{Entry{key, value}, nullptr};
+					(*bucket) = Bucket{Item{key, value}, nullptr};
 
 					return bucket;
 				}
@@ -91,8 +91,8 @@ namespace Ona::Collections {
 				while (bucket) {
 					Bucket * nextBucket = bucket->next;
 
-					bucket->entry.key.~KeyType();
-					bucket->entry.value.~ValueType();
+					bucket->item.key.~KeyType();
+					bucket->item.value.~ValueType();
 					this->allocator->Deallocate(bucket);
 
 					bucket = nextBucket;
@@ -130,14 +130,14 @@ namespace Ona::Collections {
 					Bucket * rootBucket = this->buckets.At(i);
 
 					if (rootBucket) {
-						rootBucket->entry.key.~KeyType();
-						rootBucket->entry.value.~ValueType();
+						rootBucket->item.key.~KeyType();
+						rootBucket->item.value.~ValueType();
 
 						Bucket * bucket = rootBucket;
 
 						while (bucket->next) {
-							bucket->next->entry.key.~KeyType();
-							bucket->next->entry.value.~ValueType();
+							bucket->next->item.key.~KeyType();
+							bucket->next->item.value.~ValueType();
 
 							bucket = bucket->next;
 						}
@@ -163,7 +163,7 @@ namespace Ona::Collections {
 				Bucket * bucket = this->buckets.At(i);
 
 				while (bucket) {
-					action.Invoke(bucket->entry.key, bucket->entry.value);
+					action.Invoke(bucket->item.key, bucket->item.value);
 
 					count -= 1;
 					bucket = bucket->next;
@@ -180,7 +180,7 @@ namespace Ona::Collections {
 				Bucket * bucket = this->buckets.At(i);
 
 				while (bucket) {
-					action.Invoke(bucket->entry.key, bucket->entry.value);
+					action.Invoke(bucket->item.key, bucket->item.value);
 
 					count -= 1;
 					bucket = bucket->next;
@@ -195,7 +195,7 @@ namespace Ona::Collections {
 				Bucket * bucket = this->buckets.At(i);
 
 				while (bucket) {
-					action.Invoke(bucket->entry.value);
+					action.Invoke(bucket->item.value);
 
 					count -= 1;
 					bucket = bucket->next;
@@ -210,7 +210,7 @@ namespace Ona::Collections {
 				Bucket * bucket = this->buckets.At(i);
 
 				while (bucket) {
-					action.Invoke(bucket->entry.value);
+					action.Invoke(bucket->item.value);
 
 					count -= 1;
 					bucket = bucket->next;
@@ -225,24 +225,24 @@ namespace Ona::Collections {
 			Bucket * bucket = this->buckets.At(hash);
 
 			if (bucket) {
-				if (KeyEquals(bucket->entry.key, key)) {
-					bucket->entry.value = value;
+				if (KeyEquals(bucket->item.key, key)) {
+					bucket->item.value = value;
 
-					return (&bucket->entry.value);
+					return (&bucket->item.value);
 				} else {
 					while (bucket->next) {
 						bucket = bucket->next;
 
-						if (KeyEquals(bucket->entry.key, key)) {
-							bucket->entry.value = value;
+						if (KeyEquals(bucket->item.key, key)) {
+							bucket->item.value = value;
 
-							return &bucket->entry.value;
+							return &bucket->item.value;
 						}
 					}
 
 					bucket->next = this->CreateBucket(key, value);
 
-					return (bucket->next ? &bucket->next->entry.value : nullptr);
+					return (bucket->next ? &bucket->next->item.value : nullptr);
 				}
 
 				bucket = bucket->next;
@@ -251,7 +251,7 @@ namespace Ona::Collections {
 				this->buckets.At(hash) = bucket;
 				this->count += 1;
 
-				return &bucket->entry.value;
+				return &bucket->item.value;
 			}
 
 			if (this->loadMaximum && this->LoadFactor() > this->loadMaximum) {
@@ -274,7 +274,7 @@ namespace Ona::Collections {
 						Bucket * bucket = oldBuckets.At(i);
 
 						while (bucket) {
-							this->Insert(bucket->entry.key, bucket->entry.value);
+							this->Insert(bucket->item.key, bucket->item.value);
 
 							bucket = bucket->next;
 						}
@@ -314,9 +314,9 @@ namespace Ona::Collections {
 				Bucket * bucket = this->buckets.At(KeyHash(key) % this->buckets.length);
 
 				if (bucket) {
-					while (!KeyEquals(bucket->entry.key, key)) bucket = bucket->next;
+					while (!KeyEquals(bucket->item.key, key)) bucket = bucket->next;
 
-					if (bucket) return &bucket->entry.value;
+					if (bucket) return &bucket->item.value;
 				}
 			}
 
@@ -328,9 +328,9 @@ namespace Ona::Collections {
 				Bucket const * bucket = this->buckets.At(KeyHash(key) % this->buckets.length);
 
 				if (bucket) {
-					while (!KeyEquals(bucket->entry.key, key)) bucket = bucket->next;
+					while (!KeyEquals(bucket->item.key, key)) bucket = bucket->next;
 
-					if (bucket) return &bucket->entry.value;
+					if (bucket) return &bucket->item.value;
 				}
 			}
 
