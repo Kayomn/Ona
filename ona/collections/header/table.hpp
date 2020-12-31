@@ -299,7 +299,11 @@ namespace Ona::Collections {
 
 		static uint64_t KeyHash(KeyType const & key) {
 			if constexpr (std::is_pointer_v<KeyType>) {
-				return reinterpret_cast<uint64_t>(key);
+				if constexpr (std::is_polymorphic_v<std::remove_pointer<KeyType>>) {
+					return key->ToHash();
+				} else {
+					return reinterpret_cast<uint64_t>(key);
+				}
 			} else {
 				return key.ToHash();
 			}
