@@ -306,6 +306,15 @@ namespace Ona::Engine {
 
 			}
 
+			~OpenGLGraphicsQueue() {
+				this->spriteBatchSets.ForItems([](
+					Material * spriteMaterial,
+					PackedStack<SpriteBatch> * spriteBatches
+				) {
+					delete spriteBatches;
+				});
+			}
+
 			void Dispatch(GLShader & shader, GLPolyBuffer & polyBuffer) {
 				struct {
 					GLShader * shader;
@@ -316,24 +325,26 @@ namespace Ona::Engine {
 					Material * spriteMaterial,
 					PackedStack<SpriteBatch> * spriteBatches
 				) {
-					if (spriteMaterial) while (spriteBatches->Count()) {
-						SpriteBatch * spriteBatch = (&spriteBatches->Peek());
+					if (spriteMaterial) {
+						while (spriteBatches->Count()) {
+							SpriteBatch * spriteBatch = (&spriteBatches->Peek());
 
-						resources.shader->WriteRenderdata(AsBytes(spriteBatch->chunk));
+							resources.shader->WriteRenderdata(AsBytes(spriteBatch->chunk));
 
-						resources.shader->DrawPolyInstanced(
-							(*resources.polyBuffer),
-							*spriteMaterial,
-							spriteBatch->count
-						);
+							resources.shader->DrawPolyInstanced(
+								(*resources.polyBuffer),
+								*spriteMaterial,
+								spriteBatch->count
+							);
 
-						spriteBatch->count = 0;
+							spriteBatch->count = 0;
 
-						spriteBatches->Pop();
+							spriteBatches->Pop();
+						}
+
+						spriteBatches->Push(SpriteBatch{});
 					}
 				});
-
-				this->spriteBatchSets.Clear();
 			}
 
 			void RenderSprite(Material * material, Vector3 const & position, Color tint) override {
@@ -342,23 +353,18 @@ namespace Ona::Engine {
 						material,
 
 						[]() -> PackedStack<SpriteBatch> * {
-							Allocator * allocator = DefaultAllocator();
-							auto stack = new (allocator) PackedStack<SpriteBatch>{allocator};
+							auto spriteBatches = new PackedStack<SpriteBatch>{DefaultAllocator()};
 
-							if (stack && (!stack->Push(SpriteBatch{}))) {
-								delete (allocator, stack);
+							spriteBatches->Push(SpriteBatch{});
 
-								return nullptr;
-							}
-
-							return stack;
+							return spriteBatches;
 						}
 					);
 
 					if (requiredBatches) {
 						PackedStack<SpriteBatch> * batches = *requiredBatches;
 
-						if (batches) {
+						if (batches && batches->Count()) {
 							SpriteBatch * currentBatch = (&batches->Peek());
 
 							if (currentBatch->count == SpriteBatch::Chunk::Max) {
@@ -415,6 +421,8 @@ namespace Ona::Engine {
 
 			PackedStack<OpenGLGraphicsQueue *> queues;
 
+			SDL_Event sdlEvent;
+
 			OpenGlGraphicsServer(
 				Allocator * allocator,
 				String const & title,
@@ -422,7 +430,7 @@ namespace Ona::Engine {
 				int32_t const height
 			) : allocator{}, queues{allocator}
 			{
-				enum { InitFlags = SDL_INIT_VIDEO };
+				enum { InitFlags = SDL_INIT_EVENTS };
 
 				if (SDL_Init(InitFlags) == 0) {
 					enum {
@@ -596,7 +604,6 @@ namespace Ona::Engine {
 			}
 
 			bool ReadEvents(Events * events) override {
-				thread_local SDL_Event sdlEvent;
 				this->timeLast = this->timeNow;
 				this->timeNow = SDL_GetPerformanceCounter();
 
@@ -605,16 +612,16 @@ namespace Ona::Engine {
 					(1000 / static_cast<double>(SDL_GetPerformanceFrequency()))
 				);
 
-				while (SDL_PollEvent(&sdlEvent)) {
-					switch (sdlEvent.type) {
+				while (SDL_PollEvent(&this->sdlEvent)) {
+					switch (this->sdlEvent.type) {
 						case SDL_QUIT: return false;
 
 						case SDL_KEYDOWN: {
-							events->keysHeld[sdlEvent.key.keysym.scancode] = true;
+							events->keysHeld[this->sdlEvent.key.keysym.scancode] = true;
 						} break;
 
 						case SDL_KEYUP: {
-							events->keysHeld[sdlEvent.key.keysym.scancode] = false;
+							events->keysHeld[this->sdlEvent.key.keysym.scancode] = false;
 						} break;
 
 						default: break;

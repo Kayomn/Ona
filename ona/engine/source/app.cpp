@@ -149,6 +149,8 @@ int main(int argv, char const * const * argc) {
 
 			systems.ForValues([](System const & system) {
 				if (system.finalizer) system.finalizer(system.userdata, &context);
+
+				DefaultAllocator()->Deallocate(system.userdata);
 			});
 
 			extensions.ForValues([](Library & module_) {
