@@ -71,6 +71,7 @@
 		"cinttypes": "cpp",
 		"typeindex": "cpp",
 		"typeinfo": "cpp",
-		"cassert": "cpp"
+		"cassert": "cpp",
+		"*.rh": "cpp"
 	}
 }

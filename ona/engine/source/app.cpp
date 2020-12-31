@@ -40,6 +40,14 @@ static Ona_CoreContext const coreContext = {
 
 	.defaultAllocator = DefaultAllocator,
 
+	.graphicsQueueCreate = []() -> Ona_GraphicsQueue * {
+		return reinterpret_cast<Ona_GraphicsQueue *>(graphicsServer->CreateQueue());
+	},
+
+	.graphicsQueueFree = [](Ona_GraphicsQueue * * queue) {
+		graphicsServer->DeleteQueue(*reinterpret_cast<GraphicsQueue * *>(queue));
+	},
+
 	.imageSolid = [](
 		Ona_Allocator * allocator,
 		Ona_Point2 dimensions,
@@ -76,11 +84,16 @@ static Ona_CoreContext const coreContext = {
 
 static Ona_GraphicsContext graphicsContext = {
 	.renderSprite = [](
+		Ona_GraphicsQueue * graphicsQueue,
 		Ona_Material * spriteMaterial,
 		Ona_Vector3 const * position,
 		Ona_Color tint
 	) {
-		graphicsServer->RenderSprite(reinterpret_cast<Material *>(spriteMaterial), *position, tint);
+		reinterpret_cast<GraphicsQueue *>(graphicsQueue)->RenderSprite(
+			reinterpret_cast<Material *>(spriteMaterial),
+			*position,
+			tint
+		);
 	},
 };
 

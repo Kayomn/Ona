@@ -78,6 +78,11 @@ namespace Ona::Engine {
 
 	struct Material;
 
+	class GraphicsQueue : public Object {
+		public:
+		virtual void RenderSprite(Material * material, Vector3 const & position, Color tint) = 0;
+	};
+
 	class GraphicsServer : public Object {
 		public:
 		/**
@@ -91,12 +96,25 @@ namespace Ona::Engine {
 		virtual void ColoredClear(Color color) = 0;
 
 		/**
+		 * Creates a `GraphicsQueue` for dispatching graphics commands asynchronously.
+		 *
+		 * The contents of the returned `GraphicsQueue` should be automatically dispatched during
+		 * `GraphicsServer::Update`.
+		 */
+		virtual GraphicsQueue * CreateQueue() = 0;
+
+		/**
 		 * Creates a `Material` from the pixel data in `image`.
 		 */
 		virtual Material * CreateMaterial(Image const & image) = 0;
 
 		/**
-		 * Attempts to delete the `Material` from the graphics server located at `material`.
+		 * Attempts to delete the `GraphicsQueue` from the server located at `queue`.
+		 */
+		virtual void DeleteQueue(GraphicsQueue * & queue) = 0;
+
+		/**
+		 * Attempts to delete the `Material` from the server located at `material`.
 		 */
 		virtual void DeleteMaterial(Material * & material) = 0;
 
@@ -108,19 +126,6 @@ namespace Ona::Engine {
 		 * indicate continued processing.
 		 */
 		virtual bool ReadEvents(Events * events) = 0;
-
-		/**
-		 * Renders `spriteMaterial` on the `GraphicsServer` as a flat 2D quadrant at `position`,
-		 * with `tint` as the tint color.
-		 *
-		 * `Vector3::z` of `position` used to determine the rendering priority of the sprite
-		 * relative to the dispatch event.
-		 */
-		virtual void RenderSprite(
-			Material * spriteMaterial,
-			Vector3 const & position,
-			Color tint
-		) = 0;
 
 		/**
 		 * Updates the internal state of the `GraphicsServer` and displays the new framebuffer.

@@ -282,7 +282,8 @@ namespace Ona::Engine {
 	};
 
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height) {
-		thread_local class OpenGlGraphicsServer final : public GraphicsServer {
+		class OpenGLGraphicsQueue final : public GraphicsQueue {
+			public:
 			struct SpriteBatch {
 				struct Chunk {
 					enum { Max = 128 };
@@ -301,12 +302,108 @@ namespace Ona::Engine {
 
 			HashTable<Material *, PackedStack<SpriteBatch> *> spriteBatchSets;
 
+			OpenGLGraphicsQueue(Allocator * allocator) : spriteBatchSets{allocator} {
+
+			}
+
+			void Dispatch(GLShader & shader, GLPolyBuffer & polyBuffer) {
+				struct {
+					GLShader * shader;
+					GLPolyBuffer * polyBuffer;
+				} resources = {&shader, &polyBuffer};
+
+				this->spriteBatchSets.ForItems([this, &resources](
+					Material * spriteMaterial,
+					PackedStack<SpriteBatch> * spriteBatches
+				) {
+					if (spriteMaterial) while (spriteBatches->Count()) {
+						SpriteBatch * spriteBatch = (&spriteBatches->Peek());
+
+						resources.shader->WriteRenderdata(AsBytes(spriteBatch->chunk));
+
+						resources.shader->DrawPolyInstanced(
+							(*resources.polyBuffer),
+							*spriteMaterial,
+							spriteBatch->count
+						);
+
+						spriteBatch->count = 0;
+
+						spriteBatches->Pop();
+					}
+				});
+
+				this->spriteBatchSets.Clear();
+			}
+
+			void RenderSprite(Material * material, Vector3 const & position, Color tint) override {
+				if (material) {
+					PackedStack<SpriteBatch> * * requiredBatches = this->spriteBatchSets.Require(
+						material,
+
+						[]() -> PackedStack<SpriteBatch> * {
+							Allocator * allocator = DefaultAllocator();
+							auto stack = new (allocator) PackedStack<SpriteBatch>{allocator};
+
+							if (stack && (!stack->Push(SpriteBatch{}))) {
+								delete (allocator, stack);
+
+								return nullptr;
+							}
+
+							return stack;
+						}
+					);
+
+					if (requiredBatches) {
+						PackedStack<SpriteBatch> * batches = *requiredBatches;
+
+						if (batches) {
+							SpriteBatch * currentBatch = (&batches->Peek());
+
+							if (currentBatch->count == SpriteBatch::Chunk::Max) {
+								currentBatch = batches->Push(SpriteBatch{});
+
+								if (!currentBatch) {
+									// Out of memory.
+									// TODO: Record failed render.
+									return;
+								}
+							}
+
+							currentBatch->chunk.transforms[currentBatch->count] = Matrix{
+								static_cast<float>(material->dimensions.x), 0.f, 0.f, position.x,
+								0.f, static_cast<float>(material->dimensions.y), 0.f, position.y,
+								0.f, 0.f, 1.f, 0.f,
+								0.f, 0.f, 0.f, 1.f
+							};
+
+							currentBatch->chunk.viewports[currentBatch->count] = Vector4{
+								0.f,
+								0.f,
+								1.f,
+								1.f
+							};
+
+							currentBatch->chunk.tints[currentBatch->count] = tint.Normalized();
+							currentBatch->count += 1;
+						}
+					}
+
+					// TODO: Record failed render.
+				}
+			}
+		};
+
+		thread_local class OpenGlGraphicsServer final : public GraphicsServer {
 			public:
 			uint64_t timeNow, timeLast;
 
 			SDL_Window * window;
 
 			void * context;
+
+			Allocator * allocator;
 
 			Point2 viewportSize;
 
@@ -316,16 +413,14 @@ namespace Ona::Engine {
 
 			GLuint viewportBufferHandle;
 
-			bool isInitialized;
+			PackedStack<OpenGLGraphicsQueue *> queues;
 
 			OpenGlGraphicsServer(
 				Allocator * allocator,
 				String const & title,
 				int32_t const width,
 				int32_t const height
-			) :
-				spriteBatchSets{allocator},
-				isInitialized{}
+			) : allocator{}, queues{allocator}
 			{
 				enum { InitFlags = SDL_INIT_VIDEO };
 
@@ -380,7 +475,7 @@ namespace Ona::Engine {
 										this->canvasShader.Load(
 											canvasVertexSource,
 											canvasFragmentSource,
-											sizeof(SpriteBatch::Chunk)
+											sizeof(OpenGLGraphicsQueue::SpriteBatch::Chunk)
 										) &&
 										this->quadPolyBuffer.Load($slice(quadVertices))
 									) {
@@ -406,7 +501,7 @@ namespace Ona::Engine {
 										glViewport(0, 0, width, height);
 
 										this->viewportSize = Point2{width, height};
-										this->isInitialized = true;
+										this->allocator = allocator;
 									}
 								}
 							}
@@ -433,6 +528,14 @@ namespace Ona::Engine {
 
 				glClearColor(rgba.x, rgba.y, rgba.z, rgba.w);
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			}
+
+			GraphicsQueue * CreateQueue() override {
+				auto queue = new OpenGLGraphicsQueue{this->allocator};
+
+				if (queue) this->queues.Push(queue);
+
+				return queue;
 			}
 
 			Material * CreateMaterial(Image const & image) override {
@@ -480,6 +583,12 @@ namespace Ona::Engine {
 				return nullptr;
 			}
 
+			void DeleteQueue(GraphicsQueue * & queue) override {
+				delete queue;
+
+				queue = nullptr;
+			}
+
 			void DeleteMaterial(Material * & material) override {
 				delete material;
 
@@ -516,113 +625,28 @@ namespace Ona::Engine {
 			}
 
 			void Update() override {
-				if (this->spriteBatchSets.Count()) {
-					Matrix * mappedViewport = reinterpret_cast<Matrix *>(
-						glMapNamedBuffer(this->viewportBufferHandle, GL_WRITE_ONLY)
+				Matrix * mappedViewport = reinterpret_cast<Matrix *>(
+					glMapNamedBuffer(this->viewportBufferHandle, GL_WRITE_ONLY)
+				);
+
+				if (mappedViewport) {
+					(*mappedViewport) = OrthographicMatrix(
+						0,
+						this->viewportSize.x,
+						this->viewportSize.y,
+						0,
+						-1,
+						1
 					);
 
-					if (mappedViewport) {
-						(*mappedViewport) = OrthographicMatrix(
-							0,
-							this->viewportSize.x,
-							this->viewportSize.y,
-							0,
-							-1,
-							1
-						);
-
-						glUnmapNamedBuffer(this->viewportBufferHandle);
-					}
-
-					this->spriteBatchSets.ForItems([this](
-						Material * spriteMaterial,
-						PackedStack<SpriteBatch> * spriteBatches
-					) {
-						if (spriteMaterial) {
-							while (spriteBatches->Count()) {
-								SpriteBatch * spriteBatch = (&spriteBatches->Peek());
-
-								this->canvasShader.WriteRenderdata(AsBytes(spriteBatch->chunk));
-
-								this->canvasShader.DrawPolyInstanced(
-									this->quadPolyBuffer,
-									*spriteMaterial,
-									spriteBatch->count
-								);
-
-								spriteBatch->count = 0;
-
-								spriteBatches->Pop();
-							}
-						}
-					});
-
-					this->spriteBatchSets.Clear();
+					glUnmapNamedBuffer(this->viewportBufferHandle);
 				}
+
+				this->queues.ForValues([this](OpenGLGraphicsQueue * graphicsQueue) {
+					graphicsQueue->Dispatch(this->canvasShader, this->quadPolyBuffer);
+				});
 
 				SDL_GL_SwapWindow(this->window);
-			}
-
-			void RenderSprite(
-				Material * spriteMaterial,
-				Vector3 const & position,
-				Color tint
-			) override {
-				if (spriteMaterial) {
-					PackedStack<SpriteBatch> * * requiredBatches = this->spriteBatchSets.Require(
-						spriteMaterial,
-
-						[]() -> PackedStack<SpriteBatch> * {
-							Allocator * allocator = DefaultAllocator();
-							auto stack = new (allocator) PackedStack<SpriteBatch>{allocator};
-
-							if (stack && (!stack->Push(SpriteBatch{}))) {
-								delete (allocator, stack);
-
-								return nullptr;
-							}
-
-							return stack;
-						}
-					);
-
-					if (requiredBatches) {
-						PackedStack<SpriteBatch> * batches = *requiredBatches;
-
-						if (batches) {
-							SpriteBatch * currentBatch = (&batches->Peek());
-
-							if (currentBatch->count == SpriteBatch::Chunk::Max) {
-								currentBatch = batches->Push(SpriteBatch{});
-
-								if (!currentBatch) {
-									// Out of memory.
-									// TODO: Record failed render.
-									return;
-								}
-							}
-
-							currentBatch->chunk.transforms[currentBatch->count] = Matrix{
-								static_cast<float>(spriteMaterial->dimensions.x), 0.f, 0.f, position.x,
-								0.f, static_cast<float>(spriteMaterial->dimensions.y), 0.f, position.y,
-								0.f, 0.f, 1.f, 0.f,
-								0.f, 0.f, 0.f, 1.f
-							};
-
-							currentBatch->chunk.viewports[currentBatch->count] = Vector4{
-								0.f,
-								0.f,
-								1.f,
-								1.f
-							};
-
-							currentBatch->chunk.tints[currentBatch->count] = tint.Normalized();
-							currentBatch->count += 1;
-						}
-					}
-
-					// TODO: Record failed render.
-				}
 			}
 		} graphicsServer = OpenGlGraphicsServer{DefaultAllocator(), title, width, height};
 

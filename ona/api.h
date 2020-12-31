@@ -14,6 +14,10 @@ struct Ona_CoreContext;
 
 struct Ona_GraphicsContext;
 
+typedef struct Ona_GraphicsQueue Ona_GraphicsQueue;
+
+typedef struct Ona_Material Ona_Material;
+
 typedef struct {
 	uint32_t size;
 
@@ -74,20 +78,14 @@ typedef struct {
 
 #endif
 
-typedef struct Ona_Material Ona_Material;
-
-typedef struct Ona_GraphicsContext {
-	void(*renderSprite)(
-		Ona_Material * spriteMaterial,
-		Ona_Vector3 const * position,
-		Ona_Color tint
-	);
-} Ona_GraphicsContext;
-
 typedef struct Ona_CoreContext {
 	bool(* spawnSystem)(Ona_SystemInfo const * info);
 
 	Ona_Allocator *(* defaultAllocator)();
+
+	Ona_GraphicsQueue *(*graphicsQueueCreate)();
+
+	void(*graphicsQueueFree)(Ona_GraphicsQueue * * allocator);
 
 	bool(* imageSolid)(
 		Ona_Allocator * allocator,
@@ -102,6 +100,15 @@ typedef struct Ona_CoreContext {
 
 	void(* materialFree)(Ona_Material * * material);
 } Ona_CoreContext;
+
+typedef struct Ona_GraphicsContext {
+	void(*renderSprite)(
+		Ona_GraphicsQueue * graphicsQueue,
+		Ona_Material * spriteMaterial,
+		Ona_Vector3 const * position,
+		Ona_Color tint
+	);
+} Ona_GraphicsContext;
 
 typedef enum {
 	Ona_A = 0x04,
