@@ -4,7 +4,7 @@ using namespace Ona::Core;
 using namespace Ona::Collections;
 using namespace Ona::Engine;
 
-using ModuleInitializer = bool(*)(Ona_CoreContext const * core);
+using ModuleInitializer = bool(*)(Ona_Context const * ona);
 
 struct System {
 	void * userdata;
@@ -22,7 +22,7 @@ static PackedStack<System> systems = {DefaultAllocator()};
 
 static GraphicsServer * graphicsServer = nullptr;
 
-static Ona_CoreContext const coreContext = {
+static Ona_Context const context = {
 	.spawnSystem = [](Ona_SystemInfo const * info) {
 		void * userdata = DefaultAllocator()->Allocate(info->size).pointer;
 
@@ -80,9 +80,7 @@ static Ona_CoreContext const coreContext = {
 	.materialFree = [](Ona_Material * * material) {
 		graphicsServer->DeleteMaterial(*reinterpret_cast<Material * *>(material));
 	},
-};
 
-static Ona_GraphicsContext graphicsContext = {
 	.renderSprite = [](
 		Ona_GraphicsQueue * graphicsQueue,
 		Ona_Material * spriteMaterial,
@@ -123,14 +121,14 @@ int main(int argv, char const * const * argc) {
 						moduleLibrary.FindSymbol(String{"OnaInit"})
 					);
 
-					if (initializer) initializer(&coreContext);
+					if (initializer) initializer(&context);
 
 					extensions.Push(moduleLibrary);
 				}
 			}
 
 			systems.ForValues([](System const & system) {
-				if (system.initializer) system.initializer(system.userdata, &coreContext);
+				if (system.initializer) system.initializer(system.userdata, &context);
 			});
 
 			while (graphicsServer->ReadEvents(&events)) {
@@ -141,7 +139,7 @@ int main(int argv, char const * const * argc) {
 						system.processor(
 							system.userdata,
 							&events,
-							&graphicsContext
+							&context
 						);
 					}
 				});
@@ -150,7 +148,7 @@ int main(int argv, char const * const * argc) {
 			}
 
 			systems.ForValues([](System const & system) {
-				if (system.finalizer) system.finalizer(system.userdata, &coreContext);
+				if (system.finalizer) system.finalizer(system.userdata, &context);
 			});
 
 			extensions.ForValues([](Library & module_) {

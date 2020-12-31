@@ -9,24 +9,24 @@ struct PlayerController {
 
 	Ona_GraphicsQueue * graphicsQueue;
 
-	void Init(Ona_CoreContext const * core) {
+	void Init(Ona_Context const * ona) {
 		Ona_Image image;
 
-		assert(core->imageSolid(
-			core->defaultAllocator(),
+		assert(ona->imageSolid(
+			ona->defaultAllocator(),
 			Ona_Point2{32, 32},
 			Ona_Color{0xFF, 0, 0, 0xFF},
 			&image
 		));
 
-		this->playerSprite = core->materialCreate(&image);
-		this->graphicsQueue = core->graphicsQueueCreate();
+		this->playerSprite = ona->materialCreate(&image);
+		this->graphicsQueue = ona->graphicsQueueCreate();
 		assert(this->playerSprite);
 		assert(this->graphicsQueue);
-		core->imageFree(&image);
+		ona->imageFree(&image);
 	}
 
-	void Process(Ona_Events const * events, Ona_GraphicsContext const * graphics) {
+	void Process(Ona_Events const * events, Ona_Context const * ona) {
 		float const deltaSpeed = (events->deltaTime * 0.5f);
 
 		if (events->keysHeld[Ona_W]) {
@@ -47,7 +47,7 @@ struct PlayerController {
 
 		Ona_Vector3 position = {this->playerPosition.x, this->playerPosition.y, 0.0f};
 
-		graphics->renderSprite(
+		ona->renderSprite(
 			this->graphicsQueue,
 			this->playerSprite,
 			&position,
@@ -55,12 +55,12 @@ struct PlayerController {
 		);
 	}
 
-	void Exit(Ona_CoreContext const * core) {
-		core->materialFree(&this->playerSprite);
-		core->graphicsQueueFree(&this->graphicsQueue);
+	void Exit(Ona_Context const * ona) {
+		ona->materialFree(&this->playerSprite);
+		ona->graphicsQueueFree(&this->graphicsQueue);
 	}
 };
 
-extern "C" void OnaInit(Ona_CoreContext const * core) {
-	core->spawnSystem(Ona_SystemInfoOf<PlayerController>());
+extern "C" void OnaInit(Ona_Context const * ona) {
+	ona->spawnSystem(Ona_SystemInfoOf<PlayerController>());
 }

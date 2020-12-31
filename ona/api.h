@@ -10,9 +10,7 @@ typedef struct {
 	bool keysHeld[512];
 } Ona_Events;
 
-struct Ona_CoreContext;
-
-struct Ona_GraphicsContext;
+struct Ona_Context;
 
 typedef struct Ona_GraphicsQueue Ona_GraphicsQueue;
 
@@ -21,15 +19,11 @@ typedef struct Ona_Material Ona_Material;
 typedef struct {
 	uint32_t size;
 
-	void(* init)(void * userdata, struct Ona_CoreContext const * core);
+	void(* init)(void * userdata, struct Ona_Context const * ona);
 
-	void(* process)(
-		void * userdata,
-		Ona_Events const * events,
-		struct Ona_GraphicsContext const * graphics
-	);
+	void(* process)(void * userdata, Ona_Events const * events, struct Ona_Context const * ona);
 
-	void(* exit)(void * userdata, struct Ona_CoreContext const * core);
+	void(* exit)(void * userdata, struct Ona_Context const * ona);
 } Ona_SystemInfo;
 
 #ifdef __cplusplus
@@ -78,7 +72,7 @@ typedef struct {
 
 #endif
 
-typedef struct Ona_CoreContext {
+typedef struct Ona_Context {
 	bool(* spawnSystem)(Ona_SystemInfo const * info);
 
 	Ona_Allocator *(* defaultAllocator)();
@@ -99,16 +93,14 @@ typedef struct Ona_CoreContext {
 	Ona_Material *(* materialCreate)(Ona_Image const * image);
 
 	void(* materialFree)(Ona_Material * * material);
-} Ona_CoreContext;
 
-typedef struct Ona_GraphicsContext {
 	void(*renderSprite)(
 		Ona_GraphicsQueue * graphicsQueue,
 		Ona_Material * spriteMaterial,
 		Ona_Vector3 const * position,
 		Ona_Color tint
 	);
-} Ona_GraphicsContext;
+} Ona_Context;
 
 typedef enum {
 	Ona_A = 0x04,
@@ -145,20 +137,16 @@ template<typename Type> Ona_SystemInfo const * Ona_SystemInfoOf() {
 	static Ona_SystemInfo const system = {
 		.size = sizeof(Type),
 
-		.init = [](void * userdata, Ona_CoreContext const * core) {
-			reinterpret_cast<Type *>(userdata)->Init(core);
+		.init = [](void * userdata, Ona_Context const * ona) {
+			reinterpret_cast<Type *>(userdata)->Init(ona);
 		},
 
-		.process = [](
-			void * userdata,
-			Ona_Events const * events,
-			Ona_GraphicsContext const * graphics
-		) {
-			reinterpret_cast<Type *>(userdata)->Process(events, graphics);
+		.process = [](void * userdata, Ona_Events const * events, Ona_Context const * ona) {
+			reinterpret_cast<Type *>(userdata)->Process(events, ona);
 		},
 
-		.exit = [](void * userdata, Ona_CoreContext const * core) {
-			reinterpret_cast<Type *>(userdata)->Exit(core);
+		.exit = [](void * userdata, Ona_Context const * ona) {
+			reinterpret_cast<Type *>(userdata)->Exit(ona);
 		},
 	};
 
