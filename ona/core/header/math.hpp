@@ -153,9 +153,9 @@ namespace Ona::Core {
 
 	struct Point2 {
 		int32_t x, y;
-
-		constexpr int64_t Area() const {
-			return (this->x * this->y);
-		}
 	};
+
+	constexpr int64_t Area(Point2 const & dimensions) {
+		return (dimensions.x * dimensions.y);
+	}
 }
