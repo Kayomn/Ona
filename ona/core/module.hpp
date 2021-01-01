@@ -100,7 +100,10 @@ namespace Ona::Core {
 		 * from index `a` to position `b`.
 		 */
 		constexpr Slice<Type const> Sliced(size_t a, size_t b) const {
-			return SliceOf((this->pointer + a), b);
+			return Slice<Type const>{
+				.length = b,
+				.pointer = (this->pointer + a)
+			};
 		}
 
 		constexpr Type * begin() {
@@ -291,8 +294,8 @@ namespace Ona::Core {
 
 #include "ona/core/header/text.hpp"
 #include "ona/core/header/object.hpp"
-#include "ona/core/header/array.hpp"
 #include "ona/core/header/memory.hpp"
+#include "ona/core/header/array.hpp"
 #include "ona/core/header/os.hpp"
 #include "ona/core/header/image.hpp"
 
