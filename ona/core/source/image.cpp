@@ -229,15 +229,15 @@ namespace Ona::Core {
 								};
 
 								uint64_t const rowWidth = (dimensions.x * BytesPerPixel);
-								Slice<uint8_t> rowBuffer = imageAllocator->Allocate(rowWidth);
+								DynamicArray<uint8_t> rowBuffer = {imageAllocator, rowWidth};
 
-								if (rowBuffer.length) {
+								if (rowBuffer.IsInitialized()) {
 									size_t pixelIndex = (pixelBuffer.length - 1);
 
 									file.value.SeekHead(fileHeader->fileOffset);
 
 									for (uint32_t i = 0; i < dimensions.y; i += 1) {
-										file.value.Read(rowBuffer);
+										file.value.Read(rowBuffer.Values());
 
 										for (uint32_t j = 0; j < rowWidth; j += BytesPerPixel) {
 											// Swap around BGRA -> RGBA.
