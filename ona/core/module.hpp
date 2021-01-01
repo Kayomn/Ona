@@ -8,6 +8,8 @@
 #include <initializer_list>
 #include <memory>
 
+#define $packed __attribute__ ((packed))
+
 #define $slice(arr) Ona::Core::Slice<std::remove_reference_t<decltype(*arr)>>{\
 	.length = (sizeof(arr) / sizeof(*arr)),\
 	.pointer = arr\
