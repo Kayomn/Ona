@@ -5,22 +5,18 @@ using namespace Ona::Core;
 struct PlayerController {
 	Ona_Material * playerSprite;
 
-	Ona::Core::Vector2 playerPosition;
+	Vector2 playerPosition;
 
 	Ona_GraphicsQueue * graphicsQueue;
 
 	void Init(Ona_Context const * ona) {
 		Ona_Image image;
 
-		assert(ona->imageSolid(
-			ona->defaultAllocator(),
-			Ona_Point2{32, 32},
-			Ona_Color{0xFF, 0, 0, 0xFF},
-			&image
-		));
+		assert(ona->imageLoadBitmap(ona->defaultAllocator(), "./icon.bmp", &image));
 
 		this->playerSprite = ona->materialCreate(&image);
 		this->graphicsQueue = ona->graphicsQueueCreate();
+
 		assert(this->playerSprite);
 		assert(this->graphicsQueue);
 		ona->imageFree(&image);
@@ -45,7 +41,7 @@ struct PlayerController {
 			this->playerPosition.x = Floor(this->playerPosition.x + deltaSpeed);
 		}
 
-		Ona_Vector3 position = {this->playerPosition.x, this->playerPosition.y, 0.0f};
+		Vector3 position = {this->playerPosition.x, this->playerPosition.y, 0.0f};
 
 		ona->renderSprite(
 			this->graphicsQueue,

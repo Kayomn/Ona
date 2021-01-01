@@ -69,8 +69,28 @@ static Ona_Context const context = {
 		return false;
 	},
 
-	.imageFree = [](Ona_Image * imageResult) {
-		imageResult->Free();
+	.imageFree = [](Ona_Image * image) {
+		image->Free();
+	},
+
+	.imageLoadBitmap = [](
+		Ona_Allocator * allocator,
+		char const * fileName,
+		Ona_Image * result
+	) -> bool {
+		Result<Image, ImageError> imageResult = LoadBitmap(allocator, String{fileName});
+
+		if (imageResult.IsOk()) {
+			if (result) {
+				(*result) = imageResult.Value();
+			} else {
+				imageResult.Value().Free();
+			}
+
+			return true;
+		}
+
+		return false;
 	},
 
 	.materialCreate = [](Ona_Image const * image) -> Ona_Material * {

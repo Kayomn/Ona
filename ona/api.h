@@ -90,6 +90,8 @@ typedef struct Ona_Context {
 
 	void(* imageFree)(Ona_Image * image);
 
+	bool(* imageLoadBitmap)(Ona_Allocator * allocator, char const * fileName, Ona_Image * result);
+
 	Ona_Material *(* materialCreate)(Ona_Image const * image);
 
 	void(* materialFree)(Ona_Material * * material);
