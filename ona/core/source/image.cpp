@@ -188,17 +188,20 @@ namespace Ona::Core {
 								uint64_t const rowWidth = (dimensions.x * 3);
 
 								// Row requires additional padding, hence the magic numbers.
-								Slice<uint8_t> rowBuffer = imageAllocator->Allocate(
+								DynamicArray<uint8_t> rowBuffer = {
+									imageAllocator,
 									(rowWidth + BytesPerPixel) & (~BytesPerPixel)
-								);
+								};
 
-								if (rowBuffer.length) {
+								Slice<uint8_t> rowBufferValues = rowBuffer.Values();
+
+								if (rowBuffer.IsInitialized()) {
 									size_t pixelIndex = (pixelBuffer.length - 1);
 
 									file.value.SeekHead(fileHeader->fileOffset);
 
 									for (uint32_t i = 0; i < dimensions.y; i += 1) {
-										file.value.Read(rowBuffer);
+										file.value.Read(rowBufferValues);
 
 										for (uint32_t j = 0; j < rowWidth; j += BytesPerPixel) {
 											// Swap around BGR -> RGB and write alpha channel.
@@ -230,6 +233,7 @@ namespace Ona::Core {
 
 								uint64_t const rowWidth = (dimensions.x * BytesPerPixel);
 								DynamicArray<uint8_t> rowBuffer = {imageAllocator, rowWidth};
+								Slice<uint8_t> rowBufferValues = rowBuffer.Values();
 
 								if (rowBuffer.IsInitialized()) {
 									size_t pixelIndex = (pixelBuffer.length - 1);
@@ -237,7 +241,7 @@ namespace Ona::Core {
 									file.value.SeekHead(fileHeader->fileOffset);
 
 									for (uint32_t i = 0; i < dimensions.y; i += 1) {
-										file.value.Read(rowBuffer.Values());
+										file.value.Read(rowBufferValues);
 
 										for (uint32_t j = 0; j < rowWidth; j += BytesPerPixel) {
 											// Swap around BGRA -> RGBA.
