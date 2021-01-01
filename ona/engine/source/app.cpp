@@ -124,15 +124,15 @@ int main(int argv, char const * const * argc) {
 
 		if (config.Load(Unique<FileContents>{
 			LoadFile(defaultAllocator, String{"config.lua"})
-		}.ValueOf().ToString())) {
+		}.value.ToString())) {
 			Unique<ConfigValue> extensionNames = config.ReadGlobal(String{"Extensions"});
-			uint32_t const extensionsCount = config.ValueLength(extensionNames.ValueOf());
+			uint32_t const extensionsCount = config.ValueLength(extensionNames.value);
 			Events events = {};
 
 			for (uint32_t i = 0; i < extensionsCount; i += 1) {
 				String moduleName = config.ValueString(Unique<ConfigValue>{
-					config.ReadArray(extensionNames.ValueOf(), i)
-				}.ValueOf());
+					config.ReadArray(extensionNames.value, i)
+				}.value);
 
 				Library moduleLibrary = OpenLibrary(String::Concat({moduleName, String{".so"}}));
 

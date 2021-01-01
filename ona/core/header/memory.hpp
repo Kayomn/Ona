@@ -18,10 +18,6 @@ namespace Ona::Core {
 		~Unique() override {
 			this->value.Free();
 		}
-
-		Type & ValueOf() {
-			return this->value;
-		}
 	};
 
 	size_t CopyMemory(Slice<uint8_t> destination, Slice<uint8_t const> const & source);
