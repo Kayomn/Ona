@@ -10,9 +10,9 @@ namespace Ona::Core {
 	};
 
 	template<typename Type> class Unique final : public Object {
+		public:
 		Type value;
 
-		public:
 		Unique(Type const & value) : value{value} { }
 
 		~Unique() override {
