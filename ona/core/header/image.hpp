@@ -15,9 +15,9 @@ namespace Ona::Core {
 	}
 
 	enum class ImageError {
-		None,
 		UnsupportedFormat,
-		OutOfMemory
+		OutOfMemory,
+		IO,
 	};
 
 	struct Image {
@@ -41,4 +41,6 @@ namespace Ona::Core {
 			Color color
 		);
 	};
+
+	Result<Image, ImageError> LoadBitmap(Allocator * imageAllocator, String const & file);
 }
