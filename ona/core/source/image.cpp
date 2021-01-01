@@ -181,11 +181,15 @@ namespace Ona::Core {
 
 						if (pixelBuffer.length) switch (infoHeader->bitCount) {
 							case 24: {
+								enum {
+									BytesPerPixel = 3,
+								};
+
 								uint64_t const rowWidth = (dimensions.x * 3);
 
 								// Row requires additional padding, hence the magic numbers.
 								Slice<uint8_t> rowBuffer = imageAllocator->Allocate(
-									(rowWidth + 3) & (~3)
+									(rowWidth + BytesPerPixel) & (~BytesPerPixel)
 								);
 
 								if (rowBuffer.length) {
@@ -196,14 +200,13 @@ namespace Ona::Core {
 									for (uint32_t i = 0; i < dimensions.y; i += 1) {
 										file.value.Read(rowBuffer);
 
-										for (uint32_t j = 0; j < rowWidth; j += 3) {
+										for (uint32_t j = 0; j < rowWidth; j += BytesPerPixel) {
 											// Swap around BGR -> RGB and write alpha channel.
 											pixelBuffer.At(pixelIndex - 3) = rowBuffer.At(j + 2);
 											pixelBuffer.At(pixelIndex - 2) = rowBuffer.At(j + 1);
 											pixelBuffer.At(pixelIndex - 1) = rowBuffer.At(j);
 											pixelBuffer.At(pixelIndex) = 0xFF;
-
-											pixelIndex -= 4;
+											pixelIndex -= sizeof(Color);
 										}
 									}
 
@@ -220,9 +223,44 @@ namespace Ona::Core {
 								return Res::Fail(ImageError::OutOfMemory);
 							} break;
 
-							// case 32: {
+							case 32: {
+								enum {
+									BytesPerPixel = 4,
+								};
 
-							// } break;
+								uint64_t const rowWidth = (dimensions.x * BytesPerPixel);
+								Slice<uint8_t> rowBuffer = imageAllocator->Allocate(rowWidth);
+
+								if (rowBuffer.length) {
+									size_t pixelIndex = (pixelBuffer.length - 1);
+
+									file.value.SeekHead(fileHeader->fileOffset);
+
+									for (uint32_t i = 0; i < dimensions.y; i += 1) {
+										file.value.Read(rowBuffer);
+
+										for (uint32_t j = 0; j < rowWidth; j += BytesPerPixel) {
+											// Swap around BGRA -> RGBA.
+											pixelBuffer.At(pixelIndex - 3) = rowBuffer.At(j + 2);
+											pixelBuffer.At(pixelIndex - 2) = rowBuffer.At(j + 1);
+											pixelBuffer.At(pixelIndex - 1) = rowBuffer.At(j);
+											pixelBuffer.At(pixelIndex) = rowBuffer.At(j + 3);
+											pixelIndex -= sizeof(Color);
+										}
+									}
+
+									return Res::Ok(Image{
+										.allocator = imageAllocator,
+										.pixels = reinterpret_cast<Color *>(pixelBuffer.pointer),
+										.dimensions = dimensions,
+									});
+								}
+
+								imageAllocator->Deallocate(pixelBuffer.pointer);
+
+								// Unable to allocate row buffer.
+								return Res::Fail(ImageError::OutOfMemory);
+							} break;
 
 							// Unsupporterd bit per pixel format.
 							default: return Res::Fail(ImageError::UnsupportedFormat);
