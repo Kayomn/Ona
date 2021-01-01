@@ -145,7 +145,7 @@ namespace Ona::Core {
 			return false;
 		};
 
-		Unique<File> file = OpenFile(fileName, File::OpenRead);
+		Owned<File> file = OpenFile(fileName, File::OpenRead);
 
 		if (file.value.IsOpen()) {
 			InlineArray<uint8_t, (sizeof(FileHeader) + sizeof(InfoHeader))> headerBuffer = {};

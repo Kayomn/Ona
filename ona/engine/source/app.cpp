@@ -122,15 +122,15 @@ int main(int argv, char const * const * argc) {
 	if (graphicsServer) {
 		LuaConfig config = {};
 
-		if (config.Load(Unique<FileContents>{
+		if (config.Load(Owned<FileContents>{
 			LoadFile(defaultAllocator, String{"config.lua"})
 		}.value.ToString())) {
-			Unique<ConfigValue> extensionNames = config.ReadGlobal(String{"Extensions"});
+			Owned<ConfigValue> extensionNames = config.ReadGlobal(String{"Extensions"});
 			uint32_t const extensionsCount = config.ValueLength(extensionNames.value);
 			Events events = {};
 
 			for (uint32_t i = 0; i < extensionsCount; i += 1) {
-				String moduleName = config.ValueString(Unique<ConfigValue>{
+				String moduleName = config.ValueString(Owned<ConfigValue>{
 					config.ReadArray(extensionNames.value, i)
 				}.value);
 

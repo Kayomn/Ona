@@ -9,13 +9,13 @@ namespace Ona::Core {
 		virtual Slice<uint8_t> Reallocate(void * allocation, size_t size) = 0;
 	};
 
-	template<typename Type> class Unique final : public Object {
+	template<typename Type> class Owned final : public Object {
 		public:
 		Type value;
 
-		Unique(Type const & value) : value{value} { }
+		Owned(Type const & value) : value{value} { }
 
-		~Unique() override {
+		~Owned() override {
 			this->value.Free();
 		}
 	};
