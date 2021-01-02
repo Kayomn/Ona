@@ -155,7 +155,7 @@ namespace Ona::Core {
 		int32_t x, y;
 	};
 
-	constexpr int64_t Area(Point2 const & dimensions) {
+	constexpr int64_t Area(Point2 dimensions) {
 		return (dimensions.x * dimensions.y);
 	}
 }
