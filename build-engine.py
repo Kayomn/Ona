@@ -11,7 +11,6 @@ common_flags = ["-g", "-fno-exceptions", "-std=c++17", "-I.", "-fPIC"]
 assets_path = "./assets"
 output_path = "./output"
 input_path = "ona"
-extensions_path = "ext"
 compiler = "clang++"
 
 required_properties = ["isExecutable"]
@@ -178,22 +177,6 @@ if (not path.exists(assets_path)):
 
 if (not path.exists(output_path)):
 	mkdir(output_path)
-
-if (not path.exists(extensions_path)):
-	mkdir(extensions_path)
-
-for file_name in listdir(extensions_path):
-	extension_name = path.splitext(file_name)[0]
-	source_path = path.join("ext", file_name)
-	library_path = path.join("assets", (extension_name + ".so"))
-
-	if (
-		not path.exists(library_path) or
-		(path.getmtime(source_path) > path.getmtime(library_path))
-	):
-		print("Recompiling extension:", extension_name)
-
-		call([compiler, source_path, "-shared", ("-o" + library_path)] + common_flags)
 
 if (not build("engine").needed_rebuild):
 	print("Nothing to be done")
