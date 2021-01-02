@@ -41,11 +41,11 @@ static Context const context = {
 	.defaultAllocator = DefaultAllocator,
 
 	.graphicsQueueCreate = []() -> GraphicsQueue * {
-		return reinterpret_cast<GraphicsQueue *>(graphicsServer->CreateQueue());
+		return graphicsServer->CreateQueue();
 	},
 
 	.graphicsQueueFree = [](GraphicsQueue * * queue) {
-		graphicsServer->DeleteQueue(*reinterpret_cast<GraphicsQueue * *>(queue));
+		graphicsServer->DeleteQueue(*queue);
 	},
 
 	.imageSolid = [](
@@ -94,11 +94,11 @@ static Context const context = {
 	},
 
 	.materialCreate = [](Image const * image) -> Material * {
-		return reinterpret_cast<Material *>(graphicsServer->CreateMaterial(*image));
+		return graphicsServer->CreateMaterial(*image);
 	},
 
 	.materialFree = [](Material * * material) {
-		graphicsServer->DeleteMaterial(*reinterpret_cast<Material * *>(material));
+		graphicsServer->DeleteMaterial(*material);
 	},
 
 	.renderSprite = [](
@@ -106,10 +106,7 @@ static Context const context = {
 		Material * spriteMaterial,
 		Sprite const * sprite
 	) {
-		reinterpret_cast<GraphicsQueue *>(graphicsQueue)->RenderSprite(
-			reinterpret_cast<Material *>(spriteMaterial),
-			*sprite
-		);
+		graphicsQueue->RenderSprite(spriteMaterial, *sprite);
 	},
 };
 
