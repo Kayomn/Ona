@@ -73,25 +73,16 @@ namespace Ona::Core {
 
 	Allocator * DefaultAllocator() {
 		static class : public Allocator {
-			Slice<uint8_t> Allocate(size_t size) override {
-				uint8_t * allocationAddress = reinterpret_cast<uint8_t *>(malloc(size));
-				size *= (allocationAddress != nullptr);
-
-				return SliceOf(allocationAddress, size);
+			uint8_t * Allocate(size_t size) override {
+				return reinterpret_cast<uint8_t *>(malloc(size));
 			}
 
 			void Deallocate(void * allocation) override {
 				free(allocation);
 			}
 
-			Slice<uint8_t> Reallocate(void * allocation, size_t size) override {
-				uint8_t * allocationAddress = reinterpret_cast<uint8_t *>(
-					realloc(allocation, size)
-				);
-
-				size *= (allocationAddress != nullptr);
-
-				return SliceOf(allocationAddress, size);
+			uint8_t * Reallocate(void * allocation, size_t size) override {
+				return reinterpret_cast<uint8_t *>(realloc(allocation, size));
 			}
 		} allocator;
 
@@ -203,15 +194,21 @@ namespace Ona::Core {
 		if (file.IsOpen()) {
 			file.SeekTail(0);
 
-			Slice<uint8_t> bytes = allocator->Allocate(file.Tell());
+			uint64_t const fileSize = file.Tell();
+
+			Slice<uint8_t> bytes = {
+				.pointer = allocator->Allocate(fileSize),
+			};
+
+			bytes.length = (fileSize * (bytes.pointer != nullptr));
 
 			file.SeekHead(0);
 			file.Read(bytes);
 			file.Free();
 
-			if (bytes.pointer) return FileContents{
+			return FileContents{
 				.allocator = allocator,
-				.bytes = bytes
+				.bytes = bytes,
 			};
 		}
 

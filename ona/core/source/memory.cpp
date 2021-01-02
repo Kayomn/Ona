@@ -37,7 +37,7 @@ namespace Ona::Core {
 }
 
 void * operator new(size_t count, Ona::Core::Allocator * allocator) {
-	return allocator->Allocate(count).pointer;
+	return allocator->Allocate(count);
 }
 
 void operator delete(void * pointer, Ona::Core::Allocator * allocator) {

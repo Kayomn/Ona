@@ -8,9 +8,7 @@ namespace Ona::Core {
 		}
 
 		if (this->size > StaticBufferSize) {
-			this->buffer.dynamic = DefaultAllocator()->Allocate(
-				sizeof(size_t) + this->size
-			).pointer;
+			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(size_t) + this->size);
 
 			if (this->buffer.dynamic) {
 				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
@@ -36,9 +34,7 @@ namespace Ona::Core {
 
 	String::String(Core::Chars const & chars) {
 		if (chars.length > StaticBufferSize) {
-			this->buffer.dynamic = DefaultAllocator()->Allocate(
-				sizeof(size_t) + chars.length
-			).pointer;
+			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(size_t) + chars.length);
 
 			if (this->buffer.dynamic) {
 				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
@@ -71,7 +67,7 @@ namespace Ona::Core {
 
 	String::String(char const c, uint32_t const count) {
 		if (count > StaticBufferSize) {
-			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(size_t) + count).pointer;
+			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(size_t) + count);
 
 			if (this->buffer.dynamic) {
 				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;

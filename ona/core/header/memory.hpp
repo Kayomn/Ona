@@ -2,11 +2,11 @@
 namespace Ona::Core {
 	class Allocator : public Object {
 		public:
-		virtual Slice<uint8_t> Allocate(size_t size) = 0;
+		virtual uint8_t * Allocate(size_t size) = 0;
 
 		virtual void Deallocate(void * allocation) = 0;
 
-		virtual Slice<uint8_t> Reallocate(void * allocation, size_t size) = 0;
+		virtual uint8_t * Reallocate(void * allocation, size_t size) = 0;
 	};
 
 	template<typename Type> class Owned final : public Object {

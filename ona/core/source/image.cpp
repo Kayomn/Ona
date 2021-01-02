@@ -27,15 +27,15 @@ namespace Ona::Core {
 		using Res = Result<Image, ImageError>;
 
 		if (pixels && (dimensions.x > 0) && (dimensions.y > 0)) {
-			size_t const imageSize = static_cast<size_t>(dimensions.x * dimensions.y);
-			Slice<uint8_t> pixelBuffer = allocator->Allocate(imageSize * sizeof(Color));
+			int64_t const pixelArea = Area(dimensions);
+			DynamicArray<uint8_t> pixelBuffer = {allocator, (pixelArea * sizeof(Color))};
 
-			if (pixelBuffer.length) {
-				CopyMemory(pixelBuffer, SliceOf(pixels, imageSize).AsBytes());
+			if (pixelBuffer.Length()) {
+				CopyMemory(pixelBuffer.Values(), SliceOf(pixels, pixelArea).AsBytes());
 
 				return Res::Ok(Image{
 					.allocator = allocator,
-					.pixels = reinterpret_cast<Color* >(pixelBuffer.pointer),
+					.pixels = reinterpret_cast<Color* >(pixelBuffer.Release().pointer),
 					.dimensions = dimensions,
 				});
 			}
@@ -54,20 +54,21 @@ namespace Ona::Core {
 		using Res = Result<Image, ImageError>;
 
 		if ((dimensions.x > 0) && (dimensions.y > 0)) {
-			size_t const pixelArea = static_cast<size_t>(dimensions.x * dimensions.y);
-			Slice<uint8_t> pixelBuffer = allocator->Allocate(pixelArea * sizeof(Color));
+			int64_t const pixelArea = Area(dimensions);
+			DynamicArray<uint8_t> pixelBuffer = {allocator, (pixelArea * sizeof(Color))};
+			size_t const pixelBufferSize = pixelBuffer.Length();
 
-			if (pixelBuffer.length) {
+			if (pixelBufferSize) {
 				for (size_t i = 0; i < pixelArea; i += 1) {
 					CopyMemory(
-						pixelBuffer.Sliced((i * sizeof(Color)), pixelBuffer.length),
+						pixelBuffer.Sliced((i * sizeof(Color)), pixelBufferSize),
 						AsBytes(color)
 					);
 				}
 
 				return Res::Ok(Image{
 					.allocator = allocator,
-					.pixels = reinterpret_cast<Color *>(pixelBuffer.pointer),
+					.pixels = reinterpret_cast<Color *>(pixelBuffer.Release().pointer),
 					.dimensions = dimensions,
 				});
 			}
@@ -175,16 +176,19 @@ namespace Ona::Core {
 					int64_t const imageSize = Area(dimensions);
 
 					if (imageSize < SIZE_MAX) {
-						Slice<uint8_t> pixelBuffer = imageAllocator->Allocate(
-							imageSize * sizeof(Color)
-						);
+						DynamicArray<uint8_t> pixelBuffer = {
+							imageAllocator,
+							(imageSize * sizeof(Color))
+						};
+
+						size_t const pixelBufferSize = pixelBuffer.Length();
 
 						// Bitmaps are formatted as BGRA and are also upside down. As I understand
 						// it, this is due to some early decisions made by mathematicians at IBM
 						// that Y increases as it ascends. This wouldn't be as bad if horizontal
 						// coordinates were also inverted, but they're not, so the file has to be
 						// read left-to-right, bottom-to-top.
-						if (pixelBuffer.length) switch (infoHeader->bitCount) {
+						if (pixelBufferSize) switch (infoHeader->bitCount) {
 							case 24: {
 								enum {
 									BytesPerPixel = 3,
@@ -199,13 +203,13 @@ namespace Ona::Core {
 								};
 
 								if (rowBuffer.IsInitialized()) {
-									size_t pixelIndex = (pixelBuffer.length - 1);
+									size_t pixelIndex = (pixelBufferSize - 1);
 
 									file.value.SeekHead(fileHeader->fileOffset);
 
 									for (uint32_t i = 0; i < dimensions.y; i += 1) {
 										size_t destinationIndex =
-											(pixelBuffer.length - (rowBuffer.Length() * (i + 1)));
+											(pixelBufferSize - (rowBuffer.Length() * (i + 1)));
 
 										size_t sourceIndex = 0;
 
@@ -230,12 +234,14 @@ namespace Ona::Core {
 
 									return Res::Ok(Image{
 										.allocator = imageAllocator,
-										.pixels = reinterpret_cast<Color *>(pixelBuffer.pointer),
+
+										.pixels = reinterpret_cast<Color *>(
+											pixelBuffer.Release().pointer
+										),
+
 										.dimensions = dimensions,
 									});
 								}
-
-								imageAllocator->Deallocate(pixelBuffer.pointer);
 
 								// Unable to allocate row buffer.
 								return Res::Fail(ImageError::OutOfMemory);
@@ -254,7 +260,7 @@ namespace Ona::Core {
 
 									for (size_t i = 0; i < dimensions.y; i += 1) {
 										size_t destinationIndex =
-											(pixelBuffer.length - (rowBuffer.Length() * (i + 1)));
+											(pixelBufferSize - (rowBuffer.Length() * (i + 1)));
 
 										size_t sourceIndex = 0;
 
@@ -281,12 +287,14 @@ namespace Ona::Core {
 
 									return Res::Ok(Image{
 										.allocator = imageAllocator,
-										.pixels = reinterpret_cast<Color *>(pixelBuffer.pointer),
+
+										.pixels = reinterpret_cast<Color *>(
+											pixelBuffer.Release().pointer
+										),
+
 										.dimensions = dimensions,
 									});
 								}
-
-								imageAllocator->Deallocate(pixelBuffer.pointer);
 
 								// Unable to allocate row buffer.
 								return Res::Fail(ImageError::OutOfMemory);
