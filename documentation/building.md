@@ -29,9 +29,13 @@ A module is comprised of a module folder (inside `ona/`), a module header (`.hpp
 
 Above is an example of a module configuration file. The file itself dictates the target type, as well as any internal dependencies (under `dependencies`) on top of any external ones (under `libraries`).
 
+To build the engine modules, open a terminal session located in the root of the project folder and type `./build-engine.py`.
+
 ## Extensions
 
 Alongside modules, Ona also supports runtime-loaded extensions in the form of shared libraries (otherwise known as dynamic-link libraries on Windows). Currently, extensions are only permitted to be single-file C++ programs that are placed within `ext/`. During the build process, the script will enter the extensions directory and compile and link each extension source file into its own shared object / DLL.
+
+To build engine extensions, open a terminal session located in the root of the project folder and type `./build-extensions.py`.
 
 ## Dependencies
 
@@ -42,7 +46,3 @@ Building the project is simple, however, it is also expected that you have some 
   * OpenGL (Windows / Linux)
   * SDL2 (Windows / Linux)
   * GLEW (Windows / Linux)
-
-## Building
-
-To build Ona, open a terminal session located in the root of the project folder and type `./build.py`.
