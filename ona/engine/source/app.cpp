@@ -101,6 +101,10 @@ static Context const context = {
 		graphicsServer->DeleteMaterial(*material);
 	},
 
+	.randomF32 = [](float min, float max) -> float {
+		return (min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX) / (max - min)));
+	},
+
 	.renderSprite = [](
 		GraphicsQueue * graphicsQueue,
 		Material * spriteMaterial,
@@ -116,6 +120,8 @@ int main(int argv, char const * const * argc) {
 
 	if (graphicsServer) {
 		LuaConfig config = {};
+
+		srand(time(nullptr));
 
 		if (config.Load(Owned<FileContents>{
 			LoadFile(defaultAllocator, String{"config.lua"})

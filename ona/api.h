@@ -67,9 +67,9 @@ typedef struct Context {
 
 	Allocator *(* defaultAllocator)();
 
-	GraphicsQueue *(*graphicsQueueCreate)();
+	GraphicsQueue *(* graphicsQueueCreate)();
 
-	void(*graphicsQueueFree)(GraphicsQueue * * allocator);
+	void(* graphicsQueueFree)(GraphicsQueue * * allocator);
 
 	bool(* imageSolid)(
 		Allocator * allocator,
@@ -85,6 +85,8 @@ typedef struct Context {
 	Material *(* materialCreate)(Image const * image);
 
 	void(* materialFree)(Material * * material);
+
+	float(* randomF32)(float min, float max);
 
 	void(*renderSprite)(
 		GraphicsQueue * graphicsQueue,
