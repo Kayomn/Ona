@@ -114,18 +114,42 @@ static Context const context = {
 	},
 };
 
+static GraphicsServer * LoadGraphicsServerFromConfig(Config * config) {
+	Owned<ConfigValue> displaySize = {config->ReadGlobal(String{"DisplaySize"})};
+
+	int64_t const displayWidth = config->ValueInteger(
+		Owned<ConfigValue>{config->ReadArray(displaySize.value, 0)}.value
+	);
+
+	int64_t const displayHeight = config->ValueInteger(
+		Owned<ConfigValue>{config->ReadArray(displaySize.value, 1)}.value
+	);
+
+	if ((displayWidth < INT32_MAX) && (displayHeight < INT32_MAX)) {
+		return LoadOpenGl(
+			config->ValueString(
+				Owned<ConfigValue>{config->ReadGlobal(String{"DisplayTitle"})}.value
+			),
+			static_cast<int32_t>(displayWidth),
+			static_cast<int32_t>(displayHeight)
+		);
+	}
+
+	return nullptr;
+}
+
 int main(int argv, char const * const * argc) {
 	Allocator * defaultAllocator = DefaultAllocator();
-	graphicsServer = LoadOpenGl(String{"Ona"}, 640, 480);
+	LuaConfig config = {};
 
-	if (graphicsServer) {
-		LuaConfig config = {};
+	srand(time(nullptr));
 
-		srand(time(nullptr));
+	if (config.IsInitialized() && config.Load(Owned<FileContents>{
+		LoadFile(defaultAllocator, String{"config.lua"})
+	}.value.ToString())) {
+		graphicsServer = LoadGraphicsServerFromConfig(&config);
 
-		if (config.Load(Owned<FileContents>{
-			LoadFile(defaultAllocator, String{"config.lua"})
-		}.value.ToString())) {
+		if (graphicsServer) {
 			Owned<ConfigValue> extensionNames = config.ReadGlobal(String{"Extensions"});
 			uint32_t const extensionsCount = config.ValueLength(extensionNames.value);
 			Events events = {};
