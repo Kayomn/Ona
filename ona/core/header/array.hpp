@@ -91,12 +91,21 @@ namespace Ona::Core {
 				this->allocator->Allocate(sizeof(Type) * length)
 			)};
 
-			// Avoids a branch.
-			this->buffer.length = (length * (this->buffer.pointer != nullptr));
+			if (this->buffer.pointer != nullptr) {
+				this->buffer.length = length;
+
+				// Initialize array contents.
+				for (size_t i = 0; i < length; i += 1) this->buffer.At(i) = Type{};
+			}
 		}
 
 		~DynamicArray() override {
-			if (this->buffer.pointer) this->allocator->Deallocate(this->buffer.pointer);
+			if (this->buffer.pointer) {
+				this->allocator->Deallocate(this->buffer.pointer);
+
+				// Destruct array contents.
+				for (size_t i = 0; i < this->buffer.length; i += 1) this->buffer.At(i).~Type();
+			}
 		}
 
 		Type & At(size_t index) override {
