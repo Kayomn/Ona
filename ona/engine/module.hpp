@@ -56,25 +56,6 @@ namespace Ona::Engine {
 
 	struct Events;
 
-	enum class PropertyType : uint8_t {
-		Int8,
-		Uint8,
-		Int16,
-		Uint16,
-		Int32,
-		Uint32,
-		Float32,
-		Float64
-	};
-
-	struct Property {
-		PropertyType type;
-
-		uint16_t components;
-
-		String name;
-	};
-
 	struct Sprite {
 		Vector3 origin;
 
