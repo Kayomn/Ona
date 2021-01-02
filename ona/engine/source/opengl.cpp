@@ -62,7 +62,7 @@ namespace Ona::Engine {
 		"void main() {\n"
 		"	const vec4 spriteTextureColor = (texture(spriteTexture, texCoords) * texTint);\n"
 		"\n"
-		"	if (spriteTextureColor.a == 0.0) discard;\n"
+		"	if (spriteTextureColor.a < 0.05) discard;\n"
 		"\n"
 		"	outColor = spriteTextureColor;\n"
 		"}\n"
@@ -361,7 +361,7 @@ namespace Ona::Engine {
 				});
 			}
 
-			void RenderSprite(Material * material, Vector3 const & position, Color tint) override {
+			void RenderSprite(Material * material, Sprite const & sprite) override {
 				if (material) {
 					PackedStack<SpriteBatch> * * requiredBatches = this->spriteBatchSets.Require(
 						material,
@@ -392,9 +392,9 @@ namespace Ona::Engine {
 							}
 
 							currentBatch->chunk.transforms[currentBatch->count] = Matrix{
-								static_cast<float>(material->dimensions.x), 0.f, 0.f, position.x,
-								0.f, static_cast<float>(material->dimensions.y), 0.f, position.y,
-								0.f, 0.f, 1.f, 0.f,
+								static_cast<float>(material->dimensions.x), 0.f, 0.f, sprite.origin.x,
+								0.f, static_cast<float>(material->dimensions.y), 0.f, sprite.origin.y,
+								0.f, 0.f, 1.f, sprite.origin.z,
 								0.f, 0.f, 0.f, 1.f
 							};
 
@@ -405,7 +405,7 @@ namespace Ona::Engine {
 								1.f
 							};
 
-							currentBatch->chunk.tints[currentBatch->count] = tint.Normalized();
+							currentBatch->chunk.tints[currentBatch->count] = sprite.tint.Normalized();
 							currentBatch->count += 1;
 						}
 					}

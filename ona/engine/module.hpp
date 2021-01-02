@@ -2,7 +2,6 @@
 #define ENGINE_H
 
 #include "ona/core/module.hpp"
-#include "ona/api.h"
 #include "ona/collections/module.hpp"
 
 namespace Ona::Engine {
@@ -55,7 +54,7 @@ namespace Ona::Engine {
 		Key_Space = 44,
 	};
 
-	using Events = Ona_Events;
+	struct Events;
 
 	enum class PropertyType : uint8_t {
 		Int8,
@@ -76,11 +75,17 @@ namespace Ona::Engine {
 		String name;
 	};
 
+	struct Sprite {
+		Vector3 origin;
+
+		Color tint;
+	};
+
 	struct Material;
 
 	class GraphicsQueue : public Object {
 		public:
-		virtual void RenderSprite(Material * material, Vector3 const & position, Color tint) = 0;
+		virtual void RenderSprite(Material * material, Sprite const & sprite) = 0;
 	};
 
 	class GraphicsServer : public Object {
@@ -134,6 +139,8 @@ namespace Ona::Engine {
 	};
 
 	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height);
+
+	#include "ona/api.h"
 }
 
 #include "ona/engine/header/config.hpp"

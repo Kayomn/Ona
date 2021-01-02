@@ -10,8 +10,10 @@
 
 #define $packed __attribute__ ((packed))
 
+#define $length(arr) (sizeof(arr) / sizeof(*arr))
+
 #define $slice(arr) Ona::Core::Slice<std::remove_reference_t<decltype(*arr)>>{\
-	.length = (sizeof(arr) / sizeof(*arr)),\
+	.length = $length(arr),\
 	.pointer = arr\
 }
 

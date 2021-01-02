@@ -4,16 +4,16 @@ using namespace Ona::Core;
 using namespace Ona::Collections;
 using namespace Ona::Engine;
 
-using ModuleInitializer = bool(*)(Ona_Context const * ona);
+using ModuleInitializer = bool(*)(Context const * ona);
 
 struct System {
 	void * userdata;
 
-	decltype(Ona_SystemInfo::init) initializer;
+	decltype(SystemInfo::init) initializer;
 
-	decltype(Ona_SystemInfo::process) processor;
+	decltype(SystemInfo::process) processor;
 
-	decltype(Ona_SystemInfo::exit) finalizer;
+	decltype(SystemInfo::exit) finalizer;
 };
 
 static PackedStack<Library> extensions = {DefaultAllocator()};
@@ -22,8 +22,8 @@ static PackedStack<System> systems = {DefaultAllocator()};
 
 static GraphicsServer * graphicsServer = nullptr;
 
-static Ona_Context const context = {
-	.spawnSystem = [](Ona_SystemInfo const * info) {
+static Context const context = {
+	.spawnSystem = [](SystemInfo const * info) {
 		void * userdata = DefaultAllocator()->Allocate(info->size).pointer;
 
 		if (userdata && systems.Push(System{
@@ -40,19 +40,19 @@ static Ona_Context const context = {
 
 	.defaultAllocator = DefaultAllocator,
 
-	.graphicsQueueCreate = []() -> Ona_GraphicsQueue * {
-		return reinterpret_cast<Ona_GraphicsQueue *>(graphicsServer->CreateQueue());
+	.graphicsQueueCreate = []() -> GraphicsQueue * {
+		return reinterpret_cast<GraphicsQueue *>(graphicsServer->CreateQueue());
 	},
 
-	.graphicsQueueFree = [](Ona_GraphicsQueue * * queue) {
+	.graphicsQueueFree = [](GraphicsQueue * * queue) {
 		graphicsServer->DeleteQueue(*reinterpret_cast<GraphicsQueue * *>(queue));
 	},
 
 	.imageSolid = [](
-		Ona_Allocator * allocator,
-		Ona_Point2 dimensions,
-		Ona_Color color,
-		Ona_Image * result
+		Allocator * allocator,
+		Point2 dimensions,
+		Color color,
+		Image * result
 	) -> bool {
 		Result<Image, ImageError> imageResult = Image::Solid(allocator, dimensions, color);
 
@@ -69,14 +69,14 @@ static Ona_Context const context = {
 		return false;
 	},
 
-	.imageFree = [](Ona_Image * image) {
+	.imageFree = [](Image * image) {
 		image->Free();
 	},
 
 	.imageLoadBitmap = [](
-		Ona_Allocator * allocator,
+		Allocator * allocator,
 		char const * fileName,
-		Ona_Image * result
+		Image * result
 	) -> bool {
 		Result<Image, ImageError> imageResult = LoadBitmap(allocator, String{fileName});
 
@@ -93,24 +93,22 @@ static Ona_Context const context = {
 		return false;
 	},
 
-	.materialCreate = [](Ona_Image const * image) -> Ona_Material * {
-		return reinterpret_cast<Ona_Material *>(graphicsServer->CreateMaterial(*image));
+	.materialCreate = [](Image const * image) -> Material * {
+		return reinterpret_cast<Material *>(graphicsServer->CreateMaterial(*image));
 	},
 
-	.materialFree = [](Ona_Material * * material) {
+	.materialFree = [](Material * * material) {
 		graphicsServer->DeleteMaterial(*reinterpret_cast<Material * *>(material));
 	},
 
 	.renderSprite = [](
-		Ona_GraphicsQueue * graphicsQueue,
-		Ona_Material * spriteMaterial,
-		Ona_Vector3 const * position,
-		Ona_Color tint
+		GraphicsQueue * graphicsQueue,
+		Material * spriteMaterial,
+		Sprite const * sprite
 	) {
 		reinterpret_cast<GraphicsQueue *>(graphicsQueue)->RenderSprite(
 			reinterpret_cast<Material *>(spriteMaterial),
-			*position,
-			tint
+			*sprite
 		);
 	},
 };
