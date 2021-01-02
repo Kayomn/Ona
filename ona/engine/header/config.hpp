@@ -36,6 +36,8 @@ namespace Ona::Engine {
 
 		virtual ConfigValue ReadGlobal(String const & name) = 0;
 
+		virtual int64_t ValueInteger(ConfigValue const & value) = 0;
+
 		virtual uint32_t ValueLength(ConfigValue const & value) = 0;
 
 		virtual String ValueString(ConfigValue const & value) = 0;
@@ -74,6 +76,8 @@ namespace Ona::Engine {
 		ConfigValue ReadArray(ConfigValue const & array, uint32_t index) override;
 
 		ConfigValue ReadGlobal(String const & name) override;
+
+		int64_t ValueInteger(ConfigValue const & value) override;
 
 		uint32_t ValueLength(ConfigValue const & value) override;
 

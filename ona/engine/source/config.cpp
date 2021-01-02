@@ -116,6 +116,16 @@ namespace Ona::Engine {
 		};
 	}
 
+	int64_t LuaConfig::ValueInteger(ConfigValue const & value) {
+		lua_rawgeti(this->state, LUA_REGISTRYINDEX, static_cast<lua_Integer>(value.handle));
+
+		lua_Integer const integer = lua_tointeger(this->state, -1);
+
+		lua_pop(this->state, -1);
+
+		return static_cast<int64_t>(integer);
+	}
+
 	uint32_t LuaConfig::ValueLength(ConfigValue const & value) {
 		lua_rawgeti(this->state, LUA_REGISTRYINDEX, static_cast<lua_Integer>(value.handle));
 
