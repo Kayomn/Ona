@@ -179,6 +179,11 @@ namespace Ona::Core {
 							imageSize * sizeof(Color)
 						);
 
+						// Bitmaps are formatted as BGRA and are also upside down. As I understand
+						// it, this is due to some early decisions made by mathematicians at IBM
+						// that Y increases as it ascends. This wouldn't be as bad if horizontal
+						// coordinates were also inverted, but they're not, so the file has to be
+						// read left-to-right, bottom-to-top.
 						if (pixelBuffer.length) switch (infoHeader->bitCount) {
 							case 24: {
 								enum {
@@ -193,23 +198,33 @@ namespace Ona::Core {
 									(rowWidth + BytesPerPixel) & (~BytesPerPixel)
 								};
 
-								Slice<uint8_t> rowBufferValues = rowBuffer.Values();
-
 								if (rowBuffer.IsInitialized()) {
 									size_t pixelIndex = (pixelBuffer.length - 1);
 
 									file.value.SeekHead(fileHeader->fileOffset);
 
 									for (uint32_t i = 0; i < dimensions.y; i += 1) {
-										file.value.Read(rowBufferValues);
+										size_t destinationIndex =
+											(pixelBuffer.length - (rowBuffer.Length() * (i + 1)));
 
-										for (uint32_t j = 0; j < rowWidth; j += BytesPerPixel) {
+										size_t sourceIndex = 0;
+
+										file.value.Read(rowBuffer.Values());
+
+										while (sourceIndex < rowBuffer.Length()) {
 											// Swap around BGR -> RGB and write alpha channel.
-											pixelBuffer.At(pixelIndex - 3) = rowBuffer.At(j + 2);
-											pixelBuffer.At(pixelIndex - 2) = rowBuffer.At(j + 1);
-											pixelBuffer.At(pixelIndex - 1) = rowBuffer.At(j);
-											pixelBuffer.At(pixelIndex) = 0xFF;
-											pixelIndex -= sizeof(Color);
+											pixelBuffer.At(destinationIndex) =
+												rowBuffer.At(sourceIndex + 2);
+
+											pixelBuffer.At(destinationIndex + 1) =
+												rowBuffer.At(sourceIndex + 1);
+
+											pixelBuffer.At(destinationIndex + 2) =
+												rowBuffer.At(sourceIndex);
+
+											pixelBuffer.At(destinationIndex + 3) = 0xFF;
+											sourceIndex += BytesPerPixel;
+											destinationIndex += BytesPerPixel;
 										}
 									}
 
@@ -233,23 +248,34 @@ namespace Ona::Core {
 
 								uint64_t const rowWidth = (dimensions.x * BytesPerPixel);
 								DynamicArray<uint8_t> rowBuffer = {imageAllocator, rowWidth};
-								Slice<uint8_t> rowBufferValues = rowBuffer.Values();
 
 								if (rowBuffer.IsInitialized()) {
-									size_t pixelIndex = (pixelBuffer.length - 1);
-
 									file.value.SeekHead(fileHeader->fileOffset);
 
-									for (uint32_t i = 0; i < dimensions.y; i += 1) {
-										file.value.Read(rowBufferValues);
+									for (size_t i = 0; i < dimensions.y; i += 1) {
+										size_t destinationIndex =
+											(pixelBuffer.length - (rowBuffer.Length() * (i + 1)));
 
-										for (uint32_t j = 0; j < rowWidth; j += BytesPerPixel) {
+										size_t sourceIndex = 0;
+
+										file.value.Read(rowBuffer.Values());
+
+										while (sourceIndex < rowBuffer.Length()) {
 											// Swap around BGRA -> RGBA.
-											pixelBuffer.At(pixelIndex - 3) = rowBuffer.At(j + 2);
-											pixelBuffer.At(pixelIndex - 2) = rowBuffer.At(j + 1);
-											pixelBuffer.At(pixelIndex - 1) = rowBuffer.At(j);
-											pixelBuffer.At(pixelIndex) = rowBuffer.At(j + 3);
-											pixelIndex -= sizeof(Color);
+											pixelBuffer.At(destinationIndex) =
+												rowBuffer.At(sourceIndex + 2);
+
+											pixelBuffer.At(destinationIndex + 1) =
+												rowBuffer.At(sourceIndex + 1);
+
+											pixelBuffer.At(destinationIndex + 2) =
+												rowBuffer.At(sourceIndex);
+
+											pixelBuffer.At(destinationIndex + 3) =
+												rowBuffer.At(sourceIndex + 3);
+
+											sourceIndex += BytesPerPixel;
+											destinationIndex += BytesPerPixel;
 										}
 									}
 
