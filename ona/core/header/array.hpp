@@ -87,16 +87,12 @@ namespace Ona::Core {
 
 		public:
 		DynamicArray(Allocator * allocator, size_t length) : allocator{allocator} {
-			if (length) {
-				this->buffer = this->allocator->Allocate(sizeof(Type) * length).template As<Type>();
-			} else {
-				// Initialize dynamic array pointer to non-zero but invalid address so that it is
-				// empty but not considered invalid by "IsInitialized".
-				this->buffer = Slice<Type>{
-					.length = 0,
-					.pointer = reinterpret_cast<Type *>(0x1)
-				};
-			}
+			this->buffer = Slice<Type>{.pointer = reinterpret_cast<Type *>(
+				this->allocator->Allocate(sizeof(Type) * length)
+			)};
+
+			// Avoids a branch.
+			this->buffer.length = (length * (this->buffer.pointer != nullptr));
 		}
 
 		~DynamicArray() override {
@@ -111,10 +107,6 @@ namespace Ona::Core {
 			return this->buffer.At(index);
 		}
 
-		bool IsInitialized() const override {
-			return (this->buffer.pointer != nullptr);
-		}
-
 		size_t Length() const override {
 			return this->buffer.length;
 		}
@@ -125,6 +117,13 @@ namespace Ona::Core {
 
 		Type const * Pointer() const override {
 			return this->buffer.pointer;
+		}
+
+		Slice<Type> Release() {
+			Slice<Type> slice = this->buffer;
+			this->buffer = Slice<Type>{};
+
+			return this->buffer;
 		}
 
 		Slice<Type> Sliced(size_t a, size_t b) override {
