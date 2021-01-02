@@ -8,7 +8,7 @@ namespace Ona::Collections {
 
 		virtual ValueType const & Peek() const = 0;
 
-		virtual void Pop() = 0;
+		virtual void Pop(size_t n) = 0;
 
 		virtual ValueType * Push(ValueType const & value) = 0;
 	};
@@ -89,8 +89,8 @@ namespace Ona::Collections {
 			return this->values.At(this->count - 1);
 		}
 
-		void Pop() override {
-			this->count -= 1;
+		void Pop(size_t n) override {
+			this->count -= n;
 		}
 
 		ValueType * Push(ValueType const & value) override {

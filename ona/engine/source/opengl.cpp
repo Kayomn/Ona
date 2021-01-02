@@ -314,9 +314,11 @@ namespace Ona::Engine {
 				Chunk chunk;
 			};
 
+			float depthSort;
+
 			HashTable<Material *, PackedStack<SpriteBatch> *> spriteBatchSets;
 
-			OpenGLGraphicsQueue(Allocator * allocator) : spriteBatchSets{allocator} {
+			OpenGLGraphicsQueue(Allocator * allocator) : spriteBatchSets{allocator}, depthSort{} {
 
 			}
 
@@ -340,78 +342,79 @@ namespace Ona::Engine {
 					PackedStack<SpriteBatch> * spriteBatches
 				) {
 					if (spriteMaterial) {
-						while (spriteBatches->Count()) {
-							SpriteBatch * spriteBatch = (&spriteBatches->Peek());
-
-							resources.shader->WriteRenderdata(AsBytes(spriteBatch->chunk));
+						// Dispatch all of the queued sprite batches.
+						spriteBatches->ForValues([spriteMaterial, &resources](
+							SpriteBatch & spriteBatch
+						) {
+							resources.shader->WriteRenderdata(AsBytes(spriteBatch.chunk));
 
 							resources.shader->DrawPolyInstanced(
 								(*resources.polyBuffer),
 								*spriteMaterial,
-								spriteBatch->count
+								spriteBatch.count
 							);
 
-							spriteBatch->count = 0;
+							spriteBatch.count = 0;
+						});
 
-							spriteBatches->Pop();
-						}
-
-						spriteBatches->Push(SpriteBatch{});
+						// Pop everything but the first sprite batch.
+						spriteBatches->Pop(spriteBatches->Count() - 1);
 					}
+
+					this->depthSort = 0;
 				});
 			}
 
 			void RenderSprite(Material * material, Sprite const & sprite) override {
-				if (material) {
-					PackedStack<SpriteBatch> * * requiredBatches = this->spriteBatchSets.Require(
-						material,
+				PackedStack<SpriteBatch> * * requiredBatches = this->spriteBatchSets.Require(
+					material,
 
-						[]() -> PackedStack<SpriteBatch> * {
-							auto spriteBatches = new PackedStack<SpriteBatch>{DefaultAllocator()};
+					[]() -> PackedStack<SpriteBatch> * {
+						auto spriteBatches = new PackedStack<SpriteBatch>{DefaultAllocator()};
 
-							spriteBatches->Push(SpriteBatch{});
+						spriteBatches->Push(SpriteBatch{});
 
-							return spriteBatches;
-						}
-					);
-
-					if (requiredBatches) {
-						PackedStack<SpriteBatch> * batches = *requiredBatches;
-
-						if (batches && batches->Count()) {
-							SpriteBatch * currentBatch = (&batches->Peek());
-
-							if (currentBatch->count == SpriteBatch::Chunk::Max) {
-								currentBatch = batches->Push(SpriteBatch{});
-
-								if (!currentBatch) {
-									// Out of memory.
-									// TODO: Record failed render.
-									return;
-								}
-							}
-
-							currentBatch->chunk.transforms[currentBatch->count] = Matrix{
-								static_cast<float>(material->dimensions.x), 0.f, 0.f, sprite.origin.x,
-								0.f, static_cast<float>(material->dimensions.y), 0.f, sprite.origin.y,
-								0.f, 0.f, 1.f, sprite.origin.z,
-								0.f, 0.f, 0.f, 1.f
-							};
-
-							currentBatch->chunk.viewports[currentBatch->count] = Vector4{
-								0.f,
-								0.f,
-								1.f,
-								1.f
-							};
-
-							currentBatch->chunk.tints[currentBatch->count] = sprite.tint.Normalized();
-							currentBatch->count += 1;
-						}
+						return spriteBatches;
 					}
+				);
 
-					// TODO: Record failed render.
+				if (requiredBatches) {
+					PackedStack<SpriteBatch> * batches = *requiredBatches;
+
+					if (batches && batches->Count()) {
+						SpriteBatch * currentBatch = (&batches->Peek());
+
+						if (currentBatch->count == SpriteBatch::Chunk::Max) {
+							currentBatch = batches->Push(SpriteBatch{});
+
+							if (!currentBatch) {
+								// Out of memory.
+								// TODO: Record failed render.
+								return;
+							}
+						}
+
+						currentBatch->chunk.transforms[currentBatch->count] = Matrix{
+							static_cast<float>(material->dimensions.x), 0.f, 0.f, sprite.origin.x,
+							0.f, static_cast<float>(material->dimensions.y), 0.f, sprite.origin.y,
+							0.f, 0.f, 1.f, (sprite.origin.z + this->depthSort),
+							0.f, 0.f, 0.f, 1.f
+						};
+
+						currentBatch->chunk.viewports[currentBatch->count] = Vector4{
+							0.f,
+							0.f,
+							1.f,
+							1.f
+						};
+
+						currentBatch->chunk.tints[currentBatch->count] = sprite.tint.Normalized();
+						currentBatch->count += 1;
+						this->depthSort += 0.1f;
+					}
 				}
+
+				// TODO: Record failed render.
 			}
 		};
 

@@ -47,7 +47,7 @@ struct PlayerController {
 		};
 
 		Sprite player = {
-			.origin = Vector3{this->playerPosition.x, this->playerPosition.y, 0.1f},
+			.origin = Vector3{this->playerPosition.x, this->playerPosition.y},
 			.tint = Color{0xFF, 0xFF, 0xFF, 0xFF},
 		};
 
