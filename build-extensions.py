@@ -3,6 +3,7 @@
 from subprocess import call
 from os import path, listdir, mkdir
 
+common_flags = ["-g", "-fno-exceptions", "-std=c++17", "-I.", "-fPIC"]
 extensions_path = "ext"
 compiler = "clang++"
 
