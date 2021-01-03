@@ -110,12 +110,18 @@ namespace Ona::Collections {
 		}
 
 		bool Reserve(size_t capacity) {
-			this->values = this->allocator->Reallocate(
-				this->values.pointer,
-				((this->values.length + capacity) * sizeof(ValueType))
-			).template As<ValueType>();
+			size_t const newLength = (this->values.length + capacity);
 
-			return (this->values.length != 0);
+			this->values.pointer = reinterpret_cast<ValueType *>(this->allocator->Reallocate(
+				this->values.pointer,
+				(newLength * sizeof(ValueType))
+			));
+
+			bool const success = (this->values.pointer != nullptr);
+
+			this->values.length = (newLength * success);
+
+			return success;
 		}
 	};
 }

@@ -65,7 +65,7 @@ namespace Ona::Collections {
 				return bucket;
 			} else {
 				Bucket * bucket = reinterpret_cast<Bucket *>(
-					this->allocator->Allocate(sizeof(Bucket)).pointer
+					this->allocator->Allocate(sizeof(Bucket))
 				);
 
 				if (bucket) {
@@ -264,11 +264,15 @@ namespace Ona::Collections {
 		bool Rehash(size_t tableSize) {
 			Slice<Bucket *> oldBuckets = this->buckets;
 
-			this->buckets = ZeroMemory(this->allocator->Allocate(
+			this->buckets.pointer = reinterpret_cast<Bucket * *>(this->allocator->Allocate(
 				tableSize * sizeof(size_t)
-			)).template As<Bucket *>();
+			));
 
-			if (this->buckets.length) {
+			if (this->buckets.pointer) {
+				this->buckets.length = tableSize;
+
+				ZeroMemory(this->buckets.AsBytes());
+
 				if (oldBuckets.length && this->count) {
 					for (size_t i = 0; i < this->buckets.length; i += 1)  {
 						Bucket * bucket = oldBuckets.At(i);
