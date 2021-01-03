@@ -82,7 +82,7 @@ def build(name: str) -> BuildInfo:
 
 	header_path = path.join(module_path, "module.hpp")
 	header_folder_path = path.join(module_path, "header")
-	needs_recompile = (not path.exists(binary_path))
+	needs_recompile |= (not path.exists(binary_path))
 
 	# A re-compilation is needed if the module header is newer than the output binary.
 	if (not needs_recompile):
