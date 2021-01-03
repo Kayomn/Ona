@@ -12,11 +12,6 @@
 
 #define $length(arr) (sizeof(arr) / sizeof(*arr))
 
-#define $slice(arr) Ona::Core::Slice<std::remove_reference_t<decltype(*arr)>>{\
-	.length = $length(arr),\
-	.pointer = arr\
-}
-
 #include "ona/core/header/math.hpp"
 
 namespace Ona::Core {
