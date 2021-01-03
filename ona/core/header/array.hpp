@@ -75,7 +75,9 @@ namespace Ona::Core {
 		/**
 		 * Initializes the contents with the default values of `Type`.
 		 */
-		InlineArray() = default;
+		InlineArray() {
+			for (size_t i = 0; i < Len; i += 1) this->buffer[i] = Type{};
+		}
 
 		/**
 		 * Initializes the contents with the contents of `values`.
