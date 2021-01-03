@@ -7,7 +7,7 @@ from concurrent import futures
 import json
 
 processed_dependencies = []
-common_flags = ["-g", "-fno-exceptions", "-std=c++17", "-I.", "-fPIC"]
+common_flags = ["-g", "-fno-exceptions", "-std=c++17", "-I."]
 assets_path = "./assets"
 output_path = "./output"
 input_path = "ona"
