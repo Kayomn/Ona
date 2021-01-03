@@ -27,6 +27,14 @@ namespace Ona::Core {
 		public:
 		InlineArray() = default;
 
+		InlineArray(Type (&values)[Len]) {
+			for (size_t i = 0; i < Len; i += 1) this->buffer[i] = values[i];
+		}
+
+		InlineArray(Type (&&values)[Len]) {
+			for (size_t i = 0; i < Len; i += 1) this->buffer[i] = std::move(values[i]);
+		}
+
 		Type & At(size_t index) override {
 			assert(index < Len);
 
