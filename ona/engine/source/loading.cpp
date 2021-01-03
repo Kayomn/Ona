@@ -251,6 +251,8 @@ namespace Ona::Engine {
 									});
 								}
 
+								fileServer->CloseFile(file);
+
 								// Unable to allocate row buffer.
 								return Res::Fail(ImageError::OutOfMemory);
 							} break;
