@@ -132,7 +132,7 @@ namespace Ona::Core {
 			Slice<Type> slice = this->buffer;
 			this->buffer = Slice<Type>{};
 
-			return this->buffer;
+			return slice;
 		}
 
 		Slice<Type> Sliced(size_t a, size_t b) override {
