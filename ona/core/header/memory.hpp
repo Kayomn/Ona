@@ -20,6 +20,8 @@ namespace Ona::Core {
 		}
 	};
 
+	Allocator * DefaultAllocator();
+
 	size_t CopyMemory(Slice<uint8_t> destination, Slice<uint8_t const> const & source);
 
 	Slice<uint8_t> WriteMemory(Slice<uint8_t> destination, uint8_t value);

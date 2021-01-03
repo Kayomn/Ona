@@ -1,5 +1,7 @@
 #include "ona/engine/module.hpp"
 
+#include "dlfcn.h"
+
 using namespace Ona::Core;
 using namespace Ona::Collections;
 using namespace Ona::Engine;
@@ -16,15 +18,15 @@ struct System {
 	decltype(SystemInfo::exit) finalizer;
 };
 
-static PackedStack<Library> extensions = {DefaultAllocator()};
-
 static PackedStack<System> systems = {DefaultAllocator()};
+
+static FileServer * fileServer = nullptr;
 
 static GraphicsServer * graphicsServer = nullptr;
 
 static Context const context = {
 	.spawnSystem = [](SystemInfo const * info) {
-		void * userdata = DefaultAllocator()->Allocate(info->size).pointer;
+		void * userdata = DefaultAllocator()->Allocate(info->size);
 
 		if (userdata && systems.Push(System{
 			.userdata = userdata,
@@ -78,7 +80,7 @@ static Context const context = {
 		char const * fileName,
 		Image * result
 	) -> bool {
-		Result<Image, ImageError> imageResult = LoadBitmap(allocator, String{fileName});
+		Result<Image, ImageError> imageResult = LoadBitmap(allocator, fileServer, String{fileName});
 
 		if (imageResult.IsOk()) {
 			if (result) {
@@ -140,67 +142,81 @@ static GraphicsServer * LoadGraphicsServerFromConfig(Config * config) {
 
 int main(int argv, char const * const * argc) {
 	Allocator * defaultAllocator = DefaultAllocator();
-	LuaConfig config = {};
+	fileServer = LoadFilesystem();
 
-	srand(time(nullptr));
+	LuaConfig config = {[](String const & message) {
+		File outFile = fileServer->OutFile();
 
-	if (config.IsInitialized() && config.Load(Owned<FileContents>{
-		LoadFile(defaultAllocator, String{"config.lua"})
-	}.value.ToString())) {
-		graphicsServer = LoadGraphicsServerFromConfig(&config);
+		fileServer->Print(outFile, message);
+	}};
 
-		if (graphicsServer) {
-			Owned<ConfigValue> extensionNames = config.ReadGlobal(String{"Extensions"});
-			uint32_t const extensionsCount = config.ValueLength(extensionNames.value);
-			Events events = {};
+	if (fileServer && config.IsInitialized()) {
+		String configSource = LoadText(defaultAllocator, fileServer, String{"config.lua"});
 
-			for (uint32_t i = 0; i < extensionsCount; i += 1) {
-				String moduleName = config.ValueString(Owned<ConfigValue>{
-					config.ReadArray(extensionNames.value, i)
-				}.value);
+		if (configSource.Length()) {
+			srand(time(nullptr));
 
-				Library moduleLibrary = OpenLibrary(String::Concat({moduleName, String{".so"}}));
+			if (config.Load(configSource)) {
+				graphicsServer = LoadGraphicsServerFromConfig(&config);
 
-				if (moduleLibrary.IsOpen()) {
-					auto initializer = reinterpret_cast<ModuleInitializer>(
-						moduleLibrary.FindSymbol(String{"OnaInit"})
-					);
+				if (graphicsServer) {
+					PackedStack<void *> extensions = {DefaultAllocator()};
+					Owned<ConfigValue> extensionNames = config.ReadGlobal(String{"Extensions"});
+					uint32_t const extensionsCount = config.ValueLength(extensionNames.value);
+					Events events = {};
 
-					if (initializer) initializer(&context);
+					for (uint32_t i = 0; i < extensionsCount; i += 1) {
+						String moduleName = config.ValueString(Owned<ConfigValue>{
+							config.ReadArray(extensionNames.value, i)
+						}.value);
 
-					extensions.Push(moduleLibrary);
+						void * moduleLibrary = dlopen(String::Concat({
+							moduleName,
+							String{".so"}
+						}).ZeroSentineled().Chars().pointer, RTLD_LAZY);
+
+						if (moduleLibrary) {
+							auto initializer = reinterpret_cast<ModuleInitializer>(
+								dlsym(moduleLibrary, "OnaInit")
+							);
+
+							if (initializer) initializer(&context);
+
+							extensions.Push(moduleLibrary);
+						}
+					}
+
+					systems.ForValues([](System const & system) {
+						if (system.initializer) system.initializer(system.userdata, &context);
+					});
+
+					while (graphicsServer->ReadEvents(&events)) {
+						graphicsServer->Clear();
+
+						systems.ForValues([&events](System const & system) {
+							if (system.processor) {
+								system.processor(
+									system.userdata,
+									&events,
+									&context
+								);
+							}
+						});
+
+						graphicsServer->Update();
+					}
+
+					systems.ForValues([](System const & system) {
+						if (system.finalizer) system.finalizer(system.userdata, &context);
+
+						DefaultAllocator()->Deallocate(system.userdata);
+					});
+
+					extensions.ForValues([](void * extension) {
+						dlclose(extension);
+					});
 				}
 			}
-
-			systems.ForValues([](System const & system) {
-				if (system.initializer) system.initializer(system.userdata, &context);
-			});
-
-			while (graphicsServer->ReadEvents(&events)) {
-				graphicsServer->Clear();
-
-				systems.ForValues([&events](System const & system) {
-					if (system.processor) {
-						system.processor(
-							system.userdata,
-							&events,
-							&context
-						);
-					}
-				});
-
-				graphicsServer->Update();
-			}
-
-			systems.ForValues([](System const & system) {
-				if (system.finalizer) system.finalizer(system.userdata, &context);
-
-				DefaultAllocator()->Deallocate(system.userdata);
-			});
-
-			extensions.ForValues([](Library & module_) {
-				module_.Free();
-			});
 		}
 	}
 }

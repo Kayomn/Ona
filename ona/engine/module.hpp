@@ -8,53 +8,151 @@ namespace Ona::Engine {
 	using namespace Ona::Collections;
 	using namespace Ona::Core;
 
-	enum {
-		Key_A = 4,
-		Key_B = 5,
-		Key_C = 6,
-		Key_D = 7,
-		Key_E = 8,
-		Key_F = 9,
-		Key_G = 10,
-		Key_H = 11,
-		Key_I = 12,
-		Key_J = 13,
-		Key_K = 14,
-		Key_L = 15,
-		Key_M = 16,
-		Key_N = 17,
-		Key_O = 18,
-		Key_P = 19,
-		Key_Q = 20,
-		Key_R = 21,
-		Key_S = 22,
-		Key_T = 23,
-		Key_U = 24,
-		Key_V = 25,
-		Key_W = 26,
-		Key_X = 27,
-		Key_Y = 28,
-		Key_Z = 29,
+	struct Events;
 
-		Key_1 = 30,
-		Key_2 = 31,
-		Key_3 = 32,
-		Key_4 = 33,
-		Key_5 = 34,
-		Key_6 = 35,
-		Key_7 = 36,
-		Key_8 = 37,
-		Key_9 = 38,
-		Key_0 = 39,
+	class FileServer;
 
-		Key_Return = 40,
-		Key_Escape = 41,
-		Key_Backspace = 42,
-		Key_Tab = 43,
-		Key_Space = 44,
+	struct File {
+		/**
+		 * Bitflags used for indicating the access state of a `File`.
+		 */
+		enum OpenFlags {
+			OpenUnknown = 0,
+			OpenRead = 0x1,
+			OpenWrite = 0x2
+		};
+
+		FileServer * server;
+
+		void * userdata;
 	};
 
-	struct Events;
+	class FileServer : public Object {
+		public:
+		/**
+		 * Checks that the file at `filePath` is accessible to the program.
+		 *
+		 * An inaccessible file may not exist or may be outside of the process permissions to read.
+		 */
+		virtual bool CheckFile(String const & filePath) = 0;
+
+		/**
+		 * Closes the file access referenced by `file`.
+		 *
+		 * Closing a closed `file` or `file` that does not belong to the `FileServer` does nothing.
+		 */
+		virtual void CloseFile(File & file) = 0;
+
+		/**
+		 * Attempts to open the file at `filePath` into `file` using `openFlags` for access
+		 * permissions.
+		 */
+		virtual bool OpenFile(String const & filePath, File & file, File::OpenFlags openFlags) = 0;
+
+		/**
+		 * Attempts to get a `File` connected to the standard output.
+		 *
+		 * The returned file *does not need to be* and *should not be* freed by the callsite.
+		 *
+		 * An empty `File` may be returned if the `FileServer` does not support output files at the
+		 * time or at any time. It is safe to attempt to write to and read from it in any case.
+		 */
+		virtual File OutFile() = 0;
+
+		/**
+		 * Attempts to print the contents of `string` to the file at `file`.
+		 *
+		 * Printing to a closed `file` or `file` that does not belong to the `FileServer` does
+		 * nothing.
+		 *
+		 * While the operation may fail, the API deems failure to print `String`s as unimportant and
+		 * therefore does not expose any error handling for it.
+		 */
+		virtual void Print(File & file, String const & string) = 0;
+
+		/**
+		 * Attempts to read the contents of the file at `file` into the buffer pointer to in
+		 * `output`.
+		 *
+		 * Reading from a closed `file` or `file` that does not belong to the `FileServer` does
+		 * nothing.
+		 *
+		 * The number of bytes actually read into `output` are returned.
+		 */
+		virtual size_t Read(File & file, Slice<uint8_t> output) = 0;
+
+		/**
+		 * Attempts to seek `offset` bytes into the file at `file` from the file beginning.
+		 *
+		 * Seeking a closed `file` or `file` that does not belong to the `FileServer` does nothing.
+		 *
+		 * The number of bytes actually sought are returned.
+		 */
+		virtual int64_t SeekHead(File & file, int64_t offset) = 0;
+
+		/**
+		 * Attempts to seek `offset` bytes into the file at `file` from the file end.
+		 *
+		 * Seeking a closed `file` or `file` that does not belong to the `FileServer` does nothing.
+		 *
+		 * The number of bytes actually sought are returned.
+		 */
+		virtual int64_t SeekTail(File & file, int64_t offset) = 0;
+
+		/**
+		 * Attempts to seek `offset` bytes into the file at `file` from the current file cursor
+		 * position.
+		 *
+		 * Seeking a closed `file` or `file` that does not belong to the `FileServer` does nothing.
+		 *
+		 * The number of bytes actually sought are returned.
+		 */
+		virtual int64_t Skip(File & file, int64_t offset) = 0;
+
+		/**
+		 * Attempts to write the contents of the buffer pointed to in `input` into the contents of
+		 * `file`.
+		 *
+		 * Writing to a closed `file` or `file` that does not belong to the `FileServer` does
+		 * nothing.
+		 *
+		 * The number of bytes actually written to the file are returned.
+		 */
+		virtual size_t Write(File & file, Slice<uint8_t const> const & input) = 0;
+	};
+
+	/**
+	 * Attempts to load access to the operating system filesystem as a `FileServer`.
+	 */
+	FileServer * LoadFilesystem();
+
+	/**
+	 * Loads the text contents of the file at `filePath` from `fileServer` into memory using
+	 * `tempAllocator` to allocate the temporary buffer used in between reading it into memory and
+	 * converting the memory contents to a `String`.
+	 *
+	 * Failure to load a file from the given `filePath` and `fileServer` will result in an empty
+	 * `String` being returned.
+	 */
+	String LoadText(Allocator * tempAllocator, FileServer * fileServer, String const & filePath);
+
+	/**
+	 * Attempts to load the contents of the file at `filePath` from `fileServer` into memory as a
+	 * bitmap using `imageAllocator` as the dynamic memory allocator for the `Image` pixels.
+	 *
+	 * Failure to load a file from the given `filePath` and `fileServer` will result in a 32x32
+	 * placeholder image being allocated and returned instead. A file I/O failure is not considered
+	 * an error by `LoadBitmap`, so the only two failstates remain the two represented by
+	 * `ImageError`.
+	 *
+	 * `LoadBitmap` supports 24-bit and 32-bit BGRA-encoded uncompressed bitmaps. Any other formats
+	 * will result in `ImageError::UnsupportedFormat`
+	 */
+	Result<Image, ImageError> LoadBitmap(
+		Allocator * imageAllocator,
+		FileServer * fileServer,
+		String const & filePath
+	);
 
 	struct Sprite {
 		Vector3 origin;

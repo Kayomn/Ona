@@ -7,9 +7,7 @@ namespace Ona::Engine {
 		this->config->FreeValue(*this);
 	}
 
-	LuaConfig::LuaConfig() : LuaConfig{[](String const & message) {
-		OutFile().Print(message);
-	}} {
+	LuaConfig::LuaConfig() : LuaConfig{ErrorReporter{}} {
 
 	}
 

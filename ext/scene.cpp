@@ -19,10 +19,7 @@ struct SceneController {
 		this->graphicsQueue = ona->graphicsQueueCreate();
 
 		for (size_t i = 0; i < ActorsMax; i += 1) {
-			this->actors[i] = Vector2{
-				std::ceil(ona->randomF32(0, 640)),
-				std::ceil(ona->randomF32(0, 480))
-			};
+			this->actors[i] = Vector2{ona->randomF32(0, 640), ona->randomF32(0, 480)};
 		}
 
 		if (ona->imageLoadBitmap(allocator, "./actor.bmp", &actorImage)) {
@@ -33,13 +30,34 @@ struct SceneController {
 	}
 
 	void Process(Events const * events, Context const * ona) {
+		float const deltaSpeed = (events->deltaTime * 0.25f);
+
 		Sprite actorSprite = {
 			.origin = Vector3{},
 			.tint = Color{0xFF, 0xFF, 0xFF, 0xFF},
 		};
 
+		if (events->keysHeld[KeyW]) {
+			this->actors[0].y -= deltaSpeed;
+		}
+
+		if (events->keysHeld[KeyA]) {
+			this->actors[0].x -= deltaSpeed;
+		}
+
+		if (events->keysHeld[KeyS]) {
+			this->actors[0].y += deltaSpeed;
+		}
+
+		if (events->keysHeld[KeyD]) {
+			this->actors[0].x += deltaSpeed;
+		}
+
 		for (size_t i = 0; i < ActorsMax; i += 1) {
-			actorSprite.origin = Vector3{this->actors[i].x, this->actors[i].y};
+			actorSprite.origin = Vector3{
+				std::ceil(this->actors[i].x),
+				std::ceil(this->actors[i].y)
+			};
 
 			ona->renderSprite(this->graphicsQueue, this->actorMaterial, &actorSprite);
 		}
@@ -59,23 +77,7 @@ struct PlayerController {
 	}
 
 	void Process(Events const * events, Context const * ona) {
-		float const deltaSpeed = (events->deltaTime * 0.25f);
 
-		if (events->keysHeld[KeyW]) {
-			this->playerPosition.y -= deltaSpeed;
-		}
-
-		if (events->keysHeld[KeyA]) {
-			this->playerPosition.y -= deltaSpeed;
-		}
-
-		if (events->keysHeld[KeyS]) {
-			this->playerPosition.y += deltaSpeed;
-		}
-
-		if (events->keysHeld[KeyD]) {
-			this->playerPosition.y += deltaSpeed;
-		}
 	}
 
 	void Exit(Context const * ona) {

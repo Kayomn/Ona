@@ -1,6 +1,24 @@
 #include "ona/core/module.hpp"
 
 namespace Ona::Core {
+	Allocator * DefaultAllocator() {
+		static class : public Allocator {
+			uint8_t * Allocate(size_t size) override {
+				return reinterpret_cast<uint8_t *>(malloc(size));
+			}
+
+			void Deallocate(void * allocation) override {
+				free(allocation);
+			}
+
+			uint8_t * Reallocate(void * allocation, size_t size) override {
+				return reinterpret_cast<uint8_t *>(realloc(allocation, size));
+			}
+		} allocator;
+
+		return &allocator;
+	}
+
 	size_t CopyMemory(Slice<uint8_t> destination, Slice<uint8_t const> const & source) {
 		size_t const size = (
 			(destination.length < source.length) ?

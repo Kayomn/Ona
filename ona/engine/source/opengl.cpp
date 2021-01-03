@@ -181,7 +181,7 @@ namespace Ona::Engine {
 							errorBuffer
 						);
 
-						Ona::Core::OutFile().Write($slice(errorBuffer).AsBytes());
+						printf("%s\n", errorBuffer);
 					}
 				}
 
@@ -516,10 +516,7 @@ namespace Ona::Engine {
 											GLchar const * message,
 											void const * userParam
 										) -> void {
-											File outFile = OutFile();
-
-											outFile.Print(String{message});
-											outFile.Print(String{"\n"});
+											printf("%s\n", message);
 										}, 0);
 
 										glViewport(0, 0, width, height);

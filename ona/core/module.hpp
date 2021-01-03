@@ -298,7 +298,6 @@ namespace Ona::Core {
 #include "ona/core/header/object.hpp"
 #include "ona/core/header/memory.hpp"
 #include "ona/core/header/array.hpp"
-#include "ona/core/header/os.hpp"
 #include "ona/core/header/image.hpp"
 
 void * operator new(size_t count, Ona::Core::Allocator * allocator);
