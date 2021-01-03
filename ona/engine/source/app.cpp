@@ -150,7 +150,7 @@ int main(int argv, char const * const * argc) {
 		fileServer->Print(outFile, message);
 	}};
 
-	if (fileServer && config.IsInitialized()) {
+	if (fileServer) {
 		String configSource = LoadText(defaultAllocator, fileServer, String{"config.lua"});
 
 		if (configSource.Length()) {

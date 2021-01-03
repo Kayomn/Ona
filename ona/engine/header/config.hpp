@@ -69,8 +69,6 @@ namespace Ona::Engine {
 
 		void FreeValue(ConfigValue & value) override;
 
-		bool IsInitialized() const override;
-
 		bool Load(String const & script) override;
 
 		ConfigValue ReadArray(ConfigValue const & array, uint32_t index) override;

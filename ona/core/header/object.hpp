@@ -8,10 +8,6 @@ namespace Ona::Core {
 
 		virtual ~Object() {};
 
-		virtual bool IsInitialized() const {
-			return true;
-		}
-
 		virtual bool Equals(Object const * that) const {
 			return (this == that);
 		}

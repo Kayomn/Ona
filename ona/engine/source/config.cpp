@@ -29,10 +29,6 @@ namespace Ona::Engine {
 		}
 	}
 
-	bool LuaConfig::IsInitialized() const {
-		return (this->state != nullptr);
-	}
-
 	bool LuaConfig::Load(String const & script) {
 		switch (luaL_loadstring(this->state, script.ZeroSentineled().Chars().pointer)) {
 			case LUA_OK: {

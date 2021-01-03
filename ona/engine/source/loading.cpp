@@ -153,7 +153,7 @@ namespace Ona::Engine {
 									(rowWidth + BytesPerPixel) & (~BytesPerPixel)
 								};
 
-								if (rowBuffer.IsInitialized()) {
+								if (rowBuffer.Length()) {
 									size_t pixelIndex = (pixelBufferSize - 1);
 
 									fileServer->SeekHead(file, fileHeader->fileOffset);
@@ -208,7 +208,7 @@ namespace Ona::Engine {
 								uint64_t const rowWidth = (dimensions.x * BytesPerPixel);
 								DynamicArray<uint8_t> rowBuffer = {imageAllocator, rowWidth};
 
-								if (rowBuffer.IsInitialized()) {
+								if (rowBuffer.Length()) {
 									fileServer->SeekHead(file, fileHeader->fileOffset);
 
 									for (size_t i = 0; i < dimensions.y; i += 1) {

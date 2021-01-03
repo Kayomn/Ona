@@ -426,8 +426,6 @@ namespace Ona::Engine {
 
 			void * context;
 
-			Allocator * allocator;
-
 			Point2 viewportSize;
 
 			GLPolyBuffer quadPolyBuffer;
@@ -440,95 +438,8 @@ namespace Ona::Engine {
 
 			SDL_Event sdlEvent;
 
-			OpenGlGraphicsServer(
-				Allocator * allocator,
-				String const & title,
-				int32_t const width,
-				int32_t const height
-			) : allocator{}, queues{allocator}
-			{
-				enum { InitFlags = SDL_INIT_EVENTS };
+			OpenGlGraphicsServer(Allocator * allocator) : queues{allocator} {
 
-				if (SDL_Init(InitFlags) == 0) {
-					enum {
-						WindowPosition = SDL_WINDOWPOS_UNDEFINED,
-						WindowFlags = (SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL)
-					};
-
-					// Fixes a bug on KDE desktops where launching the process disables the default
-					// compositor.
-					SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-
-					this->window = SDL_CreateWindow(
-						title.ZeroSentineled().Chars().pointer,
-						WindowPosition,
-						WindowPosition,
-						width,
-						height,
-						WindowFlags
-					);
-
-					if (this->window) {
-						SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-						SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-						SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-						SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-
-						this->context = SDL_GL_CreateContext(this->window);
-						glewExperimental = true;
-
-						// Initialize all immediately dependent resources.
-						if (this->context && (glewInit() == GLEW_OK)) {
-							glCreateBuffers(1, (&this->viewportBufferHandle));
-
-							if (glGetError() == GL_NO_ERROR) {
-								glNamedBufferData(
-									this->viewportBufferHandle,
-									sizeof(Matrix),
-									nullptr,
-									GL_DYNAMIC_DRAW
-								);
-
-								if (glGetError() == GL_NO_ERROR) {
-									glBindBufferBase(
-										GL_UNIFORM_BUFFER,
-										ViewportBinding,
-										this->viewportBufferHandle
-									);
-
-									if (
-										this->canvasShader.Load(
-											canvasVertexSource,
-											canvasFragmentSource
-										) &&
-										this->quadPolyBuffer.Load($slice(quadVertices))
-									) {
-										glEnable(GL_DEBUG_OUTPUT);
-										glEnable(GL_DEPTH_TEST);
-
-										// Error logger
-										glDebugMessageCallback([](
-											GLenum source,
-											GLenum type,
-											GLuint id,
-											GLenum severity,
-											GLsizei length,
-											GLchar const * message,
-											void const * userParam
-										) -> void {
-											printf("%s\n", message);
-										}, 0);
-
-										glViewport(0, 0, width, height);
-
-										this->viewportSize = Point2{width, height};
-										this->allocator = allocator;
-									}
-								}
-							}
-						}
-					}
-				}
 			}
 
 			~OpenGlGraphicsServer() override {
@@ -552,7 +463,7 @@ namespace Ona::Engine {
 			}
 
 			GraphicsQueue * CreateQueue() override {
-				auto queue = new OpenGLGraphicsQueue{this->allocator};
+				auto queue = new OpenGLGraphicsQueue{this->queues.AllocatorOf()};
 
 				if (queue) this->queues.Push(queue);
 
@@ -668,8 +579,92 @@ namespace Ona::Engine {
 
 				SDL_GL_SwapWindow(this->window);
 			}
-		} graphicsServer = OpenGlGraphicsServer{DefaultAllocator(), title, width, height};
+		} graphicsServer = OpenGlGraphicsServer{DefaultAllocator()};
 
-		return (graphicsServer.IsInitialized() ? &graphicsServer : nullptr);
+		enum { InitFlags = SDL_INIT_EVENTS };
+
+		if (SDL_Init(InitFlags) == 0) {
+			enum {
+				WindowPosition = SDL_WINDOWPOS_UNDEFINED,
+				WindowFlags = (SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL)
+			};
+
+			// Fixes a bug on KDE desktops where launching the process disables the default
+			// compositor.
+			SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+
+			graphicsServer.window = SDL_CreateWindow(
+				title.ZeroSentineled().Chars().pointer,
+				WindowPosition,
+				WindowPosition,
+				width,
+				height,
+				WindowFlags
+			);
+
+			if (graphicsServer.window) {
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+				SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+				SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
+				graphicsServer.context = SDL_GL_CreateContext(graphicsServer.window);
+				glewExperimental = true;
+
+				// Initialize all immediately dependent resources.
+				if (graphicsServer.context && (glewInit() == GLEW_OK)) {
+					glCreateBuffers(1, (&graphicsServer.viewportBufferHandle));
+
+					if (glGetError() == GL_NO_ERROR) {
+						glNamedBufferData(
+							graphicsServer.viewportBufferHandle,
+							sizeof(Matrix),
+							nullptr,
+							GL_DYNAMIC_DRAW
+						);
+
+						if (glGetError() == GL_NO_ERROR) {
+							glBindBufferBase(
+								GL_UNIFORM_BUFFER,
+								ViewportBinding,
+								graphicsServer.viewportBufferHandle
+							);
+
+							if (
+								graphicsServer.canvasShader.Load(
+									canvasVertexSource,
+									canvasFragmentSource
+								) &&
+								graphicsServer.quadPolyBuffer.Load($slice(quadVertices))
+							) {
+								glEnable(GL_DEBUG_OUTPUT);
+								glEnable(GL_DEPTH_TEST);
+
+								// Error logger
+								glDebugMessageCallback([](
+									GLenum source,
+									GLenum type,
+									GLuint id,
+									GLenum severity,
+									GLsizei length,
+									GLchar const * message,
+									void const * userParam
+								) -> void {
+									printf("%s\n", message);
+								}, 0);
+
+								glViewport(0, 0, width, height);
+
+								graphicsServer.viewportSize = Point2{width, height};
+
+								return &graphicsServer;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return nullptr;
 	}
 }
