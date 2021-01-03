@@ -9,14 +9,14 @@ namespace Ona::Engine {
 	using namespace Ona::Core;
 
 	// (xy, uv) format.
-	static Vector4 const quadVertices[] = {
+	static InlineArray<Vector4, 6> const quadVertices = {{
 		Vector4{1.f, 1.f, 1.f, 1.f},
 		Vector4{1.f, 0.f, 1.f, 0.f},
 		Vector4{0.f, 1.f, 0.f, 1.f},
 		Vector4{1.f, 0.f, 1.f, 0.f},
 		Vector4{0.f, 0.f, 0.f, 0.f},
 		Vector4{0.f, 1.f, 0.f, 1.f}
-	};
+	}};
 
 	static Chars const canvasVertexSource = CharsFrom(
 		"#version 430 core\n"
@@ -635,7 +635,7 @@ namespace Ona::Engine {
 									canvasVertexSource,
 									canvasFragmentSource
 								) &&
-								graphicsServer.quadPolyBuffer.Load($slice(quadVertices))
+								graphicsServer.quadPolyBuffer.Load(quadVertices.Values())
 							) {
 								glEnable(GL_DEBUG_OUTPUT);
 								glEnable(GL_DEPTH_TEST);
