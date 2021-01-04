@@ -6,7 +6,7 @@ using namespace Ona::Core;
 using namespace Ona::Collections;
 using namespace Ona::Engine;
 
-using ModuleInitializer = bool(*)(Context const * ona);
+using ModuleInitializer = bool(*)(OnaContext const * ona);
 
 struct System {
 	void * userdata;
@@ -24,7 +24,7 @@ static FileServer * fileServer = nullptr;
 
 static GraphicsServer * graphicsServer = nullptr;
 
-static Context const context = {
+static OnaContext const context = {
 	.spawnSystem = [](SystemInfo const * info) {
 		void * userdata = DefaultAllocator()->Allocate(info->size);
 

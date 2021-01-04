@@ -13,7 +13,7 @@ struct SceneController {
 
 	Vector2 actors[ActorsMax];
 
-	void Init(Context const * ona) {
+	void Init(OnaContext const * ona) {
 		Image actorImage;
 		Allocator * allocator = ona->defaultAllocator();
 		this->graphicsQueue = ona->graphicsQueueAcquire();
@@ -29,7 +29,7 @@ struct SceneController {
 		}
 	}
 
-	void Process(Events const * events, Context const * ona) {
+	void Process(Events const * events, OnaContext const * ona) {
 		Sprite actorSprite = {
 			.origin = Vector3{},
 			.tint = Color{0xFF, 0xFF, 0xFF, 0xFF},
@@ -45,7 +45,7 @@ struct SceneController {
 		}
 	}
 
-	void Exit(Context const * ona) {
+	void Exit(OnaContext const * ona) {
 		ona->materialFree(&this->actorMaterial);
 	}
 };
@@ -53,11 +53,11 @@ struct SceneController {
 struct PlayerController {
 	Vector2 playerPosition;
 
-	void Init(Context const * ona) {
+	void Init(OnaContext const * ona) {
 
 	}
 
-	void Process(Events const * events, Context const * ona) {
+	void Process(Events const * events, OnaContext const * ona) {
 		float const deltaSpeed = (events->deltaTime * 0.25f);
 
 		if (events->keysHeld[KeyW]) {
@@ -77,12 +77,12 @@ struct PlayerController {
 		}
 	}
 
-	void Exit(Context const * ona) {
+	void Exit(OnaContext const * ona) {
 
 	}
 };
 
-extern "C" void OnaInit(Context const * ona) {
+extern "C" void OnaInit(OnaContext const * ona) {
 	ona->spawnSystem(SystemInfoOf<SceneController>());
 	ona->spawnSystem(SystemInfoOf<PlayerController>());
 }

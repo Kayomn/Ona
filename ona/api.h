@@ -50,19 +50,19 @@ typedef struct Events {
 	bool keysHeld[512];
 } Events;
 
-struct Context;
+struct OnaContext;
 
 typedef struct {
 	uint32_t size;
 
-	void(* init)(void * userdata, struct Context const * ona);
+	void(* init)(void * userdata, struct OnaContext const * ona);
 
-	void(* process)(void * userdata, Events const * events, struct Context const * ona);
+	void(* process)(void * userdata, Events const * events, struct OnaContext const * ona);
 
-	void(* exit)(void * userdata, struct Context const * ona);
+	void(* exit)(void * userdata, struct OnaContext const * ona);
 } SystemInfo;
 
-typedef struct Context {
+typedef struct OnaContext {
 	bool(* spawnSystem)(SystemInfo const * info);
 
 	Allocator *(* defaultAllocator)();
@@ -91,7 +91,7 @@ typedef struct Context {
 		Material * spriteMaterial,
 		Sprite const * sprite
 	);
-} Context;
+} OnaContext;
 
 typedef enum {
 	KeyA = 0x04,
@@ -128,15 +128,15 @@ template<typename Type> SystemInfo const * SystemInfoOf() {
 	static SystemInfo const system = {
 		.size = sizeof(Type),
 
-		.init = [](void * userdata, Context const * ona) {
+		.init = [](void * userdata, OnaContext const * ona) {
 			reinterpret_cast<Type *>(userdata)->Init(ona);
 		},
 
-		.process = [](void * userdata, Events const * events, Context const * ona) {
+		.process = [](void * userdata, Events const * events, OnaContext const * ona) {
 			reinterpret_cast<Type *>(userdata)->Process(events, ona);
 		},
 
-		.exit = [](void * userdata, Context const * ona) {
+		.exit = [](void * userdata, OnaContext const * ona) {
 			reinterpret_cast<Type *>(userdata)->Exit(ona);
 		},
 	};
