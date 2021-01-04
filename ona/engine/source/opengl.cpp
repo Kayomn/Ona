@@ -418,7 +418,7 @@ namespace Ona::Engine {
 			}
 		};
 
-		thread_local class OpenGlGraphicsServer final : public GraphicsServer {
+		static class OpenGlGraphicsServer final : public GraphicsServer {
 			public:
 			uint64_t timeNow, timeLast;
 
@@ -444,7 +444,6 @@ namespace Ona::Engine {
 
 			~OpenGlGraphicsServer() override {
 				this->canvasShader.Free();
-				SDL_GL_DeleteContext(this->context);
 				SDL_GL_UnloadLibrary();
 				SDL_DestroyWindow(this->window);
 				SDL_Quit();
@@ -462,12 +461,13 @@ namespace Ona::Engine {
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			}
 
-			GraphicsQueue * CreateQueue() override {
-				auto queue = new OpenGLGraphicsQueue{this->queues.AllocatorOf()};
+			GraphicsQueue * AcquireQueue() override {
+				thread_local OpenGLGraphicsQueue queue = {this->queues.AllocatorOf()};
+				thread_local bool isInitialized = false;
 
-				if (queue) this->queues.Push(queue);
+				if (!isInitialized) this->queues.Push(&queue);
 
-				return queue;
+				return &queue;
 			}
 
 			Material * CreateMaterial(Image const & image) override {
@@ -513,12 +513,6 @@ namespace Ona::Engine {
 				}
 
 				return nullptr;
-			}
-
-			void DeleteQueue(GraphicsQueue * & queue) override {
-				delete queue;
-
-				queue = nullptr;
 			}
 
 			void DeleteMaterial(Material * & material) override {
@@ -579,7 +573,7 @@ namespace Ona::Engine {
 
 				SDL_GL_SwapWindow(this->window);
 			}
-		} graphicsServer = OpenGlGraphicsServer{DefaultAllocator()};
+		} graphicsServer = {DefaultAllocator()};
 
 		enum { InitFlags = SDL_INIT_EVENTS };
 

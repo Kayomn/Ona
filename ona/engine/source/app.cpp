@@ -42,12 +42,8 @@ static Context const context = {
 
 	.defaultAllocator = DefaultAllocator,
 
-	.graphicsQueueCreate = []() -> GraphicsQueue * {
-		return graphicsServer->CreateQueue();
-	},
-
-	.graphicsQueueFree = [](GraphicsQueue * * queue) {
-		graphicsServer->DeleteQueue(*queue);
+	.graphicsQueueAcquire = []() -> GraphicsQueue * {
+		return graphicsServer->AcquireQueue();
 	},
 
 	.imageSolid = [](

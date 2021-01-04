@@ -180,22 +180,18 @@ namespace Ona::Engine {
 		virtual void ColoredClear(Color color) = 0;
 
 		/**
-		 * Creates a `GraphicsQueue` for dispatching graphics commands asynchronously.
+		 * Acquires a thread-local `GraphicsQueue` instance for dispatching graphics operations
+		 * asynchronously.
 		 *
 		 * The contents of the returned `GraphicsQueue` should be automatically dispatched during
 		 * `GraphicsServer::Update`.
 		 */
-		virtual GraphicsQueue * CreateQueue() = 0;
+		virtual GraphicsQueue * AcquireQueue() = 0;
 
 		/**
 		 * Creates a `Material` from the pixel data in `image`.
 		 */
 		virtual Material * CreateMaterial(Image const & image) = 0;
-
-		/**
-		 * Attempts to delete the `GraphicsQueue` from the server located at `queue`.
-		 */
-		virtual void DeleteQueue(GraphicsQueue * & queue) = 0;
 
 		/**
 		 * Attempts to delete the `Material` from the server located at `material`.

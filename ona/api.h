@@ -67,9 +67,7 @@ typedef struct Context {
 
 	Allocator *(* defaultAllocator)();
 
-	GraphicsQueue *(* graphicsQueueCreate)();
-
-	void(* graphicsQueueFree)(GraphicsQueue * * allocator);
+	GraphicsQueue *(* graphicsQueueAcquire)();
 
 	bool(* imageSolid)(
 		Allocator * allocator,

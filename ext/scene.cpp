@@ -16,7 +16,7 @@ struct SceneController {
 	void Init(Context const * ona) {
 		Image actorImage;
 		Allocator * allocator = ona->defaultAllocator();
-		this->graphicsQueue = ona->graphicsQueueCreate();
+		this->graphicsQueue = ona->graphicsQueueAcquire();
 
 		for (size_t i = 0; i < ActorsMax; i += 1) {
 			this->actors[i] = Vector2{ona->randomF32(0, 640), ona->randomF32(0, 480)};
@@ -30,28 +30,10 @@ struct SceneController {
 	}
 
 	void Process(Events const * events, Context const * ona) {
-		float const deltaSpeed = (events->deltaTime * 0.25f);
-
 		Sprite actorSprite = {
 			.origin = Vector3{},
 			.tint = Color{0xFF, 0xFF, 0xFF, 0xFF},
 		};
-
-		if (events->keysHeld[KeyW]) {
-			this->actors[0].y -= deltaSpeed;
-		}
-
-		if (events->keysHeld[KeyA]) {
-			this->actors[0].x -= deltaSpeed;
-		}
-
-		if (events->keysHeld[KeyS]) {
-			this->actors[0].y += deltaSpeed;
-		}
-
-		if (events->keysHeld[KeyD]) {
-			this->actors[0].x += deltaSpeed;
-		}
 
 		for (size_t i = 0; i < ActorsMax; i += 1) {
 			actorSprite.origin = Vector3{
@@ -65,7 +47,6 @@ struct SceneController {
 
 	void Exit(Context const * ona) {
 		ona->materialFree(&this->actorMaterial);
-		ona->graphicsQueueFree(&this->graphicsQueue);
 	}
 };
 
@@ -77,7 +58,23 @@ struct PlayerController {
 	}
 
 	void Process(Events const * events, Context const * ona) {
+		float const deltaSpeed = (events->deltaTime * 0.25f);
 
+		if (events->keysHeld[KeyW]) {
+			// this->actors[0].y -= deltaSpeed;
+		}
+
+		if (events->keysHeld[KeyA]) {
+			// this->actors[0].x -= deltaSpeed;
+		}
+
+		if (events->keysHeld[KeyS]) {
+			// this->actors[0].y += deltaSpeed;
+		}
+
+		if (events->keysHeld[KeyD]) {
+			// this->actors[0].x += deltaSpeed;
+		}
 	}
 
 	void Exit(Context const * ona) {
