@@ -28,7 +28,11 @@ namespace Ona::Engine {
 			}
 
 			void CloseFile(File & file) override {
-				if (file.server == this) close(FSUserdataToHandle(file.userdata));
+				if (file.server == this) {
+					close(FSUserdataToHandle(file.userdata));
+
+					file.userdata = nullptr;
+				}
 			}
 
 			bool OpenFile(
