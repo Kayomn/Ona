@@ -6,22 +6,29 @@
 namespace Ona::Engine {
 	using namespace Ona::Core;
 
-	static int FSUserdataToHandle(void * userdata) {
-		return static_cast<int>(reinterpret_cast<size_t>(userdata));
-	}
-
-	static int64_t FSSeekImpl(FileServer * fileServer, File & file, int seek, int64_t offset) {
-		if (file.server == fileServer) {
-			int64_t const bytesSought = lseek(FSUserdataToHandle(file.userdata), offset, seek);
-
-			if (bytesSought > -1) return static_cast<size_t>(bytesSought);
-		}
-
-		return 0;
-	}
-
 	FileServer * LoadFilesystem() {
-		static class FileSystem final : public FileServer {
+		#ifdef __linux__
+
+		static auto userdataToHandle = [](void * userdata) {
+			return static_cast<int>(reinterpret_cast<size_t>(userdata));
+		};
+
+		static auto seekImpl = [](
+			FileServer * fileServer,
+			File & file,
+			int seek,
+			int64_t offset
+		) -> size_t {
+			if (file.server == fileServer) {
+				int64_t const bytesSought = lseek(userdataToHandle(file.userdata), offset, seek);
+
+				if (bytesSought > -1) return static_cast<size_t>(bytesSought);
+			}
+
+			return 0;
+		};
+
+		static class : public FileServer {
 			public:
 			bool CheckFile(String const & filePath) override {
 				return (access(filePath.ZeroSentineled().Chars().pointer, F_OK) != -1);
@@ -29,7 +36,7 @@ namespace Ona::Engine {
 
 			void CloseFile(File & file) override {
 				if (file.server == this) {
-					close(FSUserdataToHandle(file.userdata));
+					close(userdataToHandle(file.userdata));
 
 					file.userdata = nullptr;
 				}
@@ -85,7 +92,7 @@ namespace Ona::Engine {
 			size_t Read(File & file, Slice<uint8_t> output) override {
 				if (file.server == this) {
 					ssize_t const bytesRead = read(
-						FSUserdataToHandle(file.userdata),
+						userdataToHandle(file.userdata),
 						output.pointer,
 						output.length
 					);
@@ -97,21 +104,21 @@ namespace Ona::Engine {
 			}
 
 			int64_t SeekHead(File & file, int64_t offset) override {
-				return FSSeekImpl(this, file, SEEK_SET, offset);
+				return seekImpl(this, file, SEEK_SET, offset);
 			}
 
 			int64_t SeekTail(File & file, int64_t offset) override {
-				return FSSeekImpl(this, file, SEEK_END, offset);
+				return seekImpl(this, file, SEEK_END, offset);
 			}
 
 			int64_t Skip(File & file, int64_t offset) override {
-				return FSSeekImpl(this, file, SEEK_CUR, offset);
+				return seekImpl(this, file, SEEK_CUR, offset);
 			}
 
 			size_t Write(File & file, Slice<uint8_t const> const & input) override {
 				if (file.server == this) {
 					ssize_t const bytesWritten = write(
-						FSUserdataToHandle(file.userdata),
+						userdataToHandle(file.userdata),
 						input.pointer,
 						input.length
 					);
@@ -124,5 +131,69 @@ namespace Ona::Engine {
 		} fileSystem = {};
 
 		return &fileSystem;
+
+		#elif _WIN32
+
+		static class : public FileServer {
+			public:
+			bool CheckFile(String const & filePath) override {
+				// TODO.
+				return false;
+			}
+
+			void CloseFile(File & file) override {
+				// TODO.
+			}
+
+			bool OpenFile(
+				String const & filePath,
+				File & file,
+				File::OpenFlags openFlags
+			) override {
+				// TODO.
+				return false;
+			}
+
+			File OutFile() override {
+				return File{
+					.server = this,
+					.userdata = nullptr
+				};
+			}
+
+			void Print(File & file, String const & string) override {
+				// TODO.
+			}
+
+			size_t Read(File & file, Slice<uint8_t> output) override {
+				// TODO.
+
+				return 0;
+			}
+
+			int64_t SeekHead(File & file, int64_t offset) override {
+				// TODO.
+				return 0;
+			}
+
+			int64_t SeekTail(File & file, int64_t offset) override {
+				// TODO.
+				return 0;
+			}
+
+			int64_t Skip(File & file, int64_t offset) override {
+				// TODO.
+				return 0;
+			}
+
+			size_t Write(File & file, Slice<uint8_t const> const & input) override {
+				// TODO.
+				return 0;
+			}
+		} fileSystem = {};
+
+		return &fileSystem;
+
+		#endif
 	}
 }
