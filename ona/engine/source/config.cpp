@@ -3,10 +3,6 @@
 #include "lua.hpp"
 
 namespace Ona::Engine {
-	void ConfigValue::Free() {
-		this->config->FreeValue(*this);
-	}
-
 	LuaConfig::LuaConfig() : LuaConfig{ErrorReporter{}} {
 
 	}

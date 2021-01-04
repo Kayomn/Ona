@@ -23,7 +23,9 @@ namespace Ona::Engine {
 
 		int64_t handle;
 
-		void Free();
+		void Free() {
+			this->config->FreeValue(*this);
+		}
 	};
 
 	class Config : public Object {
