@@ -149,6 +149,8 @@ namespace Ona::Core {
 
 		uint8_t buffer[BufferSize];
 
+		using FunctionType = Return(*)(Args...);
+
 		public:
 		Callable() = default;
 
@@ -156,6 +158,22 @@ namespace Ona::Core {
 			for (size_t i = 0; i < BufferSize; i += 1) this->buffer[i] = that.buffer[i];
 
 			this->context = reinterpret_cast<Context *>(this->buffer);
+		}
+
+		Callable(FunctionType function) {
+			class Pointer : public Context {
+				private:
+				FunctionType function;
+
+				public:
+				Pointer(FunctionType function) : function{function} { }
+
+				Return Invoke(Args const &... args) override {
+					return this->function(args...);
+				};
+			};
+
+			this->context = new (this->buffer) Pointer{function};
 		}
 
 		template<typename Type> Callable(Type const & functor) {
