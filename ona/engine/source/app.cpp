@@ -20,7 +20,7 @@ struct System {
 
 static PackedStack<System> systems = {DefaultAllocator()};
 
-static FileServer * fileServer = nullptr;
+static FileServer * fileServer = LoadFilesystem();
 
 static GraphicsServer * graphicsServer = nullptr;
 
@@ -138,13 +138,7 @@ static GraphicsServer * LoadGraphicsServerFromConfig(Config * config) {
 
 int main(int argv, char const * const * argc) {
 	Allocator * defaultAllocator = DefaultAllocator();
-	fileServer = LoadFilesystem();
-
-	LuaConfig config = {[](String const & message) {
-		File outFile = fileServer->OutFile();
-
-		fileServer->Print(outFile, message);
-	}};
+	LuaConfig config = {Print};
 
 	if (fileServer) {
 		String configSource = LoadText(defaultAllocator, fileServer, String{"config.lua"});
@@ -190,13 +184,7 @@ int main(int argv, char const * const * argc) {
 						graphicsServer->Clear();
 
 						systems.ForValues([&events](System const & system) {
-							if (system.processor) {
-								system.processor(
-									system.userdata,
-									&events,
-									&context
-								);
-							}
+							system.processor(system.userdata, &events, &context);
 						});
 
 						graphicsServer->Update();

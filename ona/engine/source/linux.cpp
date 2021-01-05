@@ -4,11 +4,7 @@
 #include <fcntl.h>
 
 namespace Ona::Engine {
-	using namespace Ona::Core;
-
 	FileServer * LoadFilesystem() {
-		#ifdef __linux__
-
 		static auto userdataToHandle = [](void * userdata) {
 			return static_cast<int>(reinterpret_cast<size_t>(userdata));
 		};
@@ -78,13 +74,6 @@ namespace Ona::Engine {
 				return false;
 			}
 
-			File OutFile() override {
-				return File{
-					.server = this,
-					.userdata = reinterpret_cast<void *>(STDOUT_FILENO)
-				};
-			}
-
 			void Print(File & file, String const & string) override {
 				this->Write(file, string.Bytes());
 			}
@@ -131,69 +120,12 @@ namespace Ona::Engine {
 		} fileSystem = {};
 
 		return &fileSystem;
+	}
 
-		#elif _WIN32
+	void Print(String const & message) {
+		String zeroSentineledMessage = message.ZeroSentineled();
+		Slice<uint8_t const> const zeroSentineledBytes = zeroSentineledMessage.Bytes();
 
-		static class : public FileServer {
-			public:
-			bool CheckFile(String const & filePath) override {
-				// TODO.
-				return false;
-			}
-
-			void CloseFile(File & file) override {
-				// TODO.
-			}
-
-			bool OpenFile(
-				String const & filePath,
-				File & file,
-				File::OpenFlags openFlags
-			) override {
-				// TODO.
-				return false;
-			}
-
-			File OutFile() override {
-				return File{
-					.server = this,
-					.userdata = nullptr
-				};
-			}
-
-			void Print(File & file, String const & string) override {
-				// TODO.
-			}
-
-			size_t Read(File & file, Slice<uint8_t> output) override {
-				// TODO.
-
-				return 0;
-			}
-
-			int64_t SeekHead(File & file, int64_t offset) override {
-				// TODO.
-				return 0;
-			}
-
-			int64_t SeekTail(File & file, int64_t offset) override {
-				// TODO.
-				return 0;
-			}
-
-			int64_t Skip(File & file, int64_t offset) override {
-				// TODO.
-				return 0;
-			}
-
-			size_t Write(File & file, Slice<uint8_t const> const & input) override {
-				// TODO.
-				return 0;
-			}
-		} fileSystem = {};
-
-		return &fileSystem;
-
-		#endif
+		write(STDOUT_FILENO, zeroSentineledBytes.pointer, zeroSentineledBytes.length);
 	}
 }
