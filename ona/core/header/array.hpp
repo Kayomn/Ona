@@ -214,6 +214,21 @@ namespace Ona::Core {
 			return slice;
 		}
 
+		/**
+		 * Attempts to resize the `DynamicArray` buffer at runtime.
+		 *
+		 * A return value of `false` means that the operation failed and the `DynamicArray` now has
+		 * a length of `0`.
+		 */
+		bool Resize(size_t length) {
+			size_t const oldLength = this->buffer.length;
+			this->buffer.pointer = this->allocator->Reallocate(this->buffer.pointer, length);
+			bool const allocationSucceeded = (this->buffer.pointer != nullptr);
+			this->buffer.length = (length * allocationSucceeded);
+
+			return allocationSucceeded;
+		}
+
 		Slice<Type> Sliced(size_t a, size_t b) override {
 			return this->buffer.Sliced(a, b);
 		}
