@@ -12,6 +12,8 @@
 
 #define $length(arr) (sizeof(arr) / sizeof(*arr))
 
+#define $atomic _Atomic
+
 #include "ona/core/header/math.hpp"
 
 namespace Ona::Core {
@@ -302,6 +304,7 @@ namespace Ona::Core {
 	};
 }
 
+#include "ona/core/header/atomics.hpp"
 #include "ona/core/header/text.hpp"
 #include "ona/core/header/object.hpp"
 #include "ona/core/header/memory.hpp"
