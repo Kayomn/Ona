@@ -25,28 +25,23 @@ namespace Ona::Core {
 
 		Type * pointer;
 
-		template<typename CastType> using Casted = std::conditional_t<
-			std::is_const<Type>::value,
-			CastType const,
-			CastType
-		>;
-
-		template<typename CastType> Slice<Casted<CastType>> As() const {
-			using ToType = Casted<CastType>;
-
-			return Slice<ToType>{
-				(this->length / sizeof(ToType)),
-				reinterpret_cast<ToType *>(this->pointer)
+		/**
+		 * Reinterprets the `Slice` as a `Slice` of raw, unsigned bytes.
+		 */
+		constexpr Slice<uint8_t> Bytes() {
+			return Slice<uint8_t>{
+				.length = (this->length * sizeof(Type)),
+				.pointer = reinterpret_cast<uint8_t *>(this->pointer)
 			};
 		}
 
 		/**
-		 * Reinterprets the `Slice` as a `Slice` of raw, unsigned bytes.
+		 * Reinterprets the `Slice` as a `Slice` of read-only, raw, unsigned bytes.
 		 */
-		constexpr Slice<Casted<uint8_t>> AsBytes() const {
-			return Slice<Casted<uint8_t>>{
-				(this->length * sizeof(Type)),
-				reinterpret_cast<Casted<uint8_t> *>(this->pointer)
+		constexpr Slice<uint8_t const> Bytes() const {
+			return Slice<uint8_t const>{
+				.length = (this->length * sizeof(Type)),
+				.pointer = reinterpret_cast<uint8_t const *>(this->pointer)
 			};
 		}
 
@@ -120,7 +115,7 @@ namespace Ona::Core {
 		}
 
 		/**
-		 * Provides casting to a version of `Slice` with a `const` `Type`.
+		 * Provides casting to a version of the `Slice` with a `const` `Type`.
 		 */
 		constexpr operator Slice<Type const>() const {
 			return (*reinterpret_cast<Slice<Type const> const *>(this));
