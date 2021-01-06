@@ -6,7 +6,7 @@
 namespace Ona::Collections {
 	using namespace Ona::Core;
 
-	template<typename ValueType> class Collection {
+	template<typename ValueType> class Collection : public Object {
 		public:
 		virtual void Clear() = 0;
 

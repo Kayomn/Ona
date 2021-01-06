@@ -30,7 +30,7 @@ namespace Ona::Collections {
 	template<
 		typename KeyType,
 		typename ValueType
-	> class HashTable : public Object, public Table<KeyType, ValueType> {
+	> class HashTable : public Table<KeyType, ValueType> {
 		private:
 		struct Item {
 			KeyType key;

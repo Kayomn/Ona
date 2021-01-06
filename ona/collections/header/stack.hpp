@@ -13,7 +13,7 @@ namespace Ona::Collections {
 		virtual ValueType * Push(ValueType const & value) = 0;
 	};
 
-	template<typename ValueType> class PackedStack : public Object, public Stack<ValueType> {
+	template<typename ValueType> class PackedStack : public Stack<ValueType> {
 		private:
 		Allocator * allocator;
 
