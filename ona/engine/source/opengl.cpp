@@ -9,7 +9,7 @@ namespace Ona::Engine {
 	using namespace Ona::Core;
 
 	// (xy, uv) format.
-	static InlineArray<Vector4, 6> const quadVertices = {{
+	static FixedArray<Vector4, 6> const quadVertices = {{
 		Vector4{1.f, 1.f, 1.f, 1.f},
 		Vector4{1.f, 0.f, 1.f, 0.f},
 		Vector4{0.f, 1.f, 0.f, 1.f},

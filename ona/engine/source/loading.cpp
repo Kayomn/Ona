@@ -100,7 +100,7 @@ namespace Ona::Engine {
 		File file;
 
 		if (fileServer->OpenFile(filePath, file, File::OpenRead)) {
-			InlineArray<uint8_t, (sizeof(FileHeader) + sizeof(InfoHeader))> headerBuffer = {};
+			FixedArray<uint8_t, (sizeof(FileHeader) + sizeof(InfoHeader))> headerBuffer = {};
 			uint8_t const * const headerPointer = headerBuffer.Pointer();
 			auto const fileHeader = reinterpret_cast<FileHeader const *>(headerPointer);
 

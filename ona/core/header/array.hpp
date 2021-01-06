@@ -68,28 +68,33 @@ namespace Ona::Core {
 		virtual Slice<Type const> Values() const = 0;
 	};
 
-	template<typename Type, size_t Len> class InlineArray final : public Array<Type> {
+	/**
+	 * An `Array` with a compile-time known fixed length.
+	 *
+	 * `FixedArray` benefits from using aligned memory, and as such, cannot be resized in any way.
+	 */
+	template<typename Type, size_t Len> class FixedArray final : public Array<Type> {
 		Type buffer[Len];
 
 		public:
 		/**
 		 * Initializes the contents with the default values of `Type`.
 		 */
-		InlineArray() {
+		FixedArray() {
 			for (size_t i = 0; i < Len; i += 1) this->buffer[i] = Type{};
 		}
 
 		/**
 		 * Initializes the contents with the contents of `values`.
 		 */
-		InlineArray(Type (&values)[Len]) {
+		FixedArray(Type (&values)[Len]) {
 			for (size_t i = 0; i < Len; i += 1) this->buffer[i] = values[i];
 		}
 
 		/**
-		 * Assigns the contents of `values` to the `InlineArray`.
+		 * Assigns the contents of `values` to the `FixedArray`.
 		 */
-		InlineArray(Type (&&values)[Len]) {
+		FixedArray(Type (&&values)[Len]) {
 			for (size_t i = 0; i < Len; i += 1) this->buffer[i] = std::move(values[i]);
 		}
 
@@ -146,6 +151,12 @@ namespace Ona::Core {
 		}
 	};
 
+	/**
+	 * An `Array` with a dynamically-sized length.
+	 *
+	 * `DynamicArray` trades initialization speed and buffer locality for the ability to assign and
+	 * change the number of elements at runtime.
+	 */
 	template<typename Type> class DynamicArray final : public Array<Type> {
 		Allocator * allocator;
 
