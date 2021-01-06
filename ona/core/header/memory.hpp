@@ -27,7 +27,10 @@ namespace Ona::Core {
 	Slice<uint8_t> WriteMemory(Slice<uint8_t> destination, uint8_t value);
 
 	template<typename Type> Slice<uint8_t const> AsBytes(Type const & value) {
-		return SliceOf(&value, 1).AsBytes();
+		return Slice<uint8_t const>{
+			.length = (1 * sizeof(Type)),
+			.pointer = reinterpret_cast<uint8_t const *>(&value)
+		};
 	}
 
 	/**

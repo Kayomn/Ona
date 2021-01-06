@@ -11,13 +11,13 @@ namespace Ona::Engine {
 
 			fileServer->SeekHead(file, 0);
 
-			DynamicArray<uint8_t> fileBuffer = {tempAllocator, static_cast<size_t>(fileSize)};
+			DynamicArray<char> fileBuffer = {tempAllocator, static_cast<size_t>(fileSize)};
 
 			if (fileBuffer.Length()) {
-				fileServer->Read(file, fileBuffer.Values());
+				fileServer->Read(file, fileBuffer.Values().Bytes());
 				fileServer->CloseFile(file);
 
-				return String{fileBuffer.Values().As<char>()};
+				return String{fileBuffer.Values()};
 			}
 
 			fileServer->CloseFile(file);

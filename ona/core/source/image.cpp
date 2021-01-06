@@ -27,11 +27,13 @@ namespace Ona::Core {
 		using Res = Result<Image, ImageError>;
 
 		if (pixels && (dimensions.x > 0) && (dimensions.y > 0)) {
-			int64_t const pixelArea = Area(dimensions);
-			DynamicArray<uint8_t> pixelBuffer = {allocator, (pixelArea * sizeof(Color))};
+			DynamicArray<uint8_t> pixelBuffer = {allocator, (Area(dimensions) * sizeof(Color))};
 
 			if (pixelBuffer.Length()) {
-				CopyMemory(pixelBuffer.Values(), SliceOf(pixels, pixelArea).AsBytes());
+				CopyMemory(pixelBuffer.Values(), Slice<uint8_t>{
+					.length = pixelBuffer.Length(),
+					.pointer = reinterpret_cast<uint8_t *>(pixels),
+				});
 
 				return Res::Ok(Image{
 					.allocator = allocator,

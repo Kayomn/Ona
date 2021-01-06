@@ -271,7 +271,7 @@ namespace Ona::Collections {
 			if (this->buckets.pointer) {
 				this->buckets.length = tableSize;
 
-				ZeroMemory(this->buckets.AsBytes());
+				ZeroMemory(this->buckets.Bytes());
 
 				if (oldBuckets.length && this->count) {
 					for (size_t i = 0; i < this->buckets.length; i += 1)  {
