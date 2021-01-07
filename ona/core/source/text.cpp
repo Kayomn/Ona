@@ -8,14 +8,14 @@ namespace Ona::Core {
 		}
 
 		if (this->size > StaticBufferSize) {
-			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(size_t) + this->size);
+			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(AtomicU32) + this->size);
 
 			if (this->buffer.dynamic) {
-				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
+				reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->Store(1);
 
 				CopyMemory(Slice<uint8_t>{
 					.length = this->size,
-					.pointer = (this->buffer.dynamic + sizeof(size_t)),
+					.pointer = (this->buffer.dynamic + sizeof(AtomicU32)),
 				}, Slice<uint8_t const>{
 					.length = this->size,
 					.pointer = reinterpret_cast<uint8_t const *>(data)
@@ -34,10 +34,10 @@ namespace Ona::Core {
 
 	String::String(Core::Chars const & chars) {
 		if (chars.length > StaticBufferSize) {
-			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(size_t) + chars.length);
+			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(AtomicU32) + chars.length);
 
 			if (this->buffer.dynamic) {
-				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
+				reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->Store(1);
 				this->size = chars.length;
 				this->length = 0;
 
@@ -47,7 +47,7 @@ namespace Ona::Core {
 
 				CopyMemory(Slice<uint8_t>{
 					.length = this->size,
-					.pointer = (this->buffer.dynamic + sizeof(size_t)),
+					.pointer = (this->buffer.dynamic + sizeof(AtomicU32)),
 				}, chars.Bytes());
 			}
 		} else {
@@ -67,16 +67,16 @@ namespace Ona::Core {
 
 	String::String(char const c, uint32_t const count) {
 		if (count > StaticBufferSize) {
-			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(size_t) + count);
+			this->buffer.dynamic = DefaultAllocator()->Allocate(sizeof(AtomicU32) + count);
 
 			if (this->buffer.dynamic) {
-				(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) = 1;
+				reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->Store(1);
 				this->size = count;
 				this->length = count;
 
 				WriteMemory(Slice<uint8_t>{
 					.length = this->size,
-					.pointer = (this->buffer.dynamic + sizeof(size_t)),
+					.pointer = (this->buffer.dynamic + sizeof(AtomicU32)),
 				}, c);
 			}
 		} else {
@@ -96,15 +96,13 @@ namespace Ona::Core {
 		this->buffer = that.buffer;
 
 		if (this->IsDynamic()) {
-			(*(reinterpret_cast<size_t *>(this->buffer.dynamic))) += 1;
+			reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->FetchAdd(1);
 		}
 	}
 
 	String::~String() {
 		if (this->IsDynamic()) {
-			size_t const refCount = ((*(reinterpret_cast<size_t *>(this->buffer.dynamic))) -= 1);
-
-			if (refCount == 0) {
+			if (reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->FetchSub(1) == 0) {
 				DefaultAllocator()->Deallocate(this->buffer.dynamic);
 			}
 		}
@@ -122,7 +120,7 @@ namespace Ona::Core {
 
 		if (str.IsDynamic()) {
 			for (String const & arg : args) {
-				size_t argLength = arg.Length();
+				uint32_t const argLength = arg.Length();
 
 				CopyMemory(Slice<uint8_t>{
 					.length = argLength,
@@ -133,7 +131,7 @@ namespace Ona::Core {
 			}
 		} else {
 			for (String const & arg : args) {
-				size_t argLength = arg.Length();
+				uint32_t const argLength = arg.Length();
 
 				CopyMemory(Slice<uint8_t>{
 					.length = argLength,
@@ -153,7 +151,7 @@ namespace Ona::Core {
 
 				.pointer = (
 					this->IsDynamic() ?
-					(this->buffer.dynamic + sizeof(size_t)) :
+					(this->buffer.dynamic + sizeof(AtomicU32)) :
 					this->buffer.static_
 				)
 			};
@@ -165,7 +163,7 @@ namespace Ona::Core {
 
 			.pointer = reinterpret_cast<char const *>(
 				this->IsDynamic() ?
-				(this->buffer.dynamic + sizeof(size_t)) :
+				(this->buffer.dynamic + sizeof(AtomicU32)) :
 				this->buffer.static_
 			)
 		};
@@ -198,7 +196,7 @@ namespace Ona::Core {
 				if (this->IsDynamic()) {
 					CopyMemory(Slice<uint8_t>{
 						.length = sentineledString.length,
-						.pointer = (sentineledString.buffer.dynamic + sizeof(size_t))
+						.pointer = (sentineledString.buffer.dynamic + sizeof(AtomicU32))
 					}, this->Bytes());
 				} else {
 					CopyMemory(Slice<uint8_t>{
