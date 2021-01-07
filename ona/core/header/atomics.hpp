@@ -2,7 +2,7 @@
 namespace Ona::Core {
 	struct AtomicU32 {
 		private:
-		$atomic uint32_t value;
+		volatile $atomic uint32_t value;
 
 		public:
 		AtomicU32() = default;

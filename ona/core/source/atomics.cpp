@@ -8,11 +8,11 @@ namespace Ona::Core {
 	}
 
 	uint32_t AtomicU32::FetchAdd(uint32_t amount) {
-		atomic_fetch_add(&this->value, amount);
+		return atomic_fetch_add(&this->value, amount);
 	}
 
 	uint32_t AtomicU32::FetchSub(uint32_t amount) {
-		atomic_fetch_sub(&this->value, amount);
+		return atomic_fetch_sub(&this->value, amount);
 	}
 
 	uint32_t AtomicU32::Load() const {
