@@ -24,6 +24,8 @@ static FileServer * fileServer = LoadFilesystem();
 
 static GraphicsServer * graphicsServer = nullptr;
 
+static ThreadServer * threadServer = nullptr;
+
 static OnaContext const context = {
 	.spawnSystem = [](SystemInfo const * info) {
 		void * userdata = DefaultAllocator()->Allocate(info->size);
@@ -138,12 +140,14 @@ static GraphicsServer * LoadGraphicsServerFromConfig(Config * config) {
 
 int main(int argv, char const * const * argc) {
 	Allocator * defaultAllocator = DefaultAllocator();
-	LuaConfig config = {Print};
+	threadServer = LoadThreadServer(0.24f);
 
-	if (fileServer) {
+	if (fileServer && threadServer && threadServer->Start()) {
 		String configSource = LoadText(defaultAllocator, fileServer, String{"config.lua"});
 
 		if (configSource.Length()) {
+			LuaConfig config = {Print};
+
 			srand(time(nullptr));
 
 			if (config.Load(configSource)) {
@@ -184,9 +188,12 @@ int main(int argv, char const * const * argc) {
 						graphicsServer->Clear();
 
 						systems.ForValues([&events](System const & system) {
-							system.processor(system.userdata, &events, &context);
+							threadServer->Execute([&system, &events]() {
+								system.processor(system.userdata, &events, &context);
+							});
 						});
 
+						threadServer->Wait();
 						graphicsServer->Update();
 					}
 
@@ -202,5 +209,7 @@ int main(int argv, char const * const * argc) {
 				}
 			}
 		}
+
+		threadServer->Stop();
 	}
 }
