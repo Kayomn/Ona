@@ -16,7 +16,7 @@ As mentioned, `Ona::Core::Object` restricts some things - with one of them being
 Unless it is less costly and the object lifetime is short, classes should be allocated on the heap and passed around by reference.
 
 ```cpp
-InlineArray<uint8_t, 24> tempBuffer = {};
+FixedArray<uint8_t, 24> tempBuffer = {};
 
 for (size_t i = 0; i < tempBuffer.Length(); i += 1) {
 	tempBuffer.At(i) = i;
@@ -140,12 +140,12 @@ This allows it to be contextually elevated to the status of "class" when the nee
 
 ### Dynamic Memory Allocation
 
-Much like classes and interfaces, dynamic memory usage should be moderated to where it is necessary. If the upper bounds of an operation can be reasoned about, allocate for it on the stack using either a `Ona::Core::InlineArray` in automatic memory or a stack buffer.
+Much like classes and interfaces, dynamic memory usage should be moderated to where it is necessary. If the upper bounds of an operation can be reasoned about, allocate for it on the stack using either a `Ona::Core::FixedArray` in automatic memory or a stack buffer.
 
 ```cpp
 void MyFunction(
 	Allocator * allocator,
-	InlineArray<uint8_t> const & information
+	FixedArray<uint8_t> const & information
 ) {
 	PackedStack<float> transformed = {allocator};
 
@@ -172,14 +172,21 @@ Graphics calls cannot be directly made to the server. Instead, a `Ona::Engine::G
 From there, any number of graphics commands may be queued by the thread using the graphics queue.
 
 ```py
-thread_pool = ThreadPool()
+async_pool = AsyncPool()
 
 for loaded_system in loaded_systems:
-	loaded_system.run(loaded_system.update)
+	async_pool.enqueue(loaded_system.update())
 
-while (thread_pool.is_busy()):
-	pass
+# Stalls the main thread until all async tasks
+# conclude operation.
+async_pool.execute()
 
+# Exclusive control is returned to the main thread
+# as all others have completed their processing for
+# the frame.
+#
+# Now, all queued graphics commands from the
+# threads are dispatched.
 graphics_server.update()
 ```
 
