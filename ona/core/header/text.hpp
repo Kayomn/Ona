@@ -42,7 +42,7 @@ namespace Ona::Core {
 			return (this->size > StaticBufferSize);
 		}
 
-		constexpr size_t Length() const {
+		constexpr uint32_t Length() const {
 			return this->length;
 		}
 
