@@ -1,12 +1,12 @@
-#ifndef CORE_H
-#define CORE_H
+#ifndef ONA_CORE_H
+#define ONA_CORE_H
 
 #include <cassert>
 #include <stddef.h>
 #include <stdint.h>
 #include <type_traits>
 #include <initializer_list>
-#include <memory>
+#include <new>
 
 #define $packed __attribute__ ((packed))
 
@@ -195,8 +195,8 @@ namespace Ona::Core {
 			return this->context->Invoke(args...);
 		}
 
-		bool IsEmpty() {
-			return (this->context != nullptr);
+		bool IsEmpty() const {
+			return (this->context == nullptr);
 		}
 	};
 
@@ -310,9 +310,6 @@ namespace Ona::Core {
 #include "ona/core/header/memory.hpp"
 #include "ona/core/header/array.hpp"
 #include "ona/core/header/image.hpp"
-
-void * operator new(size_t count, Ona::Core::Allocator * allocator);
-
-void operator delete(void * pointer, Ona::Core::Allocator * allocator);
+#include "ona/core/header/random.hpp"
 
 #endif

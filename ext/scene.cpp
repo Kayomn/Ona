@@ -2,6 +2,8 @@
 #include <cassert>
 #include <cmath>
 
+// static Channel<Vector2> playerPosition = {};
+
 struct SceneController {
 	enum {
 		ActorsMax = 32,
@@ -19,7 +21,10 @@ struct SceneController {
 		this->graphicsQueue = ona->graphicsQueueAcquire();
 
 		for (size_t i = 0; i < ActorsMax; i += 1) {
-			this->actors[i] = Vector2{ona->randomF32(0, 640), ona->randomF32(0, 480)};
+			this->actors[i] = Vector2{
+				static_cast<float>(32 * i),
+				static_cast<float>(32 * i)
+			};
 		}
 
 		if (ona->imageLoadBitmap(allocator, "./actor.bmp", &actorImage)) {
@@ -43,6 +48,8 @@ struct SceneController {
 
 			ona->renderSprite(this->graphicsQueue, this->actorMaterial, &actorSprite);
 		}
+
+		// actors[0] = Vector2Add(actors[0], playerPosition.Await());
 	}
 
 	void Exit(OnaContext const * ona) {
@@ -51,30 +58,31 @@ struct SceneController {
 };
 
 struct PlayerController {
-	Vector2 playerPosition;
-
 	void Init(OnaContext const * ona) {
 
 	}
 
 	void Process(Events const * events, OnaContext const * ona) {
 		float const deltaSpeed = (events->deltaTime * 0.25f);
+		Vector2 velocity = {};
 
 		if (events->keysHeld[KeyW]) {
-			// this->actors[0].y -= deltaSpeed;
+			velocity.y -= deltaSpeed;
 		}
 
 		if (events->keysHeld[KeyA]) {
-			// this->actors[0].x -= deltaSpeed;
+			velocity.x -= deltaSpeed;
 		}
 
 		if (events->keysHeld[KeyS]) {
-			// this->actors[0].y += deltaSpeed;
+			velocity.y += deltaSpeed;
 		}
 
 		if (events->keysHeld[KeyD]) {
-			// this->actors[0].x += deltaSpeed;
+			velocity.x += deltaSpeed;
 		}
+
+		// playerPosition.Pass(velocity);
 	}
 
 	void Exit(OnaContext const * ona) {

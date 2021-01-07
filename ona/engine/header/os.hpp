@@ -1,44 +1,48 @@
 
 namespace Ona::Engine {
-	using Task = Callable<void()>;
-
-	class ThreadServer : public Object {
+	class Mutex : public Object {
 		public:
-		/**
-		 * Executes `task` asynchronously.
-		 */
-		virtual void Execute(Task const & task) = 0;
+		virtual void Lock() = 0;
 
-		/**
-		 * Initializes all worker threads and begins asynchronous processing of any pending tasks
-		 * executed prior to, or after, being called.
-		 *
-		 * Returns `true` if the `ThreadServer` was started successfully, otherwise `false`.
-		 */
-		virtual bool Start() = 0;
-
-		/**
-		 * Kills all worker threads and halts the `ThreadServer`, pausing any task in the work
-		 * queue.
-		 */
-		virtual void Stop() = 0;
-
-		/**
-		 * Halts the calling thread until all tasks running on the `ThreadServer` conclude
-		 * execution.
-		 */
-		virtual void Wait() = 0;
+		virtual void Unlock() = 0;
 	};
 
-	/**
-	 * Loads a platform-specific `ThreadServer` instance into memory.
-	 *
-	 * `hardwarePriority` specifies what percentage of access to concurrency hardware will be
-	 * requested by the process as a value between `0` and `1`. A value of `1` or greater will try
-	 * to request access to all concurrency hardware, and will likely cause context switching on any
-	 * platform that implements its own process scheduler.
-	 */
-	ThreadServer * LoadThreadServer(float hardwarePriority);
+	Mutex * AllocateMutex();
+
+	void DestroyMutex(Mutex * & mutex);
+
+	class Condition : public Object {
+		public:
+		virtual void Signal() = 0;
+
+		virtual void Wait(Mutex * mutex) = 0;
+	};
+
+	Condition * AllocateCondition();
+
+	void DestroyCondition(Condition * & condition);
+
+	struct ThreadProperties {
+		bool isCancellable;
+	};
+
+	using ThreadID = uint64_t;
+
+	struct ThreadHandle {
+		ThreadID id;
+
+		bool(* canceller)(ThreadID id);
+
+		bool Cancel();
+	};
+
+	uint32_t CountThreads();
+
+	ThreadHandle AcquireThread(
+		String const & name,
+		ThreadProperties const & properties,
+		Callable<void()> const & action
+	);
 
 	/**
 	 * Attempts to load access to the operating system filesystem as a `FileServer`.

@@ -1,5 +1,5 @@
-#ifndef ENGINE_H
-#define ENGINE_H
+#ifndef ONA_ENGINE_H
+#define ONA_ENGINE_H
 
 #include "ona/core/module.hpp"
 #include "ona/collections/module.hpp"
@@ -8,6 +8,7 @@
 #include "ona/engine/header/fileserver.hpp"
 #include "ona/engine/header/graphics.hpp"
 #include "ona/engine/header/os.hpp"
+#include "ona/engine/header/async.hpp"
 
 namespace Ona::Engine {
 	using namespace Ona::Collections;
@@ -40,6 +41,32 @@ namespace Ona::Engine {
 		FileServer * fileServer,
 		String const & filePath
 	);
+
+	class Instance : public Object {
+		public:
+		virtual Allocator * AllocatorOf() = 0;
+
+		virtual Object * ObjectOf() = 0;
+	};
+
+	template<typename Type> class TypedInstance final : public Instance {
+		Allocator * allocator;
+
+		Type object;
+
+		public:
+		template<typename... Args> TypedInstance(Args... args) : object{args...} {
+
+		}
+
+		Allocator * AllocatorOf() override {
+			return this->allocator;
+		}
+
+		Object * ObjectOf() override {
+			return &this->object;
+		}
+	};
 
 	#include "ona/api.h"
 }

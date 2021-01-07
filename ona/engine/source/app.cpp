@@ -24,8 +24,6 @@ static FileServer * fileServer = LoadFilesystem();
 
 static GraphicsServer * graphicsServer = nullptr;
 
-static ThreadServer * threadServer = nullptr;
-
 static OnaContext const context = {
 	.spawnSystem = [](SystemInfo const * info) {
 		void * userdata = DefaultAllocator()->Allocate(info->size);
@@ -101,10 +99,6 @@ static OnaContext const context = {
 		graphicsServer->DeleteMaterial(*material);
 	},
 
-	.randomF32 = [](float min, float max) -> float {
-		return (min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX) / (max - min)));
-	},
-
 	.renderSprite = [](
 		GraphicsQueue * graphicsQueue,
 		Material * spriteMaterial,
@@ -140,15 +134,13 @@ static GraphicsServer * LoadGraphicsServerFromConfig(Config * config) {
 
 int main(int argv, char const * const * argc) {
 	Allocator * defaultAllocator = DefaultAllocator();
-	threadServer = LoadThreadServer(0.24f);
 
-	if (fileServer && threadServer && threadServer->Start()) {
+	if (fileServer) {
 		String configSource = LoadText(defaultAllocator, fileServer, String{"config.lua"});
 
 		if (configSource.Length()) {
+			Async async = {defaultAllocator, 0.25f};
 			LuaConfig config = {Print};
-
-			srand(time(nullptr));
 
 			if (config.Load(configSource)) {
 				graphicsServer = LoadGraphicsServerFromConfig(&config);
@@ -187,13 +179,13 @@ int main(int argv, char const * const * argc) {
 					while (graphicsServer->ReadEvents(&events)) {
 						graphicsServer->Clear();
 
-						systems.ForValues([&events](System const & system) {
-							threadServer->Execute([&system, &events]() {
+						systems.ForValues([&events, &async](System const & system) {
+							async.Execute([&system, &events]() {
 								system.processor(system.userdata, &events, &context);
 							});
 						});
 
-						threadServer->Wait();
+						async.Wait();
 						graphicsServer->Update();
 					}
 
@@ -209,7 +201,5 @@ int main(int argv, char const * const * argc) {
 				}
 			}
 		}
-
-		threadServer->Stop();
 	}
 }

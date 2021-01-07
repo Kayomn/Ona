@@ -1,118 +1,135 @@
 #include "ona/engine/module.hpp"
 
+#include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
 
 namespace Ona::Engine {
-	ThreadServer * LoadThreadServer(float hardwarePriority) {
-		static class PosixThreadServer final : public ThreadServer {
-			private:
-			pthread_cond_t taskCondition;
+	class PosixMutex final : public Mutex {
+		public:
+		pthread_mutex_t value;
 
-			pthread_mutex_t taskMutex;
+		void Lock() override {
+			pthread_mutex_lock(&this->value);
+		}
 
-			DynamicArray<pthread_t> threads;
+		void Unlock() override {
+			pthread_mutex_unlock(&this->value);
+		}
+	};
 
-			PackedQueue<Task> tasks;
+	Mutex * AllocateMutex() {
+		auto mutex = new PosixMutex{};
 
-			AtomicU32 taskCount;
+		if (mutex) {
+			pthread_mutex_init(&mutex->value, nullptr);
 
-			public:
-			PosixThreadServer(
-				float hardwarePriority
-			) :
-				tasks{DefaultAllocator()},
+			return mutex;
+		}
 
-				threads{
-					DefaultAllocator(),
-					static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN) * hardwarePriority)
-				}
-			{
+		return nullptr;
+	}
 
-			}
+	void DestroyMutex(Mutex * & mutex) {
+		pthread_mutex_destroy(&reinterpret_cast<PosixMutex *>(mutex)->value);
 
-			void Execute(Task const & task) override {
-				pthread_mutex_lock(&this->taskMutex);
-				this->tasks.Enqueue(task);
-				pthread_mutex_unlock(&this->taskMutex);
-				// Signal to the listener that there's work to be done.
-				pthread_cond_signal(&this->taskCondition);
-			}
+		delete mutex;
 
-			bool Start() override {
-				static auto worker = [](void * arg) -> void * {
-					auto threadServer = reinterpret_cast<PosixThreadServer *>(arg);
+		mutex = nullptr;
+	}
 
+	class PosixCondition final : public Condition {
+		public:
+		pthread_cond_t value;
+
+		void Signal() override {
+			pthread_cond_signal(&this->value);
+		}
+
+		void Wait(Mutex * mutex) override {
+			pthread_cond_wait(&this->value, (&reinterpret_cast<PosixMutex *>(mutex)->value));
+		}
+	};
+
+	Condition * AllocateCondition() {
+		auto condition = new PosixCondition{};
+
+		if (condition) {
+			pthread_cond_init(&condition->value, nullptr);
+
+			return condition;
+		}
+
+		return nullptr;
+	}
+
+	void DestroyCondition(Condition * & condition) {
+		pthread_cond_destroy(&reinterpret_cast<PosixCondition *>(condition)->value);
+
+		delete condition;
+
+		condition = nullptr;
+	}
+
+	bool ThreadHandle::Cancel() {
+		if (this->id && this->canceller) {
+			bool const result = this->canceller(this->id);
+			this->id = 0;
+
+			return result;
+		}
+
+		return false;
+	}
+
+	uint32_t CountThreads() {
+		return static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN));
+	}
+
+	ThreadHandle AcquireThread(
+		String const & name,
+		ThreadProperties const & properties,
+		Callable<void()> const & action
+	) {
+		struct ThreadData {
+			Callable<void()> action;
+
+			ThreadProperties properties;
+		};
+
+		if (!action.IsEmpty()) {
+			pthread_t thread;
+
+			ThreadData threadData = {
+				.action = action,
+				.properties = properties,
+			};
+
+			if (pthread_create(&thread, nullptr, [](void * userdata) -> void * {
+				auto threadData = reinterpret_cast<ThreadData *>(userdata);
+
+				if (threadData->properties.isCancellable) {
 					pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, nullptr);
 					pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, nullptr);
+				}
 
-					for (;;) {
-						// Halt all but the first worker thread at this impasse so they
-						// don't fight over access to the list, letting only one of the
-						// threads proceed.
-						pthread_mutex_lock(&threadServer->taskMutex);
+				threadData->action.Invoke();
 
-						while (threadServer->tasks.Count() == 0) {
-							// While there's no work, just listen for some and wait.
-							pthread_cond_wait(
-								&threadServer->taskCondition,
-								&threadServer->taskMutex
-							);
-						}
+				return nullptr;
+			}, &threadData) == 0) {
+				pthread_setname_np(thread, name.ZeroSentineled().Chars().Sliced(0, 16).pointer);
 
-						// Ok, work acquired - let the next thread in on the action and let
-						// this one deal with the task it has acquired.
-						Task task = threadServer->tasks.Dequeue();
+				return ThreadHandle{
+					.id = thread,
 
-						pthread_mutex_unlock(&threadServer->taskMutex);
-						task.Invoke();
-					}
-
-					// Because pthreads return void pointers (in case you want to return
-					// some product from the operation).
-					return nullptr;
+					.canceller = [](ThreadID threadID) {
+						return (pthread_cancel(threadID) == 0);
+					},
 				};
-
-				if (
-					(pthread_cond_init(&this->taskCondition, nullptr) == 0) &&
-					(pthread_mutex_init(&this->taskMutex, nullptr) == 0)
-				) {
-					size_t threadsInitialized = 0;
-
-					this->taskCount.Store(0);
-
-					for (size_t i = 0; i < this->threads.Length(); i += 1) {
-						// TODO: Better names for threads. Keep in mind that max name length is 16.
-						if (
-							(pthread_create(&this->threads.At(i), nullptr, worker, this) == 0) &&
-							(pthread_setname_np(this->threads.At(i), "ona.thread[0]") == 0)
-						) {
-							threadsInitialized += 1;
-						}
-					}
-
-					return (threadsInitialized == this->threads.Length());
-				}
-
-				return false;
 			}
+		}
 
-			void Stop() override {
-				// Signal exit and wait for all threads to end.
-				for (size_t i = 0; i < this->threads.Length(); i += 1) {
-					pthread_cancel(this->threads.At(i));
-				}
-
-				pthread_mutex_destroy(&this->taskMutex);
-				pthread_cond_destroy(&this->taskCondition);
-			}
-
-			void Wait() override {
-				while (this->taskCount.Load() != 0);
-			}
-		} threadServer = {hardwarePriority};
-
-		return &threadServer;
+		return ThreadHandle{};
 	}
 
 	FileServer * LoadFilesystem() {

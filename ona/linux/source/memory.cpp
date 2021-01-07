@@ -1,4 +1,4 @@
-#include "ona/core/module.hpp"
+#include "ona/linux/module.hpp"
 
 namespace Ona::Core {
 	Allocator * DefaultAllocator() {
@@ -52,12 +52,4 @@ namespace Ona::Core {
 
 		return destination;
 	}
-}
-
-void * operator new(size_t count, Ona::Core::Allocator * allocator) {
-	return allocator->Allocate(count);
-}
-
-void operator delete(void * pointer, Ona::Core::Allocator * allocator) {
-	allocator->Deallocate(pointer);
 }

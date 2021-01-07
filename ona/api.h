@@ -4,7 +4,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#ifndef ENGINE_H
+#ifndef ONA_ENGINE_H
+
+typedef struct Instance Instance;
 
 typedef struct Material Material;
 
@@ -84,8 +86,6 @@ typedef struct OnaContext {
 
 	void(* materialFree)(Material * * material);
 
-	float(* randomF32)(float min, float max);
-
 	void(*renderSprite)(
 		GraphicsQueue * graphicsQueue,
 		Material * spriteMaterial,
@@ -143,6 +143,20 @@ template<typename Type> SystemInfo const * SystemInfoOf() {
 
 	return &system;
 }
+
+template<typename Type> struct Channel {
+	private:
+	Type value;
+
+	public:
+	Type & Await() {
+		return this->value;
+	}
+
+	void Pass(Type const & value) {
+		this->value = value;
+	}
+};
 
 #endif
 
