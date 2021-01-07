@@ -5,7 +5,8 @@
 		"SDL2",
 		"GL",
 		"GLEW",
-		"lua5.3"
+		"lua5.3",
+		"pthread"
 	],
 	"dependencies": [
 		"core",
