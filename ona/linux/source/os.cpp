@@ -5,24 +5,15 @@
 #include <fcntl.h>
 
 namespace Ona::Engine {
-	class PosixMutex final : public Mutex {
-		public:
-		pthread_mutex_t value;
-
-		void Lock() override {
-			pthread_mutex_lock(&this->value);
-		}
-
-		void Unlock() override {
-			pthread_mutex_unlock(&this->value);
-		}
+	struct Mutex {
+		pthread_mutex_t data;
 	};
 
 	Mutex * AllocateMutex() {
-		auto mutex = new PosixMutex{};
+		auto mutex = new Mutex{};
 
 		if (mutex) {
-			pthread_mutex_init(&mutex->value, nullptr);
+			pthread_mutex_init(&mutex->data, nullptr);
 
 			return mutex;
 		}
@@ -31,31 +22,30 @@ namespace Ona::Engine {
 	}
 
 	void DestroyMutex(Mutex * & mutex) {
-		pthread_mutex_destroy(&reinterpret_cast<PosixMutex *>(mutex)->value);
+		pthread_mutex_destroy(&mutex->data);
 
 		delete mutex;
 
 		mutex = nullptr;
 	}
 
-	class PosixCondition final : public Condition {
-		public:
-		pthread_cond_t value;
+	void LockMutex(Mutex * mutex) {
+		pthread_mutex_lock(&mutex->data);
+	}
 
-		void Signal() override {
-			pthread_cond_signal(&this->value);
-		}
+	void UnlockMutex(Mutex * mutex) {
+		pthread_mutex_unlock(&mutex->data);
+	}
 
-		void Wait(Mutex * mutex) override {
-			pthread_cond_wait(&this->value, (&reinterpret_cast<PosixMutex *>(mutex)->value));
-		}
+	struct Condition {
+		pthread_cond_t data;
 	};
 
 	Condition * AllocateCondition() {
-		auto condition = new PosixCondition{};
+		auto condition = new Condition{};
 
 		if (condition) {
-			pthread_cond_init(&condition->value, nullptr);
+			pthread_cond_init(&condition->data, nullptr);
 
 			return condition;
 		}
@@ -64,11 +54,19 @@ namespace Ona::Engine {
 	}
 
 	void DestroyCondition(Condition * & condition) {
-		pthread_cond_destroy(&reinterpret_cast<PosixCondition *>(condition)->value);
+		pthread_cond_destroy(&condition->data);
 
 		delete condition;
 
 		condition = nullptr;
+	}
+
+	void SignalCondition(Condition * condition) {
+		pthread_cond_signal(&condition->data);
+	}
+
+	void WaitCondition(Condition * condition, Mutex * mutex) {
+		pthread_cond_wait(&condition->data, &mutex->data);
 	}
 
 	bool ThreadHandle::Cancel() {

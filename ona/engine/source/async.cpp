@@ -23,18 +23,18 @@ namespace Ona::Engine {
 			for (uint32_t i = 0; i < this->threads.Length(); i += 1) {
 				this->threads.At(i) = AcquireThread(String::Format(name, {i}), props, [this]() {
 					for (;;) {
-						this->taskMutex->Lock();
+						LockMutex(this->taskMutex);
 
 						while (this->tasks.Count() == 0) {
 							// While there's no work, just listen for some and wait.
-							this->taskCondition->Wait(this->taskMutex);
+							WaitCondition(this->taskCondition, this->taskMutex);
 						}
 
 						// Ok, work acquired - let the next thread in on the action and let this one
 						// deal with the task it has acquired.
 						Task task = this->tasks.Dequeue();
 
-						this->taskMutex->Unlock();
+						UnlockMutex(this->taskMutex);
 						task.Invoke();
 						this->taskCount.FetchSub(1);
 					}
@@ -51,12 +51,12 @@ namespace Ona::Engine {
 	}
 
 	void Async::Execute(Task const & task) {
-		this->taskMutex->Lock();
+		LockMutex(this->taskMutex);
 		this->tasks.Enqueue(task);
-		this->taskMutex->Unlock();
+		UnlockMutex(this->taskMutex);
 		this->taskCount.FetchAdd(1);
 		// Signal to the listener that there's work to be done.
-		this->taskCondition->Signal();
+		SignalCondition(this->taskCondition);
 	}
 
 	void Async::Wait() {

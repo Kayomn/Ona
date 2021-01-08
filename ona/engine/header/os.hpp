@@ -1,26 +1,24 @@
 
 namespace Ona::Engine {
-	class Mutex : public Object {
-		public:
-		virtual void Lock() = 0;
-
-		virtual void Unlock() = 0;
-	};
+	struct Mutex;
 
 	Mutex * AllocateMutex();
 
 	void DestroyMutex(Mutex * & mutex);
 
-	class Condition : public Object {
-		public:
-		virtual void Signal() = 0;
+	void LockMutex(Mutex * mutex);
 
-		virtual void Wait(Mutex * mutex) = 0;
-	};
+	void UnlockMutex(Mutex * mutex);
+
+	struct Condition;
 
 	Condition * AllocateCondition();
 
 	void DestroyCondition(Condition * & condition);
+
+	void SignalCondition(Condition * condition);
+
+	void WaitCondition(Condition * condition, Mutex * mutex);
 
 	struct ThreadProperties {
 		bool isCancellable;
