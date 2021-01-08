@@ -117,7 +117,7 @@ namespace Ona::Engine {
 
 				return nullptr;
 			}, &threadData) == 0) {
-				pthread_setname_np(thread, name.ZeroSentineled().Chars().Sliced(0, 16).pointer);
+				pthread_setname_np(thread, name.Substring(0, 16).ZeroSentineled().Chars().pointer);
 
 				return ThreadHandle{
 					.id = thread,

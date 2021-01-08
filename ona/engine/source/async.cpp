@@ -12,16 +12,16 @@ namespace Ona::Engine {
 		this->taskMutex = AllocateMutex();
 
 		if (this->threads.Length() && this->taskCondition && this->taskMutex) {
-			String threadName = {"ona.thread[0]"};
-
-			ThreadProperties threadProperties = {
+			ThreadProperties props = {
 				.isCancellable = true,
 			};
+
+			String name = {"ona.thread[{}]"};
 
 			this->taskCount.Store(0);
 
 			for (uint32_t i = 0; i < this->threads.Length(); i += 1) {
-				this->threads.At(i) = AcquireThread(threadName, threadProperties, [this]() {
+				this->threads.At(i) = AcquireThread(String::Format(name, {i}), props, [this]() {
 					for (;;) {
 						this->taskMutex->Lock();
 
@@ -30,8 +30,8 @@ namespace Ona::Engine {
 							this->taskCondition->Wait(this->taskMutex);
 						}
 
-						// Ok, work acquired - let the next thread in on the action and let
-						// this one deal with the task it has acquired.
+						// Ok, work acquired - let the next thread in on the action and let this one
+						// deal with the task it has acquired.
 						Task task = this->tasks.Dequeue();
 
 						this->taskMutex->Unlock();
