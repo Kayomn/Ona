@@ -42,32 +42,6 @@ namespace Ona::Engine {
 		String const & filePath
 	);
 
-	class Instance : public Object {
-		public:
-		virtual Allocator * AllocatorOf() = 0;
-
-		virtual Object * ObjectOf() = 0;
-	};
-
-	template<typename Type> class TypedInstance final : public Instance {
-		Allocator * allocator;
-
-		Type object;
-
-		public:
-		template<typename... Args> TypedInstance(Args... args) : object{args...} {
-
-		}
-
-		Allocator * AllocatorOf() override {
-			return this->allocator;
-		}
-
-		Object * ObjectOf() override {
-			return &this->object;
-		}
-	};
-
 	#include "ona/api.h"
 }
 
