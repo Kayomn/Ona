@@ -12,6 +12,7 @@ assets_path = "./assets"
 output_path = "./output"
 input_path = "ona"
 compiler = "clang++"
+module_header_name = "module.hpp"
 
 required_properties = ["isExecutable"]
 
@@ -80,14 +81,14 @@ def build(name: str) -> BuildInfo:
 
 	print("Building", (name + "..."))
 
-	header_path = path.join(module_path, "module.hpp")
-	header_folder_path = path.join(module_path, "header")
+	module_header_path = path.join(module_path, module_header_name)
 	needs_recompile |= (not path.exists(binary_path))
 
-	# A re-compilation is needed if the module header is newer than the output binary.
-	if (not needs_recompile):
+	if (path.exists(module_header_path) and not needs_recompile):
+		# A re-compilation is needed if the module header is newer than the output binary.
 		binary_modtime = path.getmtime(binary_path)
-		needs_recompile = (path.getmtime(header_path) > binary_modtime)
+		needs_recompile = (path.getmtime(module_header_path) > binary_modtime)
+		header_folder_path = path.join(module_path, "header")
 
 		if ((not needs_recompile) and path.exists(header_folder_path)):
 			for file_name in listdir(header_folder_path):
