@@ -27,23 +27,19 @@ namespace Ona::Core {
 
 		Type * pointer;
 
+		template<typename CastType> using Casted = std::conditional_t<
+			std::is_const<Type>::value,
+			CastType const,
+			CastType
+		>;
+
 		/**
 		 * Reinterprets the `Slice` as a `Slice` of raw, unsigned bytes.
 		 */
-		constexpr Slice<uint8_t> Bytes() {
-			return Slice<uint8_t>{
+		constexpr Slice<Casted<uint8_t>> Bytes() const {
+			return Slice<Casted<uint8_t>>{
 				.length = (this->length * sizeof(Type)),
-				.pointer = reinterpret_cast<uint8_t *>(this->pointer)
-			};
-		}
-
-		/**
-		 * Reinterprets the `Slice` as a `Slice` of read-only, raw, unsigned bytes.
-		 */
-		constexpr Slice<uint8_t const> Bytes() const {
-			return Slice<uint8_t const>{
-				.length = (this->length * sizeof(Type)),
-				.pointer = reinterpret_cast<uint8_t const *>(this->pointer)
+				.pointer = reinterpret_cast<Casted<uint8_t> *>(this->pointer)
 			};
 		}
 
@@ -79,22 +75,11 @@ namespace Ona::Core {
 		}
 
 		/**
-		 * Creates a new `Slice` from the `Slice`, granting access to elements from index `a` to
-		 * position `b`.
-		 */
-		constexpr Slice Sliced(size_t a, size_t b) {
-			return Slice{
-				.length = b,
-				.pointer = (this->pointer + a)
-			};
-		}
-
-		/**
 		 * Creates a new `Slice` of `const` `Type` from the `Slice`, granting access to elements
 		 * from index `a` to position `b`.
 		 */
-		constexpr Slice<Type const> Sliced(size_t a, size_t b) const {
-			return Slice<Type const>{
+		constexpr Slice<Type> Sliced(size_t a, size_t b) const {
+			return Slice<Type>{
 				.length = b,
 				.pointer = (this->pointer + a)
 			};
@@ -130,75 +115,6 @@ namespace Ona::Core {
 	template<typename Type> constexpr Slice<Type> SliceOf(Type * pointer, size_t const length) {
 		return Slice<Type>{length, pointer};
 	}
-
-	template<typename> struct Callable;
-
-	template<typename Return, typename... Args> struct Callable<Return(Args...)> {
-		private:
-		class Context {
-			public:
-			virtual Return Invoke(Args const &... args) = 0;
-		};
-
-		enum { BufferSize = 24 };
-
-		Context * context;
-
-		uint8_t buffer[BufferSize];
-
-		using FunctionType = Return(*)(Args...);
-
-		public:
-		Callable() = default;
-
-		Callable(Callable const & that) {
-			for (size_t i = 0; i < BufferSize; i += 1) this->buffer[i] = that.buffer[i];
-
-			this->context = reinterpret_cast<Context *>(this->buffer);
-		}
-
-		Callable(FunctionType function) {
-			class Pointer : public Context {
-				private:
-				FunctionType function;
-
-				public:
-				Pointer(FunctionType function) : function{function} { }
-
-				Return Invoke(Args const &... args) override {
-					return this->function(args...);
-				};
-			};
-
-			this->context = new (this->buffer) Pointer{function};
-		}
-
-		template<typename Type> Callable(Type const & functor) {
-			class Functor : public Context {
-				private:
-				Type functor;
-
-				public:
-				Functor(Type const & functor) : functor{functor} { }
-
-				Return Invoke(Args const &... args) override {
-					return this->functor(args...);
-				};
-			};
-
-			static_assert((sizeof(Functor) <= BufferSize), "Functor cannot be larger than buffer");
-
-			this->context = new (this->buffer) Functor{functor};
-		}
-
-		Return Invoke(Args const &... args) const {
-			return this->context->Invoke(args...);
-		}
-
-		bool IsEmpty() const {
-			return (this->context == nullptr);
-		}
-	};
 
 	using Chars = Slice<char const>;
 
@@ -240,10 +156,130 @@ namespace Ona::Core {
 
 #include "ona/core/header/atomics.hpp"
 #include "ona/core/header/text.hpp"
-#include "ona/core/header/object.hpp"
+
+namespace Ona::Core {
+	class Object {
+		public:
+		Object() = default;
+
+		Object(Object const &) = delete;
+
+		virtual ~Object() {};
+
+		virtual bool Equals(Object const * that) const {
+			return (this == that);
+		}
+
+		virtual uint64_t ToHash() const {
+			return reinterpret_cast<int64_t>(this);
+		}
+
+		virtual String ToString() const {
+			return String{"{}"};
+		}
+	};
+}
+
 #include "ona/core/header/memory.hpp"
+
+namespace Ona::Core {
+	template<typename> struct Callable;
+
+	template<typename Return, typename... Args> struct Callable<Return(Args...)> {
+		private:
+		struct Operations {
+			Return(* caller)(uint8_t const * userdata, Args... args);
+
+			void(* copier)(uint8_t * destinationUserdata, uint8_t const * sourceUserdata);
+
+			void(* destroyer)(uint8_t * userdata);
+		};
+
+		enum { BufferSize = 24 };
+
+		Operations const * operations;
+
+		uint8_t buffer[BufferSize];
+
+		using FunctionType = Return(*)(Args...);
+
+		public:
+		Callable() = default;
+
+		Callable(Callable const & that) : operations{that.operations} {
+			if (this->operations) {
+				that.operations->copier(this->buffer, that.buffer);
+			}
+		}
+
+		~Callable() {
+			if (this->operations) this->operations->destroyer(this->buffer);
+		}
+
+		Callable(FunctionType function) {
+			static const Operations pointerOperations = {
+				.caller = [](uint8_t const * userdata, Args... args) -> Return {
+					return (*reinterpret_cast<FunctionType const *>(userdata))(args...);
+				},
+
+				.copier = [](uint8_t * destinationUserdata, uint8_t const * sourceUserdata) {
+					new (destinationUserdata) FunctionType{
+						*reinterpret_cast<FunctionType const *>(sourceUserdata)
+					};
+				},
+
+				.destroyer = [](uint8_t * userdata) {
+					// Does nothing because function pointers are just numbers.
+				},
+			};
+
+			this->operations = &pointerOperations;
+
+			new (this->buffer) FunctionType{function};
+		}
+
+		template<typename Type> Callable(Type const & functor) {
+			static const Operations functorOperations = {
+				.caller = [](uint8_t const * userdata, Args... args) -> Return {
+					return (*reinterpret_cast<Type const *>(userdata))(args...);
+				},
+
+				.copier = [](uint8_t * destinationUserdata, uint8_t const * sourceUserdata) {
+					new (destinationUserdata) Type{
+						*reinterpret_cast<Type const *>(sourceUserdata)
+					};
+				},
+
+				.destroyer = [](uint8_t * userdata) {
+					reinterpret_cast<Type *>(userdata)->~Type();
+				},
+			};
+
+			static_assert((sizeof(Type) <= BufferSize), "Functor cannot be larger than buffer");
+
+			this->operations = &functorOperations;
+
+			new (this->buffer) Type{functor};
+		}
+
+		Return Invoke(Args const &... args) const {
+			return this->operations->caller(this->buffer, args...);
+		}
+
+		bool IsEmpty() const {
+			return (this->operations == nullptr);
+		}
+
+		bool HasValue() const {
+			return (this->operations != nullptr);
+		}
+	};
+}
+
 #include "ona/core/header/array.hpp"
 #include "ona/core/header/image.hpp"
 #include "ona/core/header/random.hpp"
+#include "ona/core/header/os.hpp"
+#include "ona/core/header/path.hpp"
 
 #endif

@@ -46,7 +46,7 @@ class BuildInfo:
 def build(name: str) -> BuildInfo:
 	def load_build_config(file_path: str) -> dict:
 		if (not path.exists(file_path)):
-			print("No build.json exists for", name)
+			print("No module json exists for", name)
 			exit(1)
 
 		with open(file_path) as file:
@@ -63,15 +63,15 @@ def build(name: str) -> BuildInfo:
 	object_paths = []
 	dependency_paths = []
 	needs_recompile = False
+	dependencies = build_config["dependencies"] if ("dependencies" in build_config) else {}
 
-	if ("dependencies" in build_config):
-		for dependency in build_config["dependencies"]:
-			if (not dependency in processed_dependencies):
-				build_info = build(dependency)
-				needs_recompile |= build_info.needed_rebuild
+	for dependency in dependencies:
+		if (not dependency in processed_dependencies):
+			build_info = build(dependency)
+			needs_recompile |= build_info.needed_rebuild
 
-				dependency_paths.append(build_info.binary_path)
-				processed_dependencies.append(dependency)
+			dependency_paths.append(build_info.binary_path)
+			processed_dependencies.append(dependency)
 
 	is_executable = build_config["isExecutable"]
 	binary_path = path.join(output_path, name)

@@ -71,8 +71,6 @@ class FileServer : public Object {
 		File::OpenFlags openFlags
 	) = 0;
 
-	virtual File OutFile() = 0;
-
 	virtual void Print(
 		File & file,
 		String const & string

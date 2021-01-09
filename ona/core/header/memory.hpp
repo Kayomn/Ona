@@ -13,6 +13,8 @@ namespace Ona::Core {
 		public:
 		Type value;
 
+		Owned() = default;
+
 		Owned(Type const & value) : value{value} { }
 
 		~Owned() override {

@@ -80,7 +80,7 @@ typedef struct OnaContext {
 
 	void(* imageFree)(Image * image);
 
-	bool(* imageLoadBitmap)(Allocator * allocator, char const * fileName, Image * result);
+	bool(* imageLoad)(Allocator * allocator, char const * fileName, Image * result);
 
 	Material *(* materialCreate)(Image const * image);
 

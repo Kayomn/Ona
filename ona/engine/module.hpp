@@ -5,11 +5,9 @@
 #include "ona/collections/module.hpp"
 
 #include "ona/engine/header/config.hpp"
-#include "ona/engine/header/fileserver.hpp"
 #include "ona/engine/header/graphics.hpp"
-#include "ona/engine/header/os.hpp"
 #include "ona/engine/header/async.hpp"
-#include "ona/engine/header/loading.hpp"
+#include "ona/engine/header/loaders.hpp"
 
 namespace Ona::Engine {
 	using namespace Ona::Collections;

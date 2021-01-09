@@ -27,7 +27,7 @@ struct SceneController {
 			};
 		}
 
-		if (ona->imageLoadBitmap(allocator, "./actor.bmp", &actorImage)) {
+		if (ona->imageLoad(allocator, "./actor.bmp", &actorImage)) {
 			this->actorMaterial = ona->materialCreate(&actorImage);
 
 			ona->imageFree(&actorImage);

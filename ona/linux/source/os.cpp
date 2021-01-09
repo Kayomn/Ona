@@ -1,4 +1,4 @@
-#include "ona/engine/module.hpp"
+#include "ona/core/module.hpp"
 
 #include <pthread.h>
 #include <unistd.h>
@@ -6,8 +6,91 @@
 #include <errno.h>
 #include <dlfcn.h>
 
+static int UserdataToHandle(void * userdata) {
+	return static_cast<int>(reinterpret_cast<size_t>(userdata));
+};
+
 namespace Ona::Engine {
 	using namespace Ona::Core;
+
+	bool CheckFile(String const & filePath) {
+		return (access(filePath.ZeroSentineled().Chars().pointer, F_OK) != -1);
+	}
+
+	bool OpenFile(String const & filePath, File::OpenFlags openFlags, File & file) {
+		static FileOperations const unixFileOperations = {
+			.closer = [](void * handle) {
+				close(UserdataToHandle(handle));
+			},
+
+			.reader = [](void * handle, Slice<uint8_t> input) -> size_t {
+				ssize_t const bytesRead = read(
+					UserdataToHandle(handle),
+					input.pointer,
+					input.length
+				);
+
+				return ((bytesRead > -1) ? static_cast<size_t>(bytesRead) : 0);
+			},
+
+			.seeker = [](void * handle, int64_t offset, FileOperations::SeekMode mode) -> int64_t {
+				int64_t bytesSought;
+
+				switch (mode) {
+					case FileOperations::SeekMode::Cursor: {
+						bytesSought = lseek(UserdataToHandle(handle), offset, SEEK_CUR);
+					} break;
+
+					case FileOperations::SeekMode::Head: {
+						bytesSought = lseek(UserdataToHandle(handle), offset, SEEK_SET);
+					} break;
+
+					case FileOperations::SeekMode::Tail: {
+						bytesSought = lseek(UserdataToHandle(handle), offset, SEEK_END);
+					} break;
+				}
+
+				return ((bytesSought > -1) ? static_cast<size_t>(bytesSought) : 0);
+			},
+
+			.writer = [](void * handle, Slice<uint8_t const> const & output) -> size_t {
+				ssize_t const bytesWritten = write(
+					UserdataToHandle(handle),
+					output.pointer,
+					output.length
+				);
+
+				return ((bytesWritten > -1) ? static_cast<size_t>(bytesWritten) : 0);
+			},
+		};
+
+		int unixAccessFlags = 0;
+
+		if (openFlags & File::OpenRead) unixAccessFlags |= O_RDONLY;
+
+		if (openFlags & File::OpenWrite) unixAccessFlags |= (O_WRONLY | O_CREAT);
+
+		/**
+		*         Read Write Execute
+		*        -------------------
+		* Owner | yes  yes   no
+		* Group | yes  no    no
+		* Other | yes  no    no
+		*/
+		int const handle = (open(
+			filePath.ZeroSentineled().Chars().pointer,
+			unixAccessFlags,
+			(S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR)
+		));
+
+		if (handle > 0) {
+			file = File{&unixFileOperations, reinterpret_cast<void *>(handle)};
+
+			return true;
+		}
+
+		return false;
+	}
 
 	void * Library::FindSymbol(String const & symbol) {
 		return dlsym(this->handle, symbol.ZeroSentineled().Chars().pointer);
@@ -17,7 +100,7 @@ namespace Ona::Engine {
 		dlclose(this->handle);
 	}
 
-	bool LoadLibrary(String const & libraryPath, Library & result) {
+	bool OpenLibrary(String const & libraryPath, Library & result) {
 		Library library = {
 			.handle = dlopen(libraryPath.ZeroSentineled().Chars().pointer, RTLD_LAZY)
 		};
@@ -147,10 +230,17 @@ namespace Ona::Engine {
 				return nullptr;
 			}, &threadData)) {
 				case 0: {
-					pthread_setname_np(
-						thread,
-						name.Substring(0, 16).ZeroSentineled().Chars().pointer
+					FixedArray<char, 16> threadNameBuffer = {};
+					size_t const treadNameBufferLastIndex = (threadNameBuffer.Length() - 1);
+
+					CopyMemory(
+						threadNameBuffer.Sliced(0, treadNameBufferLastIndex).Bytes(),
+						name.Chars().Sliced(0, treadNameBufferLastIndex).Bytes()
 					);
+
+					// Zero sentinel.
+					threadNameBuffer.At(treadNameBufferLastIndex) = 0;
+					pthread_setname_np(thread, threadNameBuffer.Pointer());
 
 					result = Thread{.handle = reinterpret_cast<void *>(thread)};
 
@@ -172,124 +262,6 @@ namespace Ona::Engine {
 
 	uint32_t CountHardwareConcurrency() {
 		return static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN));
-	}
-
-	FileServer * LoadFilesystem() {
-		static auto userdataToHandle = [](void * userdata) {
-			return static_cast<int>(reinterpret_cast<size_t>(userdata));
-		};
-
-		static auto seekImpl = [](
-			FileServer * fileServer,
-			File & file,
-			int seek,
-			int64_t offset
-		) -> size_t {
-			if (file.server == fileServer) {
-				int64_t const bytesSought = lseek(userdataToHandle(file.userdata), offset, seek);
-
-				if (bytesSought > -1) return static_cast<size_t>(bytesSought);
-			}
-
-			return 0;
-		};
-
-		static class FileSystem final : public FileServer {
-			public:
-			bool CheckFile(String const & filePath) override {
-				return (access(filePath.ZeroSentineled().Chars().pointer, F_OK) != -1);
-			}
-
-			void CloseFile(File & file) override {
-				if (file.server == this) {
-					close(userdataToHandle(file.userdata));
-
-					file.userdata = nullptr;
-				}
-			}
-
-			bool OpenFile(
-				String const & filePath,
-				File & file,
-				File::OpenFlags openFlags
-			) override {
-				int unixAccessFlags = 0;
-
-				if (openFlags & File::OpenRead) unixAccessFlags |= O_RDONLY;
-
-				if (openFlags & File::OpenWrite) unixAccessFlags |= (O_WRONLY | O_CREAT);
-
-				/**
-				*         Read Write Execute
-				*        -------------------
-				* Owner | yes  yes   no
-				* Group | yes  no    no
-				* Other | yes  no    no
-				*/
-				int const handle = (open(
-					filePath.ZeroSentineled().Chars().pointer,
-					unixAccessFlags,
-					(S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR)
-				));
-
-				if (handle > 0) {
-					file = File{
-						.server = this,
-						.userdata = reinterpret_cast<void *>(handle)
-					};
-
-					return true;
-				}
-
-				return false;
-			}
-
-			void Print(File & file, String const & string) override {
-				this->Write(file, string.Bytes());
-			}
-
-			size_t Read(File & file, Slice<uint8_t> output) override {
-				if (file.server == this) {
-					ssize_t const bytesRead = read(
-						userdataToHandle(file.userdata),
-						output.pointer,
-						output.length
-					);
-
-					if (bytesRead > -1) return static_cast<size_t>(bytesRead);
-				}
-
-				return 0;
-			}
-
-			int64_t SeekHead(File & file, int64_t offset) override {
-				return seekImpl(this, file, SEEK_SET, offset);
-			}
-
-			int64_t SeekTail(File & file, int64_t offset) override {
-				return seekImpl(this, file, SEEK_END, offset);
-			}
-
-			int64_t Skip(File & file, int64_t offset) override {
-				return seekImpl(this, file, SEEK_CUR, offset);
-			}
-
-			size_t Write(File & file, Slice<uint8_t const> const & input) override {
-				if (file.server == this) {
-					ssize_t const bytesWritten = write(
-						userdataToHandle(file.userdata),
-						input.pointer,
-						input.length
-					);
-
-					if (bytesWritten > -1) return static_cast<size_t>(bytesWritten);
-				}
-
-				return 0;
-			}
-		} fileSystem = {};
-
-		return &fileSystem;
 	}
 
 	void Print(String const & message) {

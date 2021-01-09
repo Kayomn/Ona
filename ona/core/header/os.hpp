@@ -3,6 +3,162 @@ namespace Ona::Engine {
 	using namespace Ona::Core;
 
 	/**
+	 * File operations table used for defining the behavior of the file operations.
+	 */
+	struct FileOperations {
+		enum class SeekMode {
+			Cursor,
+			Head,
+			Tail,
+		};
+
+		Callable<void(void * handle)> closer;
+
+		Callable<size_t(void * handle, Slice<uint8_t> output)> reader;
+
+		Callable<int64_t(void * handle, int64_t offset, SeekMode mode)> seeker;
+
+		Callable<size_t(void * handle, Slice<uint8_t const> const & input)> writer;
+	};
+
+	/**
+	 * Interface to a file-like data resource.
+	 */
+	struct File {
+		private:
+		void * handle;
+
+		FileOperations const * operations;
+
+		public:
+		/**
+		 * Bitflags used for indicating the access state of a `File`.
+		 */
+		enum OpenFlags {
+			OpenUnknown = 0,
+			OpenRead = 0x1,
+			OpenWrite = 0x2
+		};
+
+		File() = default;
+
+		File(
+			FileOperations const * operations,
+			void * handle
+		) : operations{operations}, handle{handle} {
+
+		}
+
+		/**
+		 * Frees the resources associated with the `File`.
+		 */
+		void Free() {
+			if (this->operations && (!this->operations->closer.IsEmpty())) {
+				this->operations->closer.Invoke(this->handle);
+
+				this->handle = nullptr;
+			}
+		}
+
+		/**
+		 * Attempts to read the contents of the file for as many bytes as `input` is in size into
+		 * `input`.
+		 *
+		 * The number of bytes in `input` successfully written from the file are returned.
+		 */
+		size_t Read(Slice<uint8_t> input) {
+			if (this->operations && (!this->operations->reader.IsEmpty())) {
+				return this->operations->reader.Invoke(this->handle, input);
+			}
+
+			return 0;
+		}
+
+		/**
+		 * Seeks `offset` bytes into the file from the ending of the file.
+		 *
+		 * The number of successfully sought bytes are returned.
+		 */
+		int64_t SeekHead(int64_t offset) {
+			if (this->operations && (!this->operations->seeker.IsEmpty())) {
+				return this->operations->seeker.Invoke(
+					this->handle,
+					offset,
+					FileOperations::SeekMode::Head
+				);
+			}
+
+			return 0;
+		}
+
+		/**
+		 * Seeks `offset` bytes into the file from the beginning of the file.
+		 *
+		 * The number of successfully sought bytes are returned.
+		 */
+		int64_t SeekTail(int64_t offset) {
+			if (this->operations && (!this->operations->seeker.IsEmpty())) {
+				return this->operations->seeker.Invoke(
+					this->handle,
+					offset,
+					FileOperations::SeekMode::Tail
+				);
+			}
+
+			return 0;
+		}
+
+		/**
+		 * Skips `offset` bytes in the file from the current cursor position.
+		 *
+		 * The number of successfully skipped bytes are returned.
+		 */
+		int64_t Skip(int64_t offset) {
+			if (this->operations && (!this->operations->seeker.IsEmpty())) {
+				return this->operations->seeker.Invoke(
+					this->handle,
+					offset,
+					FileOperations::SeekMode::Cursor
+				);
+			}
+
+			return 0;
+		}
+
+		/**
+		 * Attempts to write the contents `output` to the file directly without buffered I/O.
+		 *
+		 * The number of bytes in `output` successfully written to the file are returned.
+		 */
+		size_t Write(Slice<uint8_t const> const & output) {
+			if (this->operations && (!this->operations->writer.IsEmpty())) {
+				return this->operations->writer.Invoke(this->handle, output);
+			}
+
+			return 0;
+		}
+	};
+
+	/**
+	 * Checks that the file at `filePath` is available to be opened.
+	 *
+	 * Reasons for why a file may not be openable are incredibly OS-specific and not exposed in this
+	 * function.
+	 */
+	bool CheckFile(String const & filePath);
+
+	/**
+	 * Attempts to open the file specified at `filePath` using `openFlags`.
+	 *
+	 * A successfully opened file will be written to `result` and `true` is returned. Otherwise,
+	 * `false` is returned.
+	 *
+	 * Reasons for why a file may fail to open are incredibly OS-specific and not exposed in this
+	 * function.
+	 */
+	bool OpenFile(String const & filePath, File::OpenFlags openFlags, File & result);
+
+	/**
 	 * Interface to a dynamic binary of code loaded at runtime.
 	 */
 	struct Library {
@@ -21,12 +177,15 @@ namespace Ona::Engine {
 	};
 
 	/**
-	 * Attempts to load the library specified at `libraryPath` into memory.
+	 * Attempts to open the library specified at `libraryPath`.
 	 *
-	 * A successfully loaded library will be written to `result` and `true` is returned. Otherwise,
+	 * A successfully opened library will be written to `result` and `true` is returned. Otherwise,
 	 * `false` is returned.
+	 *
+	 * Reasons for why a library may fail to open are incredibly OS-specific and not exposed in this
+	 * function.
 	 */
-	bool LoadLibrary(String const & libraryPath, Library & result);
+	bool OpenLibrary(String const & libraryPath, Library & result);
 
 	/**
 	 * Resource for acquiring mutually exclusive (locking) access to a section of code for a
@@ -188,11 +347,6 @@ namespace Ona::Engine {
 	 * platforms, this may be hardware threads, while on others it may be cores.
 	 */
 	uint32_t CountHardwareConcurrency();
-
-	/**
-	 * Attempts to load access to the operating system filesystem as a `FileServer`.
-	 */
-	FileServer * LoadFilesystem();
 
 	/**
 	 * Prints `message` to the operating system standard output.

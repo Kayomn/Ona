@@ -6,7 +6,7 @@ using namespace Ona::Core;
 using namespace Ona::Collections;
 using namespace Ona::Engine;
 
-using ModuleInitializer = bool(*)(OnaContext const * ona);
+using ExtensionInitializer = bool(*)(OnaContext const * ona);
 
 struct System {
 	void * userdata;
@@ -19,8 +19,6 @@ struct System {
 };
 
 static PackedStack<System> systems = {DefaultAllocator()};
-
-static FileServer * fileServer = LoadFilesystem();
 
 static GraphicsServer * graphicsServer = nullptr;
 
@@ -59,8 +57,19 @@ static OnaContext const context = {
 		image->Free();
 	},
 
-	.imageLoadBitmap = [](Allocator * allocator, char const * fileName, Image * result) -> bool {
-		return LoadBitmap(allocator, fileServer, String{fileName}, *result).IsOk();
+	.imageLoad = [](Allocator * allocator, char const * fileName, Image * result) -> bool {
+		String fileNameString = {fileName};
+		ImageLoader const * imageLoader = FindImageLoader(PathExtension(fileNameString));
+
+		if (imageLoader) {
+			Owned<File> file = {};
+
+			if (OpenFile(String{fileName}, File::OpenRead, file.value)) {
+				return imageLoader->Invoke(allocator, file.value, *result).IsOk();
+			}
+		}
+
+		return false;
 	},
 
 	.materialCreate = [](Image const * image) -> Material * {
@@ -106,71 +115,73 @@ static GraphicsServer * LoadGraphicsServerFromConfig(Config * config) {
 
 int main(int argv, char const * const * argc) {
 	Allocator * defaultAllocator = DefaultAllocator();
+	String configSource = {};
+	File configFile;
 
-	if (fileServer) {
-		String configSource = LoadText(defaultAllocator, fileServer, String{"config.lua"});
+	if (OpenFile(String{"config.lua"}, File::OpenRead, configFile)) {
+		configSource = LoadText(defaultAllocator, configFile);
+	}
 
-		if (configSource.Length()) {
-			Async async = {defaultAllocator, 0.25f};
-			LuaConfig config = {Print};
+	if (configSource.Length()) {
+		Async async = {defaultAllocator, 0.25f};
+		LuaConfig config = {Print};
 
-			if (config.Load(configSource)) {
-				graphicsServer = LoadGraphicsServerFromConfig(&config);
+		if (RegisterImageLoader(String{"bmp"}, LoadBitmap) && config.Load(configSource)) {
+			graphicsServer = LoadGraphicsServerFromConfig(&config);
 
-				if (graphicsServer) {
-					PackedStack<void *> extensions = {DefaultAllocator()};
-					Owned<ConfigValue> extensionNames = config.ReadGlobal(String{"Extensions"});
-					uint32_t const extensionsCount = config.ValueLength(extensionNames.value);
-					Events events = {};
+			if (graphicsServer) {
+				PackedStack<void *> extensions = {DefaultAllocator()};
+				Owned<ConfigValue> extensionNames = config.ReadGlobal(String{"Extensions"});
+				uint32_t const extensionsCount = config.ValueLength(extensionNames.value);
+				Events events = {};
 
-					for (uint32_t i = 0; i < extensionsCount; i += 1) {
-						String moduleName = config.ValueString(Owned<ConfigValue>{
-							config.ReadArray(extensionNames.value, i)
-						}.value);
+				for (uint32_t i = 0; i < extensionsCount; i += 1) {
+					String moduleName = config.ValueString(Owned<ConfigValue>{
+						config.ReadArray(extensionNames.value, i)
+					}.value);
 
-						void * moduleLibrary = dlopen(String::Concat({
-							moduleName,
-							String{".so"}
-						}).ZeroSentineled().Chars().pointer, RTLD_LAZY);
+					void * moduleLibrary = dlopen(String::Concat({
+						moduleName,
+						String{".so"}
+					}).ZeroSentineled().Chars().pointer, RTLD_LAZY);
 
-						if (moduleLibrary) {
-							auto initializer = reinterpret_cast<ModuleInitializer>(
-								dlsym(moduleLibrary, "OnaInit")
-							);
+					if (moduleLibrary) {
+						auto initializer = reinterpret_cast<ExtensionInitializer>(
+							dlsym(moduleLibrary, "OnaInit")
+						);
 
-							if (initializer) initializer(&context);
+						if (initializer) initializer(&context);
 
-							extensions.Push(moduleLibrary);
-						}
+						extensions.Push(moduleLibrary);
 					}
-
-					systems.ForValues([](System const & system) {
-						if (system.initializer) system.initializer(system.userdata, &context);
-					});
-
-					while (graphicsServer->ReadEvents(&events)) {
-						graphicsServer->Clear();
-
-						systems.ForValues([&events, &async](System const & system) {
-							async.Execute([&system, &events]() {
-								system.processor(system.userdata, &events, &context);
-							});
-						});
-
-						async.Wait();
-						graphicsServer->Update();
-					}
-
-					systems.ForValues([](System const & system) {
-						if (system.finalizer) system.finalizer(system.userdata, &context);
-
-						DefaultAllocator()->Deallocate(system.userdata);
-					});
-
-					extensions.ForValues([](void * extension) {
-						dlclose(extension);
-					});
 				}
+
+				systems.ForValues([](System const & system) {
+					if (system.initializer) system.initializer(system.userdata, &context);
+				});
+
+				while (graphicsServer->ReadEvents(&events)) {
+					graphicsServer->Clear();
+
+					systems.ForValues([&events, &async](System const & system) {
+						async.Execute([&system, &events]() {
+							system.processor(system.userdata, &events, &context);
+						});
+					});
+
+					async.Wait();
+					graphicsServer->Update();
+				}
+
+				systems.ForValues([](System const & system) {
+					if (system.finalizer) system.finalizer(system.userdata, &context);
+
+					DefaultAllocator()->Deallocate(system.userdata);
+				});
+
+				extensions.ForValues([](void * extension) {
+					dlclose(extension);
+				});
 			}
 		}
 	}

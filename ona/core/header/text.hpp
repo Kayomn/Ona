@@ -134,6 +134,7 @@ namespace Ona::Core {
 			return this->length;
 		}
 
+		// TODO: Deprecate
 		String Substring(uint32_t startIndex, size_t length) const;
 
 		uint64_t ToHash() const;
