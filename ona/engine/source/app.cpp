@@ -52,43 +52,15 @@ static OnaContext const context = {
 		Color color,
 		Image * result
 	) -> bool {
-		Result<Image, ImageError> imageResult = Image::Solid(allocator, dimensions, color);
-
-		if (imageResult.IsOk()) {
-			if (result) {
-				(*result) = imageResult.Value();
-			} else {
-				imageResult.Value().Free();
-			}
-
-			return true;
-		}
-
-		return false;
+		return Image::Solid(allocator, dimensions, color, *result).IsOk();
 	},
 
 	.imageFree = [](Image * image) {
 		image->Free();
 	},
 
-	.imageLoadBitmap = [](
-		Allocator * allocator,
-		char const * fileName,
-		Image * result
-	) -> bool {
-		Result<Image, ImageError> imageResult = LoadBitmap(allocator, fileServer, String{fileName});
-
-		if (imageResult.IsOk()) {
-			if (result) {
-				(*result) = imageResult.Value();
-			} else {
-				imageResult.Value().Free();
-			}
-
-			return true;
-		}
-
-		return false;
+	.imageLoadBitmap = [](Allocator * allocator, char const * fileName, Image * result) -> bool {
+		return LoadBitmap(allocator, fileServer, String{fileName}, *result).IsOk();
 	},
 
 	.materialCreate = [](Image const * image) -> Material * {

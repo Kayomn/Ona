@@ -15,7 +15,7 @@ namespace Ona::Engine {
 
 	/**
 	 * Attempts to load the contents of the file at `filePath` from `fileServer` into memory as a
-	 * bitmap using `imageAllocator` as the dynamic memory allocator for the `Image` pixels.
+	 * bitmap using `imageAllocator` as the dynamic memory allocation strategy for the `Image`.
 	 *
 	 * Failure to load a file from the given `filePath` and `fileServer` will result in a 32x32
 	 * placeholder image being allocated and returned instead. A file I/O failure is not considered
@@ -23,11 +23,12 @@ namespace Ona::Engine {
 	 * `ImageError`.
 	 *
 	 * `LoadBitmap` supports 24-bit and 32-bit BGRA-encoded uncompressed bitmaps. Any other formats
-	 * will result in `ImageError::UnsupportedFormat`
+	 * will result in an `ImageError::UnsupportedFormat` error.
 	 */
-	Result<Image, ImageError> LoadBitmap(
+	Error<ImageError> LoadBitmap(
 		Allocator * imageAllocator,
 		FileServer * fileServer,
-		String const & filePath
+		String const & filePath,
+		Image & result
 	);
 }

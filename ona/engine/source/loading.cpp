@@ -26,12 +26,13 @@ namespace Ona::Engine {
 		return String{};
 	}
 
-	Result<Image, ImageError> LoadBitmap(
+	Error<ImageError> LoadBitmap(
 		Allocator * imageAllocator,
 		FileServer * fileServer,
-		String const & filePath
+		String const & filePath,
+		Image & result
 	) {
-		using Res = Result<Image, ImageError>;
+		using Err = Error<ImageError>;
 
 		struct $packed FileHeader {
 			uint16_t signature;
@@ -185,7 +186,7 @@ namespace Ona::Engine {
 
 									fileServer->CloseFile(file);
 
-									return Res::Ok(Image{
+									result = Image{
 										.allocator = imageAllocator,
 
 										.pixels = reinterpret_cast<Color *>(
@@ -193,11 +194,13 @@ namespace Ona::Engine {
 										),
 
 										.dimensions = dimensions,
-									});
+									};
+
+									return Err{};
 								}
 
 								// Unable to allocate row buffer.
-								return Res::Fail(ImageError::OutOfMemory);
+								return Err{ImageError::OutOfMemory};
 							} break;
 
 							case 32: {
@@ -240,7 +243,7 @@ namespace Ona::Engine {
 
 									fileServer->CloseFile(file);
 
-									return Res::Ok(Image{
+									result = Image{
 										.allocator = imageAllocator,
 
 										.pixels = reinterpret_cast<Color *>(
@@ -248,43 +251,45 @@ namespace Ona::Engine {
 										),
 
 										.dimensions = dimensions,
-									});
+									};
+
+									return Err{};
 								}
 
 								fileServer->CloseFile(file);
 
 								// Unable to allocate row buffer.
-								return Res::Fail(ImageError::OutOfMemory);
+								return Err{ImageError::OutOfMemory};
 							} break;
 
 							// Unsupporterd bit per pixel format.
 							default: {
 								fileServer->CloseFile(file);
 
-								return Res::Fail(ImageError::UnsupportedFormat);
+								return Err{ImageError::UnsupportedFormat};
 							}
 						}
 
 						fileServer->CloseFile(file);
 
 						// Unable to allocate pixel buffer.
-						return Res::Fail(ImageError::OutOfMemory);
+						return Err{ImageError::OutOfMemory};
 					}
 				}
 
 				fileServer->CloseFile(file);
 
 				// Invalid info header, image too big, or bitmap format is compressed.
-				return Res::Fail(ImageError::UnsupportedFormat);
+				return Err{ImageError::UnsupportedFormat};
 			}
 
 			fileServer->CloseFile(file);
 
 			// Invalid file or info header.
-			return Res::Fail(ImageError::UnsupportedFormat);
+			return Err{ImageError::UnsupportedFormat};
 		}
 
 		// I/O operation failed, load fallback image instead.
-		return Image::Solid(imageAllocator, Point2{32, 32}, RGB(0xFF, 0, 0xFF));
+		return Image::Solid(imageAllocator, Point2{32, 32}, RGB(0xFF, 0, 0xFF), result);
 	}
 }
