@@ -302,6 +302,33 @@ namespace Ona::Core {
 			return result;
 		}
 	};
+
+	/**
+	 * Error code enum wrapper, with a built-in state for flagging the lack of an error.
+	 */
+	template<typename ErrorType> struct Error {
+		private:
+		ErrorType value;
+
+		uint32_t hasError;
+
+		public:
+		Error() = default;
+
+		Error(ErrorType error) : value{error}, hasError{true} {
+
+		}
+
+		constexpr ErrorType Value() const {
+			assert(this->hasError);
+
+			return this->value;
+		}
+
+		constexpr bool IsOk() const {
+			return (!this->hasError);
+		}
+	};
 }
 
 #include "ona/core/header/atomics.hpp"

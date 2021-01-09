@@ -3,92 +3,123 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <dlfcn.h>
 
 namespace Ona::Engine {
-	struct Mutex {
-		pthread_mutex_t data;
-	};
+	using namespace Ona::Core;
 
-	Mutex * AllocateMutex() {
-		auto mutex = new Mutex{};
-
-		if (mutex) {
-			pthread_mutex_init(&mutex->data, nullptr);
-
-			return mutex;
-		}
-
-		return nullptr;
+	void * Library::FindSymbol(String const & symbol) {
+		return dlsym(this->handle, symbol.ZeroSentineled().Chars().pointer);
 	}
 
-	void DestroyMutex(Mutex * & mutex) {
-		pthread_mutex_destroy(&mutex->data);
-
-		delete mutex;
-
-		mutex = nullptr;
+	void Library::Free() {
+		dlclose(this->handle);
 	}
 
-	void LockMutex(Mutex * mutex) {
-		pthread_mutex_lock(&mutex->data);
-	}
+	bool LoadLibrary(String const & libraryPath, Library & result) {
+		Library library = {
+			.handle = dlopen(libraryPath.ZeroSentineled().Chars().pointer, RTLD_LAZY)
+		};
 
-	void UnlockMutex(Mutex * mutex) {
-		pthread_mutex_unlock(&mutex->data);
-	}
+		if (library.handle) {
+			result = library;
 
-	struct Condition {
-		pthread_cond_t data;
-	};
-
-	Condition * AllocateCondition() {
-		auto condition = new Condition{};
-
-		if (condition) {
-			pthread_cond_init(&condition->data, nullptr);
-
-			return condition;
-		}
-
-		return nullptr;
-	}
-
-	void DestroyCondition(Condition * & condition) {
-		pthread_cond_destroy(&condition->data);
-
-		delete condition;
-
-		condition = nullptr;
-	}
-
-	void SignalCondition(Condition * condition) {
-		pthread_cond_signal(&condition->data);
-	}
-
-	void WaitCondition(Condition * condition, Mutex * mutex) {
-		pthread_cond_wait(&condition->data, &mutex->data);
-	}
-
-	bool ThreadHandle::Cancel() {
-		if (this->id && this->canceller) {
-			bool const result = this->canceller(this->id);
-			this->id = 0;
-
-			return result;
+			return true;
 		}
 
 		return false;
 	}
 
-	uint32_t CountThreads() {
-		return static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN));
+	Error<MutexError> CreateMutex(Mutex & result) {
+		using Err = Error<MutexError>;
+		pthread_mutex_t * mutex = new pthread_mutex_t{};
+
+		if (mutex) switch (pthread_mutex_init(mutex, nullptr)) {
+			case 0: {
+				result = Mutex{.handle = mutex};
+
+				return Err{};
+			}
+
+			case ENOMEM: return Err{MutexError::OutOfMemory};
+
+			case EAGAIN: Err{MutexError::ResourceLimit};
+
+			default: return Err{MutexError::OSFailure};
+		}
+
+		return Err{MutexError::ResourceLimit};
 	}
 
-	ThreadHandle AcquireThread(
+	void Mutex::Free() {
+		if (this->handle) {
+			pthread_mutex_destroy(reinterpret_cast<pthread_mutex_t *>(this->handle));
+			free(this->handle);
+
+			this->handle = nullptr;
+		}
+	}
+
+	void Mutex::Lock() {
+		if (this->handle) pthread_mutex_lock(reinterpret_cast<pthread_mutex_t *>(this->handle));
+	}
+
+	void Mutex::Unlock() {
+		if (this->handle) pthread_mutex_unlock(reinterpret_cast<pthread_mutex_t *>(this->handle));
+	}
+
+	Error<ConditionError> CreateCondition(Condition & result) {
+		using Err = Error<ConditionError>;
+		auto condition = new pthread_cond_t{};
+
+		if (condition) switch (pthread_cond_init(condition, nullptr)) {
+			case 0: {
+				result = Condition{.handle = condition};
+
+				return Err{};
+			}
+
+			case ENOMEM: return Err{ConditionError::OutOfMemory};
+
+			case EAGAIN: return Err{ConditionError::ResourceLimit};
+
+			default: return Err{ConditionError::OSFailure};
+		}
+
+		return Err{ConditionError::ResourceLimit};
+	}
+
+	void Condition::Free() {
+		if (this->handle) {
+			pthread_cond_destroy(reinterpret_cast<pthread_cond_t *>(this->handle));
+			free(this->handle);
+
+			this->handle = nullptr;
+		}
+	}
+
+	void Condition::Signal() {
+		if (this->handle) pthread_cond_signal(reinterpret_cast<pthread_cond_t *>(this->handle));
+	}
+
+	void Condition::Wait(Mutex & mutex) {
+		if (this->handle && mutex.handle) {
+			pthread_cond_wait(
+				reinterpret_cast<pthread_cond_t *>(this->handle),
+				reinterpret_cast<pthread_mutex_t *>(mutex.handle)
+			);
+		}
+	}
+
+	Error<ThreadError> AcquireThread(
 		String const & name,
 		ThreadProperties const & properties,
-		Callable<void()> const & action
+		Callable<void()> const & action,
+		Thread & result
 	) {
+		using Err = Error<ThreadError>;
+
 		struct ThreadData {
 			Callable<void()> action;
 
@@ -103,7 +134,7 @@ namespace Ona::Engine {
 				.properties = properties,
 			};
 
-			if (pthread_create(&thread, nullptr, [](void * userdata) -> void * {
+			switch (pthread_create(&thread, nullptr, [](void * userdata) -> void * {
 				auto threadData = reinterpret_cast<ThreadData *>(userdata);
 
 				if (threadData->properties.isCancellable) {
@@ -114,20 +145,33 @@ namespace Ona::Engine {
 				threadData->action.Invoke();
 
 				return nullptr;
-			}, &threadData) == 0) {
-				pthread_setname_np(thread, name.Substring(0, 16).ZeroSentineled().Chars().pointer);
+			}, &threadData)) {
+				case 0: {
+					pthread_setname_np(
+						thread,
+						name.Substring(0, 16).ZeroSentineled().Chars().pointer
+					);
 
-				return ThreadHandle{
-					.id = thread,
+					result = Thread{.handle = reinterpret_cast<void *>(thread)};
 
-					.canceller = [](ThreadID threadID) {
-						return (pthread_cancel(threadID) == 0);
-					},
-				};
+					return Err{};
+				}
+
+				case EAGAIN: return Err{ThreadError::ResourceLimit};
+
+				default: break;
 			}
 		}
 
-		return ThreadHandle{};
+		return Err{ThreadError::OSFailure};
+	}
+
+	bool Thread::Cancel() {
+		return (pthread_cancel(reinterpret_cast<pthread_t>(this->handle)) == 0);
+	}
+
+	uint32_t CountHardwareConcurrency() {
+		return static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN));
 	}
 
 	FileServer * LoadFilesystem() {
