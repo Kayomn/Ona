@@ -42,7 +42,7 @@ namespace Ona::Engine {
 
 					case LUA_ERRRUN:
 					case LUA_ERRERR: {
-						if (!this->errorReporter.IsEmpty()) {
+						if (this->errorReporter.HasValue()) {
 							// Needs to be placed on the stack as its own value because lua API
 							// needs to write to an out parameter.
 							Slice<char const> error = {
@@ -65,7 +65,7 @@ namespace Ona::Engine {
 			} break;
 
 			case LUA_ERRSYNTAX: {
-				if (!this->errorReporter.IsEmpty()) {
+				if (this->errorReporter.HasValue()) {
 					// Needs to be placed on the stack as its own value because lua API needs to
 					// write to an out parameter.
 					Slice<char const> error = {

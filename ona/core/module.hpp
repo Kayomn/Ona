@@ -185,8 +185,17 @@ namespace Ona::Core {
 namespace Ona::Core {
 	template<typename> struct Callable;
 
+	/**
+	 * Type-erasing function-like wrapper for binding function pointers and functor structs alike.
+	 */
 	template<typename Return, typename... Args> struct Callable<Return(Args...)> {
 		private:
+		/**
+		 * Dynamic dispatch table for `Callable`s.
+		 *
+		 * This table is necessary for the kind of type erasure that `Callable` uses, as things like
+		 * copy-construction and proper destruction cannot happen without it.
+		 */
 		struct Operations {
 			Return(* caller)(uint8_t const * userdata, Args... args);
 
@@ -201,14 +210,23 @@ namespace Ona::Core {
 
 		uint8_t buffer[BufferSize];
 
-		using FunctionType = Return(*)(Args...);
-
 		public:
+		using Function = Return(*)(Args...);
+
 		Callable() = default;
 
-		Callable(Callable const & that) : operations{that.operations} {
-			if (this->operations) {
+		Callable(Callable const & that) {
+			if (that.HasValue()) {
+				this->operations = that.operations;
+
 				that.operations->copier(this->buffer, that.buffer);
+			} else {
+				this->operations = nullptr;
+
+				ZeroMemory(Slice<uint8_t>{
+					.length = BufferSize,
+					.pointer = this->buffer,
+				});
 			}
 		}
 
@@ -216,15 +234,18 @@ namespace Ona::Core {
 			if (this->operations) this->operations->destroyer(this->buffer);
 		}
 
-		Callable(FunctionType function) {
+		/**
+		 * Constructs a `Callable` from the function pointer `function`.
+		 */
+		Callable(Function function) {
 			static const Operations pointerOperations = {
 				.caller = [](uint8_t const * userdata, Args... args) -> Return {
-					return (*reinterpret_cast<FunctionType const *>(userdata))(args...);
+					return (*reinterpret_cast<Function const *>(userdata))(args...);
 				},
 
 				.copier = [](uint8_t * destinationUserdata, uint8_t const * sourceUserdata) {
-					new (destinationUserdata) FunctionType{
-						*reinterpret_cast<FunctionType const *>(sourceUserdata)
+					new (destinationUserdata) Function{
+						*reinterpret_cast<Function const *>(sourceUserdata)
 					};
 				},
 
@@ -235,9 +256,12 @@ namespace Ona::Core {
 
 			this->operations = &pointerOperations;
 
-			new (this->buffer) FunctionType{function};
+			new (this->buffer) Function{function};
 		}
 
+		/**
+		 * Constructs a `Callable` from the functor struct `functor`.
+		 */
 		template<typename Type> Callable(Type const & functor) {
 			static const Operations functorOperations = {
 				.caller = [](uint8_t const * userdata, Args... args) -> Return {
@@ -262,14 +286,20 @@ namespace Ona::Core {
 			new (this->buffer) Type{functor};
 		}
 
+		/**
+		 * Calls the `Callable` with `args` as the arguments.
+		 *
+		 * Calling `Callable::Invoke` on an empty `Callable` *will* result in a runtime error.
+		 */
 		Return Invoke(Args const &... args) const {
+			assert(this->HasValue() && "Callable is empty");
+
 			return this->operations->caller(this->buffer, args...);
 		}
 
-		bool IsEmpty() const {
-			return (this->operations == nullptr);
-		}
-
+		/**
+		 * Checks if the `Callable` contains a value.
+		 */
 		bool HasValue() const {
 			return (this->operations != nullptr);
 		}

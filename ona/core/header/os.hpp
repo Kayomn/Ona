@@ -53,7 +53,7 @@ namespace Ona::Engine {
 		 * Frees the resources associated with the `File`.
 		 */
 		void Free() {
-			if (this->operations && (!this->operations->closer.IsEmpty())) {
+			if (this->operations && this->operations->closer.HasValue()) {
 				this->operations->closer.Invoke(this->handle);
 
 				this->handle = nullptr;
@@ -67,7 +67,7 @@ namespace Ona::Engine {
 		 * The number of bytes in `input` successfully written from the file are returned.
 		 */
 		size_t Read(Slice<uint8_t> input) {
-			if (this->operations && (!this->operations->reader.IsEmpty())) {
+			if (this->operations && this->operations->reader.HasValue()) {
 				return this->operations->reader.Invoke(this->handle, input);
 			}
 
@@ -80,7 +80,7 @@ namespace Ona::Engine {
 		 * The number of successfully sought bytes are returned.
 		 */
 		int64_t SeekHead(int64_t offset) {
-			if (this->operations && (!this->operations->seeker.IsEmpty())) {
+			if (this->operations && this->operations->seeker.HasValue()) {
 				return this->operations->seeker.Invoke(
 					this->handle,
 					offset,
@@ -97,7 +97,7 @@ namespace Ona::Engine {
 		 * The number of successfully sought bytes are returned.
 		 */
 		int64_t SeekTail(int64_t offset) {
-			if (this->operations && (!this->operations->seeker.IsEmpty())) {
+			if (this->operations && this->operations->seeker.HasValue()) {
 				return this->operations->seeker.Invoke(
 					this->handle,
 					offset,
@@ -114,7 +114,7 @@ namespace Ona::Engine {
 		 * The number of successfully skipped bytes are returned.
 		 */
 		int64_t Skip(int64_t offset) {
-			if (this->operations && (!this->operations->seeker.IsEmpty())) {
+			if (this->operations && this->operations->seeker.HasValue()) {
 				return this->operations->seeker.Invoke(
 					this->handle,
 					offset,
@@ -131,7 +131,7 @@ namespace Ona::Engine {
 		 * The number of bytes in `output` successfully written to the file are returned.
 		 */
 		size_t Write(Slice<uint8_t const> const & output) {
-			if (this->operations && (!this->operations->writer.IsEmpty())) {
+			if (this->operations && this->operations->writer.HasValue()) {
 				return this->operations->writer.Invoke(this->handle, output);
 			}
 

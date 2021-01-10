@@ -209,7 +209,7 @@ namespace Ona::Engine {
 			ThreadProperties properties;
 		};
 
-		if (!action.IsEmpty()) {
+		if (action.HasValue()) {
 			pthread_t thread;
 
 			ThreadData threadData = {
