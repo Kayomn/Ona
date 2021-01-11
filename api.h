@@ -44,6 +44,12 @@ typedef struct {
 	Color tint;
 } Sprite;
 
+typedef enum {
+	ImageError_None,
+	ImageError_UnsupportedFormat,
+	ImageError_OutOfMemory,
+} ImageError;
+
 #endif
 
 typedef struct Events {
@@ -51,6 +57,8 @@ typedef struct Events {
 
 	bool keysHeld[512];
 } Events;
+
+typedef ImageError(* ImageLoader)(Allocator * imageAllocator, File * file, Image * result);
 
 struct OnaContext;
 
@@ -85,6 +93,8 @@ typedef struct OnaContext {
 	Material *(* materialCreate)(Image const * image);
 
 	void(* materialFree)(Material * * material);
+
+	bool(* registerImageLoader)(char const * fileExtension, ImageLoader imageLoader);
 
 	void(*renderSprite)(
 		GraphicsQueue * graphicsQueue,

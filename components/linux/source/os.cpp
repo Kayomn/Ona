@@ -114,25 +114,24 @@ namespace Ona::Engine {
 		return false;
 	}
 
-	Error<MutexError> CreateMutex(Mutex & result) {
-		using Err = Error<MutexError>;
+	MutexError CreateMutex(Mutex & result) {
 		pthread_mutex_t * mutex = new pthread_mutex_t{};
 
 		if (mutex) switch (pthread_mutex_init(mutex, nullptr)) {
 			case 0: {
 				result = Mutex{.handle = mutex};
 
-				return Err{};
+				return MutexError::None;
 			}
 
-			case ENOMEM: return Err{MutexError::OutOfMemory};
+			case ENOMEM: return MutexError::OutOfMemory;
 
-			case EAGAIN: Err{MutexError::ResourceLimit};
+			case EAGAIN: return MutexError::ResourceLimit;
 
-			default: return Err{MutexError::OSFailure};
+			default: return MutexError::OSFailure;
 		}
 
-		return Err{MutexError::ResourceLimit};
+		return MutexError::ResourceLimit;
 	}
 
 	void Mutex::Free() {
@@ -152,25 +151,24 @@ namespace Ona::Engine {
 		if (this->handle) pthread_mutex_unlock(reinterpret_cast<pthread_mutex_t *>(this->handle));
 	}
 
-	Error<ConditionError> CreateCondition(Condition & result) {
-		using Err = Error<ConditionError>;
+	ConditionError CreateCondition(Condition & result) {
 		auto condition = new pthread_cond_t{};
 
 		if (condition) switch (pthread_cond_init(condition, nullptr)) {
 			case 0: {
 				result = Condition{.handle = condition};
 
-				return Err{};
+				return ConditionError::None;
 			}
 
-			case ENOMEM: return Err{ConditionError::OutOfMemory};
+			case ENOMEM: return ConditionError::OutOfMemory;
 
-			case EAGAIN: return Err{ConditionError::ResourceLimit};
+			case EAGAIN: return ConditionError::ResourceLimit;
 
-			default: return Err{ConditionError::OSFailure};
+			default: return ConditionError::OSFailure;
 		}
 
-		return Err{ConditionError::ResourceLimit};
+		return ConditionError::ResourceLimit;
 	}
 
 	void Condition::Free() {
@@ -195,14 +193,12 @@ namespace Ona::Engine {
 		}
 	}
 
-	Error<ThreadError> AcquireThread(
+	ThreadError AcquireThread(
 		String const & name,
 		ThreadProperties const & properties,
 		Callable<void()> const & action,
 		Thread & result
 	) {
-		using Err = Error<ThreadError>;
-
 		struct ThreadData {
 			Callable<void()> action;
 
@@ -244,16 +240,16 @@ namespace Ona::Engine {
 
 					result = Thread{.handle = reinterpret_cast<void *>(thread)};
 
-					return Err{};
+					return ThreadError::None;
 				}
 
-				case EAGAIN: return Err{ThreadError::ResourceLimit};
+				case EAGAIN: return ThreadError::ResourceLimit;
 
 				default: break;
 			}
 		}
 
-		return Err{ThreadError::OSFailure};
+		return ThreadError::OSFailure;
 	}
 
 	bool Thread::Cancel() {

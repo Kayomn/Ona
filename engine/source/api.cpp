@@ -3,36 +3,7 @@
 namespace Ona::Engine {
 	using namespace Ona::Core;
 
-	static HashTable<String, ImageLoader> imageLoaders = {DefaultAllocator()};
-
-	ImageLoader const * FindImageLoader(String const & fileExtension) {
-		return imageLoaders.Lookup(fileExtension);
-	}
-
-	bool RegisterImageLoader(String const & fileExtension, ImageLoader const & imageLoader) {
-		return (imageLoaders.Insert(fileExtension, imageLoader) != nullptr);
-	}
-
-	String LoadText(Allocator * tempAllocator, File & file) {
-		int64_t const fileCursor = file.Skip(0);
-		int64_t const fileSize = file.SeekTail(0);
-
-		file.SeekHead(fileCursor);
-
-		DynamicArray<char> fileBuffer = {tempAllocator, static_cast<size_t>(fileSize)};
-
-		if (fileBuffer.Length()) {
-			file.Read(fileBuffer.Values().Bytes());
-
-			return String{fileBuffer.Values()};
-		}
-
-		return String{};
-	}
-
-	Error<ImageError> LoadBitmap(Allocator * imageAllocator, File & file, Image & result) {
-		using Err = Error<ImageError>;
-
+	ImageError LoadBitmap(Allocator * imageAllocator, File * file, Image * result) {
 		struct $packed FileHeader {
 			uint16_t signature;
 
@@ -102,9 +73,9 @@ namespace Ona::Engine {
 		auto const fileHeader = reinterpret_cast<FileHeader const *>(headerPointer);
 
 		if (
-			(file.Read(headerBuffer.Sliced(0, FileHeaderSize)) == FileHeaderSize) &&
+			(file->Read(headerBuffer.Sliced(0, FileHeaderSize)) == FileHeaderSize) &&
 			(fileHeader->signature == Signature) &&
-			(file.Read(headerBuffer.Sliced(sizeof(FileHeader), InfoHeaderMinSize)) == InfoHeaderMinSize)
+			(file->Read(headerBuffer.Sliced(sizeof(FileHeader), InfoHeaderMinSize)) == InfoHeaderMinSize)
 		) {
 			InfoHeader const * const infoHeader = reinterpret_cast<InfoHeader const *>(
 				(headerPointer + sizeof(FileHeader))
@@ -153,7 +124,7 @@ namespace Ona::Engine {
 							if (rowBuffer.Length()) {
 								size_t pixelIndex = (pixelBufferSize - 1);
 
-								file.SeekHead(fileHeader->fileOffset);
+								file->SeekHead(fileHeader->fileOffset);
 
 								for (uint32_t i = 0; i < dimensions.y; i += 1) {
 									size_t destinationIndex =
@@ -161,7 +132,7 @@ namespace Ona::Engine {
 
 									size_t sourceIndex = 0;
 
-									file.Read(rowBuffer.Values());
+									file->Read(rowBuffer.Values());
 
 									while (sourceIndex < rowBuffer.Length()) {
 										// Swap around BGR -> RGB and write alpha channel.
@@ -180,7 +151,7 @@ namespace Ona::Engine {
 									}
 								}
 
-								result = Image{
+								if (result) (*result) = Image{
 									.allocator = imageAllocator,
 
 									.pixels = reinterpret_cast<Color *>(
@@ -190,11 +161,11 @@ namespace Ona::Engine {
 									.dimensions = dimensions,
 								};
 
-								return Err{};
+								return ImageError::None;
 							}
 
 							// Unable to allocate row buffer.
-							return Err{ImageError::OutOfMemory};
+							return ImageError::OutOfMemory;
 						} break;
 
 						case 32: {
@@ -206,7 +177,7 @@ namespace Ona::Engine {
 							DynamicArray<uint8_t> rowBuffer = {imageAllocator, rowWidth};
 
 							if (rowBuffer.Length()) {
-								file.SeekHead(fileHeader->fileOffset);
+								file->SeekHead(fileHeader->fileOffset);
 
 								for (size_t i = 0; i < dimensions.y; i += 1) {
 									size_t destinationIndex =
@@ -214,7 +185,7 @@ namespace Ona::Engine {
 
 									size_t sourceIndex = 0;
 
-									file.Read(rowBuffer.Values());
+									file->Read(rowBuffer.Values());
 
 									while (sourceIndex < rowBuffer.Length()) {
 										// Swap around BGRA -> RGBA.
@@ -235,7 +206,7 @@ namespace Ona::Engine {
 									}
 								}
 
-								result = Image{
+								if (result) (*result) = Image{
 									.allocator = imageAllocator,
 
 									.pixels = reinterpret_cast<Color *>(
@@ -245,29 +216,27 @@ namespace Ona::Engine {
 									.dimensions = dimensions,
 								};
 
-								return Err{};
+								return ImageError::None;
 							}
 
 							// Unable to allocate row buffer.
-							return Err{ImageError::OutOfMemory};
+							return ImageError::OutOfMemory;
 						} break;
 
 						// Unsupporterd bit per pixel format.
-						default: {
-							return Err{ImageError::UnsupportedFormat};
-						}
+						default: return ImageError::UnsupportedFormat;
 					}
 
 					// Unable to allocate pixel buffer.
-					return Err{ImageError::OutOfMemory};
+					return ImageError::OutOfMemory;
 				}
 			}
 
 			// Invalid info header, image too big, or bitmap format is compressed.
-			return Err{ImageError::UnsupportedFormat};
+			return ImageError::UnsupportedFormat;
 		}
 
 		// Invalid file or info header.
-		return Err{ImageError::UnsupportedFormat};
+		return ImageError::UnsupportedFormat;
 	}
 }

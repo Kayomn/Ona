@@ -14,8 +14,8 @@ namespace Ona::Engine {
 	{
 		if (
 			this->threads.Length() &&
-			CreateCondition(this->taskCondition).IsOk() &&
-			CreateMutex(this->taskMutex).IsOk()
+			IsOk(CreateCondition(this->taskCondition)) &&
+			IsOk(CreateMutex(this->taskMutex))
 		) {
 			static ThreadProperties const threadProperties = {
 				.isCancellable = true,

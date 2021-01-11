@@ -20,6 +20,8 @@ struct System {
 
 static PackedStack<System> systems = {DefaultAllocator()};
 
+static HashTable<String, ImageLoader> imageLoaders = {DefaultAllocator()};
+
 static GraphicsServer * graphicsServer = nullptr;
 
 static OnaContext const context = {
@@ -50,7 +52,7 @@ static OnaContext const context = {
 		Color color,
 		Image * result
 	) -> bool {
-		return Image::Solid(allocator, dimensions, color, *result).IsOk();
+		return IsOk(Image::Solid(allocator, dimensions, color, *result));
 	},
 
 	.imageFree = [](Image * image) {
@@ -59,13 +61,13 @@ static OnaContext const context = {
 
 	.imageLoad = [](Allocator * allocator, char const * fileName, Image * result) -> bool {
 		String fileNameString = {fileName};
-		ImageLoader const * imageLoader = FindImageLoader(PathExtension(fileNameString));
+		ImageLoader const * imageLoader = imageLoaders.Lookup(fileNameString);
 
 		if (imageLoader) {
 			Owned<File> file = {};
 
 			if (OpenFile(String{fileName}, File::OpenRead, file.value)) {
-				return imageLoader->Invoke(allocator, file.value, *result).IsOk();
+				return IsOk((*imageLoader)(allocator, &file.value, result));
 			}
 		}
 
@@ -80,6 +82,10 @@ static OnaContext const context = {
 		graphicsServer->DeleteMaterial(*material);
 	},
 
+	.registerImageLoader = [](char const * fileExtension, ImageLoader imageLoader) -> bool {
+		return (imageLoaders.Insert(String{fileExtension}, imageLoader) != nullptr);
+	},
+
 	.renderSprite = [](
 		GraphicsQueue * graphicsQueue,
 		Material * spriteMaterial,
@@ -88,6 +94,23 @@ static OnaContext const context = {
 		graphicsQueue->RenderSprite(spriteMaterial, *sprite);
 	},
 };
+
+static String LoadText(Allocator * tempAllocator, File & file) {
+	int64_t const fileCursor = file.Skip(0);
+	int64_t const fileSize = file.SeekTail(0);
+
+	file.SeekHead(fileCursor);
+
+	DynamicArray<char> fileBuffer = {tempAllocator, static_cast<size_t>(fileSize)};
+
+	if (fileBuffer.Length()) {
+		file.Read(fileBuffer.Values().Bytes());
+
+		return String{fileBuffer.Values()};
+	}
+
+	return String{};
+}
 
 static GraphicsServer * LoadGraphicsServerFromConfig(Config * config) {
 	Owned<ConfigValue> displaySize = {config->ReadGlobal(String{"DisplaySize"})};
@@ -126,7 +149,10 @@ int main(int argv, char const * const * argc) {
 		Async async = {defaultAllocator, 0.25f};
 		LuaConfig config = {Print};
 
-		if (RegisterImageLoader(String{"bmp"}, LoadBitmap) && config.Load(configSource)) {
+		if (
+			(imageLoaders.Insert(String{"bmp"}, LoadBitmap) != nullptr) &&
+			config.Load(configSource)
+		) {
 			graphicsServer = LoadGraphicsServerFromConfig(&config);
 
 			if (graphicsServer) {

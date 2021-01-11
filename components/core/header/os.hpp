@@ -213,6 +213,7 @@ namespace Ona::Engine {
 	};
 
 	enum class MutexError {
+		None,
 		OSFailure,
 		OutOfMemory,
 		ResourceLimit,
@@ -221,8 +222,8 @@ namespace Ona::Engine {
 	/**
 	 * Attempts to create a mutex.
 	 *
-	 * A successfully created mutex will be written to `result` and an empty error is returned.
-	 * Otherwise, an error is returned.
+	 * A successfully created mutex will be written to `result` and `MutexError::None` is returned.
+	 * Otherwise:
 	 *
 	 * `MutexError::OutOfMemory` occurs when the OS failed to allocate the memory necessary to
 	 * create the mutex.
@@ -234,7 +235,7 @@ namespace Ona::Engine {
 	 * specific errors on the part of the operating system. These should be considered
 	 * unrecoverable.
 	 */
-	Error<MutexError> CreateMutex(Mutex & result);
+	MutexError CreateMutex(Mutex & result);
 
 	/**
 	 * TODO(Kayomn): Document.
@@ -259,6 +260,7 @@ namespace Ona::Engine {
 	};
 
 	enum class ConditionError {
+		None,
 		OSFailure,
 		OutOfMemory,
 		ResourceLimit,
@@ -267,8 +269,8 @@ namespace Ona::Engine {
 	/**
 	 * Attempts to create a thread condition variable.
 	 *
-	 * A successfully created condition will be written to `result` and an empty error is returned.
-	 * Otherwise, an error is returned.
+	 * A successfully created condition will be written to `result` and `ConditionError::None` is
+	 * returned. Otherwise:
 	 *
 	 * `ConditionError::OutOfMemory` occurs when the OS failed to allocate the memory necessary to
 	 * create the condition.
@@ -280,7 +282,7 @@ namespace Ona::Engine {
 	 * implementation- specific errors on the part of the operating system. These should be
 	 * considered unrecoverable.
 	 */
-	Error<ConditionError> CreateCondition(Condition & result);
+	ConditionError CreateCondition(Condition & result);
 
 	/**
 	 * Handle to a concurrent agent used for processing things in parallel.
@@ -303,6 +305,7 @@ namespace Ona::Engine {
 	};
 
 	enum class ThreadError {
+		None,
 		OSFailure,
 		EmptyAction,
 		ResourceLimit,
@@ -318,12 +321,11 @@ namespace Ona::Engine {
 	/**
 	 * Attempts to acquire a thread instance with the rules specified in `properties`.
 	 *
-	 * A successfully acquired thread will start executing `action`, be assigned the name specified
-	 * in `name`, have the result written to `result`, and return an empty `Error`. Otherwise, an
-	 * error is returned.
-	 *
 	 * Some operating systems have a hard limit for the length of `name`. If this is exceded, it
 	 * will simply be truncated on the tail.
+	 *
+	 * A successfully acquired thread will start executing `action`, be assigned the name specified
+	 * in `name`, have the result written to `result`, and returns `ThreadError::None`. Otherwise:
 	 *
 	 * `ThreadError::EmptyAction` occurs when `action` does not have any kind of callable operation
 	 * assigned to it.
@@ -335,7 +337,7 @@ namespace Ona::Engine {
 	 * implementation- specific errors on the part of the operating system. These should be
 	 * considered unrecoverable.
 	 */
-	Error<ThreadError> AcquireThread(
+	ThreadError AcquireThread(
 		String const & name,
 		ThreadProperties const & properties,
 		Callable<void()> const & action,

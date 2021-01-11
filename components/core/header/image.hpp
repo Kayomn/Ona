@@ -29,6 +29,7 @@ namespace Ona::Core {
 	}
 
 	enum class ImageError {
+		None,
 		UnsupportedFormat,
 		OutOfMemory,
 	};
@@ -56,7 +57,7 @@ namespace Ona::Core {
 		 * Passing a value in `pixels` value that does not point to a buffer of pixel data equal in
 		 * size to the X and Y component of `dimensions is undefined behaviour.
 		 *
-		 * Successfully created `Images` are written to `result` and an empty `Error` is returned.
+		 * Successfully created `Images` are written to `result` and `ImageError::None` is returned.
 		 * Otherwise:
 		 *
 		 *   * `ImageError::OutOfMemory` is returned if `allocator` failed to allocate the memory
@@ -65,7 +66,7 @@ namespace Ona::Core {
 		 *   * `ImageError::UnsupportedFormat is returned if `pixels` is `nullptr` or the components
 		 *     of `dimensions` are `0` or less.
 		 */
-		static Error<ImageError> From(
+		static ImageError From(
 			Allocator * allocator,
 			Point2 dimensions,
 			Color * pixels,
@@ -77,7 +78,7 @@ namespace Ona::Core {
 		 * `color` as the color for all pixel data and `allocator` as the dynamic memory allocation
 		 * strategy for the `Image`.
 		 *
-		 * Successfully created `Images` are written to `result` and an empty `Error` is returned.
+		 * Successfully created `Images` are written to `result` and `ImageError::None` is returned.
 		 * Otherwise:
 		 *
 		 *   * `ImageError::OutOfMemory` is returned if `allocator` failed to allocate the memory
@@ -86,7 +87,7 @@ namespace Ona::Core {
 		 *   * `ImageError::UnsupportedFormat is returned if the components of `dimensions` are `0`
 		 *     or less.
 		 */
-		static Error<ImageError> Solid(
+		static ImageError Solid(
 			Allocator * allocator,
 			Point2 dimensions,
 			Color color,

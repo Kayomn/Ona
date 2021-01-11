@@ -19,14 +19,12 @@ namespace Ona::Core {
 		}
 	}
 
-	Error<ImageError> Image::From(
+	ImageError Image::From(
 		Allocator * allocator,
 		Point2 dimensions,
 		Color * pixels,
 		Image & result
 	) {
-		using Err = Error<ImageError>;
-
 		if (pixels && (dimensions.x > 0) && (dimensions.y > 0)) {
 			DynamicArray<uint8_t> pixelBuffer = {allocator, (Area(dimensions) * sizeof(Color))};
 
@@ -41,22 +39,22 @@ namespace Ona::Core {
 					.pixels = reinterpret_cast<Color* >(pixelBuffer.Release().pointer),
 					.dimensions = dimensions,
 				};
+
+				return ImageError::None;
 			}
 
-			return Err{ImageError::OutOfMemory};
+			return ImageError::OutOfMemory;
 		}
 
-		return Err{ImageError::UnsupportedFormat};
+		return ImageError::UnsupportedFormat;
 	}
 
-	Error<ImageError> Image::Solid(
+	ImageError Image::Solid(
 		Allocator * allocator,
 		Point2 dimensions,
 		Color color,
 		Image & result
 	) {
-		using Err = Error<ImageError>;
-
 		if ((dimensions.x > 0) && (dimensions.y > 0)) {
 			int64_t const pixelArea = Area(dimensions);
 			DynamicArray<uint8_t> pixelBuffer = {allocator, (pixelArea * sizeof(Color))};
@@ -76,12 +74,12 @@ namespace Ona::Core {
 					.dimensions = dimensions,
 				};
 
-				return Err{};
+				return ImageError::None;
 			}
 
-			return Err{ImageError::OutOfMemory};
+			return ImageError::OutOfMemory;
 		}
 
-		return Err{ImageError::UnsupportedFormat};
+		return ImageError::UnsupportedFormat;
 	}
 }
