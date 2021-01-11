@@ -1,7 +1,7 @@
 #ifndef COLLECTIONS_H
 #define COLLECTIONS_H
 
-#include "ona/core/module.hpp"
+#include "components/core/exports.hpp"
 
 namespace Ona::Collections {
 	using namespace Ona::Core;
@@ -18,8 +18,8 @@ namespace Ona::Collections {
 	};
 }
 
-#include "ona/collections/header/table.hpp"
-#include "ona/collections/header/stack.hpp"
-#include "ona/collections/header/queue.hpp"
+#include "components/collections/header/table.hpp"
+#include "components/collections/header/stack.hpp"
+#include "components/collections/header/queue.hpp"
 
 #endif

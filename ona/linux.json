@@ -1,5 +1,0 @@
-{
-	"isExecutable": false,
-	"libraries": ["pthread"],
-	"dependencies": ["core"]
-}

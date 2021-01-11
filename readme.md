@@ -23,4 +23,16 @@ Most of these may already be present on the operating systems of most users, as 
 
 ## Building
 
-Open a terminal and run `./build-engine.py`. If the project has already been previously compiled, it is recommended to run `./clean.py` first to purge the previous build binaries entirely. For general development, cleaning is not necessary as the build script does incremental builds.
+Open a terminal and run `./build.py`. If the project has already been previously compiled, it is recommended to run `./clean.py` first to purge the previous build binaries entirely. For general development, cleaning is not necessary as the build script does incremental builds.
+
+## Running
+
+A minimal running example of Ona will first require a `config.lua` in the working directory of the executable.
+
+```lua
+DisplayTitle = "Ona Demo"
+DisplaySize = {640, 480}
+Extensions = {"./scene"}
+```
+
+Above is an example of a `config.lua` with a few options specified. If these are left unspecified, Ona will use engine-hardcoded defaults.

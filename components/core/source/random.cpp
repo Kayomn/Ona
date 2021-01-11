@@ -1,4 +1,4 @@
-#include "ona/core/module.hpp"
+#include "components/core/exports.hpp"
 
 namespace Ona::Core {
 	uint32_t XorShifter::NextU32() {

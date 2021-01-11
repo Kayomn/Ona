@@ -1,5 +1,4 @@
 {
-	"isExecutable": true,
 	"libraries": [
 		"dl",
 		"SDL2",
@@ -8,9 +7,9 @@
 		"lua5.3",
 		"pthread"
 	],
-	"dependencies": [
-		"core",
-		"collections",
-		"linux"
-	]
+	"components": {
+		"core": [],
+		"collections": ["core"],
+		"linux": ["core"]
+	}
 }

@@ -1,4 +1,4 @@
-#include "ona/core/module.hpp"
+#include "components/core/exports.hpp"
 
 namespace Ona::Core {
 	AtomicU32::AtomicU32(AtomicU32 const & that) {

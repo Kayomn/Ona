@@ -1,5 +1,5 @@
-#ifndef ONA_CORE_H
-#define ONA_CORE_H
+#ifndef ONA_COMPONENT_CORE_H
+#define ONA_COMPONENT_CORE_H
 
 #include <cassert>
 #include <stddef.h>
@@ -14,7 +14,7 @@
 
 #define $atomic _Atomic
 
-#include "ona/core/header/math.hpp"
+#include "components/core/header/math.hpp"
 
 namespace Ona::Core {
 	/**
@@ -154,8 +154,8 @@ namespace Ona::Core {
 	};
 }
 
-#include "ona/core/header/atomics.hpp"
-#include "ona/core/header/text.hpp"
+#include "components/core/header/atomics.hpp"
+#include "components/core/header/text.hpp"
 
 namespace Ona::Core {
 	class Object {
@@ -180,7 +180,7 @@ namespace Ona::Core {
 	};
 }
 
-#include "ona/core/header/memory.hpp"
+#include "components/core/header/memory.hpp"
 
 namespace Ona::Core {
 	template<typename> struct Callable;
@@ -306,10 +306,10 @@ namespace Ona::Core {
 	};
 }
 
-#include "ona/core/header/array.hpp"
-#include "ona/core/header/image.hpp"
-#include "ona/core/header/random.hpp"
-#include "ona/core/header/os.hpp"
-#include "ona/core/header/path.hpp"
+#include "components/core/header/array.hpp"
+#include "components/core/header/image.hpp"
+#include "components/core/header/random.hpp"
+#include "components/core/header/os.hpp"
+#include "components/core/header/path.hpp"
 
 #endif

@@ -1,4 +1,4 @@
-#include "ona/core/module.hpp"
+#include "components/core/exports.hpp"
 
 namespace Ona::Core {
 	String::String(char const * data) : size{0}, length{0} {
