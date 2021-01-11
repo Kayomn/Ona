@@ -6,7 +6,7 @@ Game engine.
 
 In order to build Ona, a few tooling dependencies of the project must first be met.
 
-  * Clang / Clang++
+  * Clang / Clang++ with C++17
   * Python3
   * `ar` Unix Archiving Tool
 
