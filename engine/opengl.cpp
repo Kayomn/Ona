@@ -1,13 +1,10 @@
-#include "engine/exports.hpp"
+#include "engine.hpp"
 
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
 
-namespace Ona::Engine {
-	using namespace Ona::Collections;
-	using namespace Ona::Core;
-
+namespace Ona {
 	// (xy, uv) format.
 	static FixedArray<Vector4, 6> const quadVertices = {{
 		Vector4{1.f, 1.f, 1.f, 1.f},
@@ -295,286 +292,284 @@ namespace Ona::Engine {
 		}
 	};
 
-	GraphicsServer * LoadOpenGl(String const & title, int32_t width, int32_t height) {
-		class OpenGLGraphicsQueue final : public GraphicsQueue {
-			public:
-			struct SpriteBatch {
-				struct Chunk {
-					enum { Max = 128 };
+	class OpenGLGraphicsQueue final : public Object, public GraphicsQueue {
+		public:
+		struct SpriteBatch {
+			struct Chunk {
+				enum { Max = 128 };
 
-					Matrix transforms[Max];
+				Matrix transforms[Max];
 
-					Vector4 viewports[Max];
+				Vector4 viewports[Max];
 
-					Vector4 tints[Max];
-				};
-
-				size_t count;
-
-				Chunk chunk;
+				Vector4 tints[Max];
 			};
 
-			float depthSort;
+			size_t count;
 
-			HashTable<Material *, PackedStack<SpriteBatch> *> spriteBatchSets;
-
-			OpenGLGraphicsQueue(Allocator * allocator) : spriteBatchSets{allocator}, depthSort{} {
-
-			}
-
-			~OpenGLGraphicsQueue() {
-				this->spriteBatchSets.ForItems([](
-					Material * spriteMaterial,
-					PackedStack<SpriteBatch> * spriteBatches
-				) {
-					delete spriteBatches;
-				});
-			}
-
-			void Dispatch(GLShader & shader, GLPolyBuffer & polyBuffer) {
-				struct {
-					GLShader * shader;
-					GLPolyBuffer * polyBuffer;
-				} resources = {&shader, &polyBuffer};
-
-				this->spriteBatchSets.ForItems([this, &resources](
-					Material * spriteMaterial,
-					PackedStack<SpriteBatch> * spriteBatches
-				) {
-					if (spriteMaterial) {
-						// Dispatch all of the queued sprite batches.
-						spriteBatches->ForValues([spriteMaterial, &resources](
-							SpriteBatch & spriteBatch
-						) {
-							resources.shader->WriteRenderdata(AsBytes(spriteBatch.chunk));
-
-							resources.shader->DrawPolyInstanced(
-								(*resources.polyBuffer),
-								*spriteMaterial,
-								spriteBatch.count
-							);
-
-							spriteBatch.count = 0;
-						});
-
-						// Pop everything but the first sprite batch.
-						spriteBatches->Pop(spriteBatches->Count() - 1);
-					}
-
-					this->depthSort = 0;
-				});
-			}
-
-			void RenderSprite(Material * material, Sprite const & sprite) override {
-				PackedStack<SpriteBatch> * * requiredBatches = this->spriteBatchSets.Require(
-					material,
-
-					[]() -> PackedStack<SpriteBatch> * {
-						auto spriteBatches = new PackedStack<SpriteBatch>{DefaultAllocator()};
-
-						spriteBatches->Push(SpriteBatch{});
-
-						return spriteBatches;
-					}
-				);
-
-				if (requiredBatches) {
-					PackedStack<SpriteBatch> * batches = *requiredBatches;
-
-					if (batches && batches->Count()) {
-						SpriteBatch * currentBatch = (&batches->Peek());
-
-						if (currentBatch->count == SpriteBatch::Chunk::Max) {
-							currentBatch = batches->Push(SpriteBatch{});
-
-							if (!currentBatch) {
-								// Out of memory.
-								// TODO: Record failed render.
-								return;
-							}
-						}
-
-						currentBatch->chunk.transforms[currentBatch->count] = Matrix{
-							static_cast<float>(material->dimensions.x), 0.f, 0.f, sprite.origin.x,
-							0.f, static_cast<float>(material->dimensions.y), 0.f, sprite.origin.y,
-							0.f, 0.f, 1.f, (sprite.origin.z + this->depthSort),
-							0.f, 0.f, 0.f, 1.f
-						};
-
-						currentBatch->chunk.viewports[currentBatch->count] = Vector4{
-							0.f,
-							0.f,
-							1.f,
-							1.f
-						};
-
-						currentBatch->chunk.tints[currentBatch->count] = sprite.tint.Normalized();
-						currentBatch->count += 1;
-						this->depthSort += 0.1f;
-					}
-				}
-
-				// TODO: Record failed render.
-			}
+			Chunk chunk;
 		};
 
-		static class OpenGlGraphicsServer final : public GraphicsServer {
-			public:
-			uint64_t timeNow, timeLast;
+		float depthSort;
 
-			SDL_Window * window;
+		HashTable<Material *, PackedStack<SpriteBatch> *> spriteBatchSets;
 
-			void * context;
+		OpenGLGraphicsQueue(Allocator * allocator) : spriteBatchSets{allocator}, depthSort{} {
 
-			Point2 viewportSize;
+		}
 
-			GLPolyBuffer quadPolyBuffer;
+		~OpenGLGraphicsQueue() {
+			this->spriteBatchSets.ForEach([](
+				Material * spriteMaterial,
+				PackedStack<SpriteBatch> * spriteBatches
+			) {
+				delete spriteBatches;
+			});
+		}
 
-			GLShader canvasShader;
+		void Dispatch(GLShader & shader, GLPolyBuffer & polyBuffer) {
+			struct {
+				GLShader * shader;
+				GLPolyBuffer * polyBuffer;
+			} resources = {&shader, &polyBuffer};
 
-			GLuint viewportBufferHandle;
+			this->spriteBatchSets.ForEach([this, &resources](
+				Material * spriteMaterial,
+				PackedStack<SpriteBatch> * spriteBatches
+			) {
+				if (spriteMaterial) {
+					// Dispatch all of the queued sprite batches.
+					spriteBatches->ForEach([spriteMaterial, &resources](
+						SpriteBatch & spriteBatch
+					) {
+						resources.shader->WriteRenderdata(AsBytes(spriteBatch.chunk));
 
-			PackedStack<OpenGLGraphicsQueue *> queues;
+						resources.shader->DrawPolyInstanced(
+							(*resources.polyBuffer),
+							*spriteMaterial,
+							spriteBatch.count
+						);
 
-			SDL_Event sdlEvent;
+						spriteBatch.count = 0;
+					});
 
-			OpenGlGraphicsServer(Allocator * allocator) : queues{allocator} {
+					// Pop everything but the first sprite batch.
+					spriteBatches->Pop(spriteBatches->Count() - 1);
+				}
 
+				this->depthSort = 0;
+			});
+		}
+
+		void RenderSprite(Material * material, Sprite const & sprite) override {
+			PackedStack<SpriteBatch> * * requiredBatches = this->spriteBatchSets.Require(
+				material,
+
+				[]() -> PackedStack<SpriteBatch> * {
+					auto spriteBatches = new PackedStack<SpriteBatch>{DefaultAllocator()};
+
+					spriteBatches->Push(SpriteBatch{});
+
+					return spriteBatches;
+				}
+			);
+
+			if (requiredBatches) {
+				PackedStack<SpriteBatch> * batches = *requiredBatches;
+
+				if (batches && batches->Count()) {
+					SpriteBatch * currentBatch = (&batches->Peek());
+
+					if (currentBatch->count == SpriteBatch::Chunk::Max) {
+						currentBatch = batches->Push(SpriteBatch{});
+
+						if (!currentBatch) {
+							// Out of memory.
+							// TODO: Record failed render.
+							return;
+						}
+					}
+
+					currentBatch->chunk.transforms[currentBatch->count] = Matrix{
+						static_cast<float>(material->dimensions.x), 0.f, 0.f, sprite.origin.x,
+						0.f, static_cast<float>(material->dimensions.y), 0.f, sprite.origin.y,
+						0.f, 0.f, 1.f, (sprite.origin.z + this->depthSort),
+						0.f, 0.f, 0.f, 1.f
+					};
+
+					currentBatch->chunk.viewports[currentBatch->count] = Vector4{
+						0.f,
+						0.f,
+						1.f,
+						1.f
+					};
+
+					currentBatch->chunk.tints[currentBatch->count] = sprite.tint.Normalized();
+					currentBatch->count += 1;
+					this->depthSort += 0.1f;
+				}
 			}
 
-			~OpenGlGraphicsServer() override {
-				this->canvasShader.Free();
-				SDL_GL_UnloadLibrary();
-				SDL_DestroyWindow(this->window);
-				SDL_Quit();
-			}
+			// TODO: Record failed render.
+		}
+	};
 
-			void Clear() override {
-				glClearColor(0.f, 0.f, 0.f, 0.f);
-				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			}
+	class OpenGlGraphicsServer final : public Object, public GraphicsServer {
+		public:
+		uint64_t timeNow, timeLast;
 
-			void ColoredClear(Color color) override {
-				Vector4 const rgba = color.Normalized();
+		SDL_Window * window;
 
-				glClearColor(rgba.x, rgba.y, rgba.z, rgba.w);
-				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			}
+		void * context;
 
-			GraphicsQueue * AcquireQueue() override {
-				thread_local OpenGLGraphicsQueue queue = {this->queues.AllocatorOf()};
-				thread_local bool isInitialized = false;
+		Point2 viewportSize;
 
-				if (!isInitialized) this->queues.Push(&queue);
+		GLPolyBuffer quadPolyBuffer;
 
-				return &queue;
-			}
+		GLShader canvasShader;
 
-			Material * CreateMaterial(Image const & image) override {
-				GLuint textureHandle;
+		GLuint viewportBufferHandle;
 
-				glCreateTextures(GL_TEXTURE_2D, 1, (&textureHandle));
+		PackedStack<OpenGLGraphicsQueue *> queues;
 
-				glTextureStorage2D(
+		SDL_Event sdlEvent;
+
+		OpenGlGraphicsServer(Allocator * allocator) : queues{allocator} {
+
+		}
+
+		~OpenGlGraphicsServer() override {
+			this->canvasShader.Free();
+			SDL_Quit();
+		}
+
+		void Clear() override {
+			glClearColor(0.f, 0.f, 0.f, 0.f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		}
+
+		void ColoredClear(Color color) override {
+			Vector4 const rgba = color.Normalized();
+
+			glClearColor(rgba.x, rgba.y, rgba.z, rgba.w);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		}
+
+		GraphicsQueue * AcquireQueue() override {
+			thread_local OpenGLGraphicsQueue queue = {this->queues.AllocatorOf()};
+			thread_local bool isInitialized = false;
+
+			if (!isInitialized) this->queues.Push(&queue);
+
+			return &queue;
+		}
+
+		Material * CreateMaterial(Image const & image) override {
+			GLuint textureHandle;
+
+			glCreateTextures(GL_TEXTURE_2D, 1, (&textureHandle));
+
+			glTextureStorage2D(
+				textureHandle,
+				1,
+				GL_RGBA8,
+				image.dimensions.x,
+				image.dimensions.y
+			);
+
+			// Was the texture allocated and initialized?
+			if (glGetError() == GL_NO_ERROR) {
+				glTextureSubImage2D(
 					textureHandle,
-					1,
-					GL_RGBA8,
+					0,
+					0,
+					0,
 					image.dimensions.x,
-					image.dimensions.y
+					image.dimensions.y,
+					GL_RGBA,
+					GL_UNSIGNED_BYTE,
+					image.pixels
 				);
 
-				// Was the texture allocated and initialized?
+				// Was the texture pixel data assigned?
 				if (glGetError() == GL_NO_ERROR) {
-					glTextureSubImage2D(
-						textureHandle,
-						0,
-						0,
-						0,
-						image.dimensions.x,
-						image.dimensions.y,
-						GL_RGBA,
-						GL_UNSIGNED_BYTE,
-						image.pixels
-					);
+					// Provided all prerequesites are met, these should not fail.
+					glTextureParameteri(textureHandle, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					glTextureParameteri(textureHandle, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					glTextureParameteri(textureHandle, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+					glTextureParameteri(textureHandle, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-					// Was the texture pixel data assigned?
-					if (glGetError() == GL_NO_ERROR) {
-						// Provided all prerequesites are met, these should not fail.
-						glTextureParameteri(textureHandle, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-						glTextureParameteri(textureHandle, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-						glTextureParameteri(textureHandle, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-						glTextureParameteri(textureHandle, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-						return new Material{
-							.dimensions = image.dimensions,
-							.textureHandle = textureHandle,
-						};
-					}
+					return new Material{
+						.dimensions = image.dimensions,
+						.textureHandle = textureHandle,
+					};
 				}
-
-				return nullptr;
 			}
 
-			void DeleteMaterial(Material * & material) override {
-				delete material;
+			return nullptr;
+		}
 
-				material = nullptr;
+		void DeleteMaterial(Material * & material) override {
+			delete material;
+
+			material = nullptr;
+		}
+
+		bool ReadEvents(OnaEvents * events) override {
+			this->timeLast = this->timeNow;
+			this->timeNow = SDL_GetPerformanceCounter();
+
+			events->deltaTime = static_cast<float>(
+				(this->timeNow - this->timeLast) *
+				(1000 / static_cast<double>(SDL_GetPerformanceFrequency()))
+			);
+
+			while (SDL_PollEvent(&this->sdlEvent)) {
+				switch (this->sdlEvent.type) {
+					case SDL_QUIT: return false;
+
+					case SDL_KEYDOWN: {
+						events->keysHeld[this->sdlEvent.key.keysym.scancode] = true;
+					} break;
+
+					case SDL_KEYUP: {
+						events->keysHeld[this->sdlEvent.key.keysym.scancode] = false;
+					} break;
+
+					default: break;
+				}
 			}
 
-			bool ReadEvents(Events * events) override {
-				this->timeLast = this->timeNow;
-				this->timeNow = SDL_GetPerformanceCounter();
+			return true;
+		}
 
-				events->deltaTime = static_cast<float>(
-					(this->timeNow - this->timeLast) *
-					(1000 / static_cast<double>(SDL_GetPerformanceFrequency()))
+		void Update() override {
+			Matrix * mappedViewport = reinterpret_cast<Matrix *>(
+				glMapNamedBuffer(this->viewportBufferHandle, GL_WRITE_ONLY)
+			);
+
+			if (mappedViewport) {
+				(*mappedViewport) = OrthographicMatrix(
+					0,
+					this->viewportSize.x,
+					this->viewportSize.y,
+					0,
+					-1,
+					1
 				);
 
-				while (SDL_PollEvent(&this->sdlEvent)) {
-					switch (this->sdlEvent.type) {
-						case SDL_QUIT: return false;
-
-						case SDL_KEYDOWN: {
-							events->keysHeld[this->sdlEvent.key.keysym.scancode] = true;
-						} break;
-
-						case SDL_KEYUP: {
-							events->keysHeld[this->sdlEvent.key.keysym.scancode] = false;
-						} break;
-
-						default: break;
-					}
-				}
-
-				return true;
+				glUnmapNamedBuffer(this->viewportBufferHandle);
 			}
 
-			void Update() override {
-				Matrix * mappedViewport = reinterpret_cast<Matrix *>(
-					glMapNamedBuffer(this->viewportBufferHandle, GL_WRITE_ONLY)
-				);
+			this->queues.ForEach([this](OpenGLGraphicsQueue * graphicsQueue) {
+				graphicsQueue->Dispatch(this->canvasShader, this->quadPolyBuffer);
+			});
 
-				if (mappedViewport) {
-					(*mappedViewport) = OrthographicMatrix(
-						0,
-						this->viewportSize.x,
-						this->viewportSize.y,
-						0,
-						-1,
-						1
-					);
+			SDL_GL_SwapWindow(this->window);
+		}
+	};
 
-					glUnmapNamedBuffer(this->viewportBufferHandle);
-				}
-
-				this->queues.ForValues([this](OpenGLGraphicsQueue * graphicsQueue) {
-					graphicsQueue->Dispatch(this->canvasShader, this->quadPolyBuffer);
-				});
-
-				SDL_GL_SwapWindow(this->window);
-			}
-		} graphicsServer = {DefaultAllocator()};
-
+	GraphicsServer * LoadOpenGL(String title, int32_t width, int32_t height) {
 		enum { InitFlags = SDL_INIT_EVENTS };
 
 		if (SDL_Init(InitFlags) == 0) {
@@ -582,6 +577,8 @@ namespace Ona::Engine {
 				WindowPosition = SDL_WINDOWPOS_UNDEFINED,
 				WindowFlags = (SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL)
 			};
+
+			static OpenGlGraphicsServer graphicsServer = {DefaultAllocator()};
 
 			// Fixes a bug on KDE desktops where launching the process disables the default
 			// compositor.

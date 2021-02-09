@@ -1,6 +1,8 @@
-#include "components/core/exports.hpp"
+#include "engine.hpp"
 
-namespace Ona::Core {
+namespace Ona {
+	static HashTable<String, ImageLoader> imageLoaders = {DefaultAllocator()};
+
 	Vector4 Color::Normalized() const {
 		return Vector4{
 			(this->r / static_cast<float>(0xFF)),
@@ -81,5 +83,19 @@ namespace Ona::Core {
 		}
 
 		return ImageError::UnsupportedFormat;
+	}
+
+	void RegisterImageLoader(String const & fileFormat, ImageLoader imageLoader) {
+		imageLoaders.Insert(fileFormat, imageLoader);
+	}
+
+	ImageLoadError LoadImage(Allocator * allocator, String const & filePath, Image * imageResult) {
+		ImageLoader * imageLoader = imageLoaders.Lookup(PathExtension(filePath));
+
+		if (imageLoader) {
+			return (*imageLoader)(allocator, filePath, imageResult);
+		}
+
+		return ImageLoadError::UnsupportedFormat;
 	}
 }

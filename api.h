@@ -1,109 +1,13 @@
-#ifndef API_H
-#define API_H
+// THIS IS A GENERATED FILE - DO NOT MODIFY!
+#ifndef ONA_API_H
+#define ONA_API_H
 
 #include <stdint.h>
-#include <stddef.h>
+#include <stdbool.h>
 
 #ifndef ONA_ENGINE_H
 
-typedef struct Instance Instance;
-
-typedef struct Material Material;
-
-typedef struct Allocator Allocator;
-
-typedef struct GraphicsQueue GraphicsQueue;
-
-typedef struct {
-	uint32_t x, y;
-} Point2;
-
-typedef struct {
-	float x, y;
-} Vector2;
-
-typedef struct {
-	float x, y, z;
-} Vector3;
-
-typedef struct {
-	uint8_t r, g, b, a;
-} Color;
-
-typedef struct {
-	Allocator * allocator;
-
-	Color * pixels;
-
-	Point2 dimensions;
-} Image;
-
-typedef struct {
-	Vector3 origin;
-
-	Color tint;
-} Sprite;
-
-typedef enum {
-	ImageError_None,
-	ImageError_UnsupportedFormat,
-	ImageError_OutOfMemory,
-} ImageError;
-
-#endif
-
-typedef struct Events {
-	float deltaTime;
-
-	bool keysHeld[512];
-} Events;
-
-typedef ImageError(* ImageLoader)(Allocator * imageAllocator, File * file, Image * result);
-
-struct OnaContext;
-
-typedef struct {
-	uint32_t size;
-
-	void(* init)(void * userdata, struct OnaContext const * ona);
-
-	void(* process)(void * userdata, Events const * events, struct OnaContext const * ona);
-
-	void(* exit)(void * userdata, struct OnaContext const * ona);
-} SystemInfo;
-
-typedef struct OnaContext {
-	bool(* spawnSystem)(SystemInfo const * info);
-
-	Allocator *(* defaultAllocator)();
-
-	GraphicsQueue *(* graphicsQueueAcquire)();
-
-	bool(* imageSolid)(
-		Allocator * allocator,
-		Point2 dimensions,
-		Color color,
-		Image * imageResult
-	);
-
-	void(* imageFree)(Image * image);
-
-	bool(* imageLoad)(Allocator * allocator, char const * fileName, Image * result);
-
-	Material *(* materialCreate)(Image const * image);
-
-	void(* materialFree)(Material * * material);
-
-	bool(* registerImageLoader)(char const * fileExtension, ImageLoader imageLoader);
-
-	void(*renderSprite)(
-		GraphicsQueue * graphicsQueue,
-		Material * spriteMaterial,
-		Sprite const * sprite
-	);
-} OnaContext;
-
-typedef enum {
+enum Key {
 	KeyA = 0x04,
 	KeyB = 0x05,
 	KeyC = 0x06,
@@ -130,44 +34,136 @@ typedef enum {
 	KeyX = 0x1b,
 	KeyY = 0x1c,
 	KeyZ = 0x1d,
-} Key;
+};
 
-#ifdef __cplusplus
+enum ImageError {
+	ImageError_None = 0,
+	ImageError_UnsupportedFormat = 1,
+	ImageError_OutOfMemory = 2,
+};
 
-template<typename Type> SystemInfo const * SystemInfoOf() {
-	static SystemInfo const system = {
-		.size = sizeof(Type),
+enum ImageLoadError {
+	ImageLoadError_None = 0,
+	ImageLoadError_FileError = 1,
+	ImageLoadError_UnsupportedFormat = 2,
+	ImageLoadError_OutOfMemory = 3,
+};
 
-		.init = [](void * userdata, OnaContext const * ona) {
-			reinterpret_cast<Type *>(userdata)->Init(ona);
-		},
+struct Allocator;
 
-		.process = [](void * userdata, Events const * events, OnaContext const * ona) {
-			reinterpret_cast<Type *>(userdata)->Process(events, ona);
-		},
+struct GraphicsQueue;
 
-		.exit = [](void * userdata, OnaContext const * ona) {
-			reinterpret_cast<Type *>(userdata)->Exit(ona);
-		},
-	};
+struct Material;
 
-	return &system;
-}
+struct String {
+	uint8_t userdata[32];
+};
 
-template<typename Type> struct Channel {
-	private:
-	Type value;
+struct Color {
+	uint8_t r;
 
-	public:
-	Type & Await() {
-		return this->value;
-	}
+	uint8_t g;
 
-	void Pass(Type const & value) {
-		this->value = value;
-	}
+	uint8_t b;
+
+	uint8_t a;
+};
+
+struct Point2 {
+	int32_t x;
+
+	int32_t y;
+};
+
+struct Vector2 {
+	float x;
+
+	float y;
+};
+
+struct Vector3 {
+	float x;
+
+	float y;
+
+	float z;
+};
+
+struct Image {
+	Allocator * allocator;
+
+	Color * pixels;
+
+	Point2 dimensions;
+};
+
+struct Sprite {
+	struct Vector3 origin;
+
+	struct Color tint;
 };
 
 #endif
+
+struct OnaContext;
+
+struct OnaEvents {
+	float deltaTime;
+
+	bool keysHeld[512];
+};
+
+typedef void (*SystemInitializer)(void * userdata, struct OnaContext const * ona);
+
+typedef void (*SystemProcessor)(
+	void * userdata,
+	struct OnaContext const * ona,
+	struct OnaEvents const * events
+);
+
+typedef void (*SystemFinalizer)(void * userdata, struct OnaContext const * ona);
+
+struct SystemInfo {
+	uint32_t size;
+
+	SystemInitializer init;
+
+	SystemProcessor process;
+
+	SystemFinalizer exit;
+};
+
+struct OnaContext {
+	bool (*spawnSystem)(struct SystemInfo const * systemInfo);
+
+	struct Allocator * (*defaultAllocator)();
+
+	struct GraphicsQueue * (*graphicsQueueAcquire)();
+
+	enum ImageError (*imageSolid)(
+		struct Allocator * allocator,
+		struct Point2 dimensions,
+		struct Color fillColor,
+		struct Image * imageResult
+	);
+
+	void (*imageFree)(struct Image * imageResult);
+
+	enum ImageLoadError (*imageLoad)(
+		struct Allocator * imageAllocator,
+		struct String const * filePath,
+		struct Image * imageResult
+	);
+
+	struct Material * (*materialCreate)(struct Image const * materialImage);
+
+	void (*materialFree)(struct Material * * material);
+
+	void (*renderSprite)(
+		struct GraphicsQueue * graphicsQueue,
+		struct Material * spriteMaterial,
+		struct Sprite const * sprite
+	);
+};
 
 #endif

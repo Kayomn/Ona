@@ -1,8 +1,12 @@
-#include "components/core/exports.hpp"
+#include "common.hpp"
 
-namespace Ona::Core {
+namespace Ona {
 	AtomicU32::AtomicU32(AtomicU32 const & that) {
 		this->Store(that.Load());
+	}
+
+	AtomicU32::AtomicU32(uint32_t value) {
+		this->Store(value);
 	}
 
 	uint32_t AtomicU32::FetchAdd(uint32_t amount) {

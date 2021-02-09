@@ -1,4 +1,4 @@
 
-output
-assets/*.so
-assets/*.dll
+# Generated files.
+output/
+*.o

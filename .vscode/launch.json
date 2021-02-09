@@ -8,7 +8,7 @@
 			"program": "${workspaceFolder}/output/engine",
 			"args": [],
 			"stopAtEntry": false,
-			"cwd": "${workspaceFolder}/assets",
+			"cwd": "${workspaceFolder}/../assets",
 			"environment": [
 				{"name": "LD_LIBRARY_PATH", "value": "${workspaceFolder}/output"}
 			],

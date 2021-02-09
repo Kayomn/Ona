@@ -1,17 +1,8 @@
-#!/bin/python3
+#!/usr/bin/env python
 
-from os import listdir, remove, path
+import os
 
-assets_path = "assets"
-output_path = "output"
-
-# Generated asset files.
-if (path.exists(assets_path)):
-	for filename in listdir(assets_path):
-		if (filename.endswith(".so") or filename.endswith(".dll")):
-			remove(path.join(assets_path, filename))
-
-# Engine binaries.
-if (path.exists(output_path)):
-	for filename in listdir(output_path):
-		remove(path.join(output_path, filename))
+for directory in ["common", "engine"]:
+	for file_name in os.listdir(directory):
+		if (file_name.endswith(".o")):
+			os.remove(os.path.join(directory, file_name))
