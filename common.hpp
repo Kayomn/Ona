@@ -886,6 +886,10 @@ namespace Ona {
 		Type buffer[Len];
 
 		public:
+		enum {
+			FixedLength = Len,
+		};
+
 		/**
 		 * Initializes the contents with the default values of `Type`.
 		 */
