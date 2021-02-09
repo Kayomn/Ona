@@ -19,10 +19,10 @@ namespace Ona {
 			IsOk(CreateCondition(this->taskCondition)) &&
 			IsOk(CreateMutex(this->taskMutex))
 		) {
-			String threadName = {"ona.thread[%]"};
+			String threadName = {"ona.thread."};
 
 			for (uint32_t i = 0; i < this->threads.Length(); i += 1) {
-				AcquireThread(Format(threadName, {DecStringUnsigned(i)}), [this]() {
+				AcquireThread(String::Concat({threadName, DecStringUnsigned(i)}), [this]() {
 					for (;;) {
 						this->taskMutex.Lock();
 
