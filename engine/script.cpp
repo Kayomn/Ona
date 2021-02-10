@@ -40,6 +40,43 @@ namespace Ona {
 
 			return value;
 		}
+
+		void Free() {
+			switch (this->type) {
+				case Type::String: {
+					reinterpret_cast<String *>(this->userdata)->~String();
+
+					break;
+				};
+
+				case Type::Array: {
+					auto array = reinterpret_cast<DynamicArray<Value> *>(this->userdata);
+
+					for (auto & value : array->Values()) value.Free();
+
+					array->~DynamicArray();
+
+					break;
+				}
+
+				case Type::Object: {
+					auto object = reinterpret_cast<HashTable<String, Value> *>(this->userdata);
+
+					object->ForEach([](String & key, Value & value) {
+						value.Free();
+					});
+
+					object->~HashTable();
+
+					break;
+				}
+
+				case Type::Boolean:
+				case Type::Integer:
+				case Type::Floating:
+				case Type::Vector2: break;
+			}
+		}
 	};
 
 	ConfigEnvironment::ConfigEnvironment(Allocator * allocator) : globals{allocator} {
@@ -47,7 +84,9 @@ namespace Ona {
 	}
 
 	ConfigEnvironment::~ConfigEnvironment() {
-
+		this->globals.ForEach([](String & key, Value & value) {
+			value.Free();
+		});
 	}
 
 	uint32_t ConfigEnvironment::Count(std::initializer_list<String> const & path) {
