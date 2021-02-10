@@ -19,6 +19,27 @@ namespace Ona {
 		Type type;
 
 		uint8_t userdata[UserdataSize];
+
+		static Value * Find(
+			HashTable<String, Value> * object,
+			std::initializer_list<String> const & path
+		) {
+			Value * value = nullptr;
+
+			for (String const & pathNode : path) {
+				if (object == nullptr) return nullptr;
+
+				value = object->Lookup(pathNode);
+
+				if (value && (value->type != Value::Type::Object)) {
+					object = reinterpret_cast<HashTable<String, Value> *>(value->userdata);
+				} else {
+					object = nullptr;
+				}
+			}
+
+			return value;
+		}
 	};
 
 	ConfigEnvironment::ConfigEnvironment(Allocator * allocator) : globals{allocator} {
@@ -30,20 +51,7 @@ namespace Ona {
 	}
 
 	uint32_t ConfigEnvironment::Count(std::initializer_list<String> const & path) {
-		HashTable<String, Value> * object = &this->globals;
-		Value * value = nullptr;
-
-		for (String const & pathNode : path) {
-			if (object == nullptr) return 0;
-
-			value = object->Lookup(pathNode);
-
-			if (value && (value->type != Value::Type::Object)) {
-				object = reinterpret_cast<HashTable<String, Value> *>(value->userdata);
-			} else {
-				object = nullptr;
-			}
-		}
+		Value * value = Value::Find(&this->globals, path);
 
 		if (value) switch (value->type) {
 			case Value::Type::Array:
@@ -68,20 +76,7 @@ namespace Ona {
 		int32_t index,
 		bool fallback
 	) {
-		HashTable<String, Value> * object = &this->globals;
-		Value * value = nullptr;
-
-		for (String const & pathNode : path) {
-			if (object == nullptr) return fallback;
-
-			value = object->Lookup(pathNode);
-
-			if (value && (value->type != Value::Type::Object)) {
-				object = reinterpret_cast<HashTable<String, Value> *>(value->userdata);
-			} else {
-				object = nullptr;
-			}
-		}
+		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((index == 0) && (value->type == Value::Type::Boolean)) {
@@ -107,20 +102,7 @@ namespace Ona {
 		int32_t index,
 		int64_t fallback
 	) {
-		HashTable<String, Value> * object = &this->globals;
-		Value * value = nullptr;
-
-		for (String const & pathNode : path) {
-			if (object == nullptr) return fallback;
-
-			value = object->Lookup(pathNode);
-
-			if (value && (value->type != Value::Type::Object)) {
-				object = reinterpret_cast<HashTable<String, Value> *>(value->userdata);
-			} else {
-				object = nullptr;
-			}
-		}
+		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((index == 0) && (value->type == Value::Type::Vector2)) {
@@ -146,20 +128,7 @@ namespace Ona {
 		int32_t index,
 		double fallback
 	) {
-		HashTable<String, Value> * object = &this->globals;
-		Value * value = nullptr;
-
-		for (String const & pathNode : path) {
-			if (object == nullptr) return fallback;
-
-			value = object->Lookup(pathNode);
-
-			if (value && (value->type != Value::Type::Object)) {
-				object = reinterpret_cast<HashTable<String, Value> *>(value->userdata);
-			} else {
-				object = nullptr;
-			}
-		}
+		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((index == 0) && (value->type == Value::Type::Floating)) {
@@ -185,20 +154,7 @@ namespace Ona {
 		int32_t index,
 		String const & fallback
 	) {
-		HashTable<String, Value> * object = &this->globals;
-		Value * value = nullptr;
-
-		for (String const & pathNode : path) {
-			if (object == nullptr) return fallback;
-
-			value = object->Lookup(pathNode);
-
-			if (value && (value->type != Value::Type::Object)) {
-				object = reinterpret_cast<HashTable<String, Value> *>(value->userdata);
-			} else {
-				object = nullptr;
-			}
-		}
+		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((index == 0) && (value->type == Value::Type::String)) {
@@ -224,20 +180,7 @@ namespace Ona {
 		int32_t index,
 		Vector2 fallback
 	) {
-		HashTable<String, Value> * object = &this->globals;
-		Value * value = nullptr;
-
-		for (String const & pathNode : path) {
-			if (object == nullptr) return fallback;
-
-			value = object->Lookup(pathNode);
-
-			if (value && (value->type != Value::Type::Object)) {
-				object = reinterpret_cast<HashTable<String, Value> *>(value->userdata);
-			} else {
-				object = nullptr;
-			}
-		}
+		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((index == 0) && (value->type == Value::Type::Vector2)) {
