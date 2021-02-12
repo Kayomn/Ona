@@ -99,7 +99,12 @@ namespace Ona {
 			case Value::Type::Object:
 					return reinterpret_cast<HashTable<String, Value> *>(value->userdata)->Count();
 
-			default: break;
+			case Value::Type::Boolean:
+			case Value::Type::Integer:
+			case Value::Type::Floating:
+			case Value::Type::String:
+			case Value::Type::Vector2:
+					return 1;
 		}
 
 		return 0;
