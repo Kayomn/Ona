@@ -165,10 +165,34 @@ namespace Ona {
 	 */
 	void RegisterGraphicsLoader(String const & server, GraphicsLoader graphicsLoader);
 
+	class Vector2Channel final : public Object {
+		private:
+		Mutex senderMutex;
+
+		Mutex receiverMutex;
+
+		Condition receiverCondition;
+
+		Condition senderCondition;
+
+		AtomicU32 receiversWaiting;
+
+		Vector2 userdata;
+
+		public:
+		Vector2Channel() = default;
+
+		~Vector2Channel() override;
+
+		void Receive(Vector2 & output);
+
+		void Send(Vector2 input);
+	};
+
 	/**
-	 * Asynchronous task scheduler backed by `Thread`.
+	 * Asynchronous task scheduler backed by `Ona::Thread`.
 	 */
-	class Async : public Object {
+	class AsyncScheduler final : public Object {
 		DynamicArray<Thread> threads;
 
 		Condition taskCondition;
@@ -187,9 +211,9 @@ namespace Ona {
 		 * `hardwarePriority` to determine how much of the hardware to use as a value between `0`
 		 * and `1`.
 		 */
-		Async(Allocator * allocator, float hardwarePriority);
+		AsyncScheduler(Allocator * allocator, float hardwarePriority);
 
-		~Async() override;
+		~AsyncScheduler() override;
 
 		/**
 		 * Dispatches `task` asynchronously.

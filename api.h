@@ -51,6 +51,8 @@ enum ImageLoadError {
 
 struct Allocator;
 
+struct Vector2Channel;
+
 struct GraphicsQueue;
 
 struct Material;
@@ -134,8 +136,6 @@ struct SystemInfo {
 };
 
 struct OnaContext {
-	bool (*spawnSystem)(struct SystemInfo const * systemInfo);
-
 	struct Allocator * (*defaultAllocator)();
 
 	struct GraphicsQueue * (*graphicsQueueAcquire)();
@@ -155,15 +155,31 @@ struct OnaContext {
 		struct Image * imageResult
 	);
 
-	struct Material * (*materialCreate)(struct Image const * materialImage);
-
 	void (*materialFree)(struct Material * * material);
+
+	struct Material * (*materialNew)(struct Image const * materialImage);
 
 	void (*renderSprite)(
 		struct GraphicsQueue * graphicsQueue,
 		struct Material * spriteMaterial,
 		struct Sprite const * sprite
 	);
+
+	bool (*spawnSystem)(struct SystemInfo const * systemInfo);
+
+	void (*stringAssign)(String * destinationString, char const * value);
+
+	void (*stringCopy)(String * destinationString, String const * sourceString);
+
+	void (*stringDestroy)(String * string);
+
+	void (*vector2ChannelFree)(struct Vector2Channel * * channel);
+
+	Vector2Channel * (*vector2ChannelNew)(Allocator * allocator);
+
+	void (*vector2ChannelReceive)(struct Vector2Channel * channel, Vector2 * userdata);
+
+	void (*vector2ChannelSend)(struct Vector2Channel * channel, Vector2 userdata);
 };
 
 #endif

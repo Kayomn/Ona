@@ -1,7 +1,42 @@
 #include "engine.hpp"
 
 namespace Ona {
-	Async::Async(
+	Vector2Channel::~Vector2Channel() {
+		this->senderMutex.Free();
+		this->receiverMutex.Free();
+		this->senderCondition.Free();
+		this->receiverCondition.Free();
+	}
+
+	void Vector2Channel::Receive(Vector2 & output) {
+		this->receiverMutex.Lock();
+
+		while (this->receiversWaiting.Load() == 0) {
+			this->receiversWaiting.FetchAdd(1);
+			this->receiverCondition.Wait(this->receiverMutex);
+			this->receiversWaiting.FetchSub(1);
+		}
+
+		output = this->userdata;
+
+		this->senderCondition.Signal();
+		this->receiverMutex.Unlock();
+	}
+
+	void Vector2Channel::Send(Vector2 input) {
+		this->senderMutex.Lock();
+
+		if (this->receiversWaiting.Load() == 0) {
+			this->receiverCondition.Signal();
+		}
+
+		this->userdata = input;
+
+		this->senderCondition.Wait(this->senderMutex);
+		this->senderMutex.Unlock();
+	}
+
+	AsyncScheduler::AsyncScheduler(
 		Allocator * allocator,
 		float hardwarePriority
 	) :
@@ -56,7 +91,7 @@ namespace Ona {
 		}
 	}
 
-	Async::~Async() {
+	AsyncScheduler::~AsyncScheduler() {
 		this->isRunning.Store(0);
 		this->taskCondition.Signal();
 
@@ -66,7 +101,7 @@ namespace Ona {
 		this->taskCondition.Free();
 	}
 
-	void Async::Execute(Callable<void()> const & task) {
+	void AsyncScheduler::Execute(Callable<void()> const & task) {
 		this->taskMutex.Lock();
 		this->tasks.Enqueue(task);
 		this->taskMutex.Unlock();
@@ -75,7 +110,7 @@ namespace Ona {
 		this->taskCondition.Signal();
 	}
 
-	void Async::Wait() {
+	void AsyncScheduler::Wait() {
 		while (this->taskCount.Load());
 	}
 }

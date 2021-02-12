@@ -1,6 +1,6 @@
 #include "modules/demo.hpp"
 
-// static Channel<Vector2> playerPosition = {};
+static Vector2Channel * playerPositionChannel;
 
 struct SceneController {
 	enum {
@@ -14,7 +14,7 @@ struct SceneController {
 	Vector2 actors[ActorsMax];
 
 	void Init(OnaContext const * ona) {
-		Image actorImage;
+		Image actorImage = {};
 		Allocator * allocator = ona->defaultAllocator();
 		this->graphicsQueue = ona->graphicsQueueAcquire();
 
@@ -25,14 +25,20 @@ struct SceneController {
 			};
 		}
 
-		if (ona->imageLoad(allocator, "./actor.bmp", &actorImage)) {
-			this->actorMaterial = ona->materialCreate(&actorImage);
+		String filePath = {};
+
+		ona->stringAssign(&filePath, "./actor.bmp");
+
+		if (ona->imageLoad(allocator, &filePath, &actorImage)) {
+			this->actorMaterial = ona->materialNew(&actorImage);
 
 			ona->imageFree(&actorImage);
 		}
+
+		ona->stringDestroy(&filePath);
 	}
 
-	void Process(OnaEvents const * events, OnaContext const * ona) {
+	void Process(OnaContext const * ona, OnaEvents const * events) {
 		Sprite actorSprite = {
 			.origin = Vector3{},
 			.tint = Color{0xFF, 0xFF, 0xFF, 0xFF},
@@ -47,7 +53,7 @@ struct SceneController {
 			ona->renderSprite(this->graphicsQueue, this->actorMaterial, &actorSprite);
 		}
 
-		// actors[0] = Vector2Add(actors[0], playerPosition.Await());
+		ona->vector2ChannelReceive(playerPositionChannel, &this->actors[0]);
 	}
 
 	void Exit(OnaContext const * ona) {
@@ -60,7 +66,7 @@ struct PlayerController {
 
 	}
 
-	void Process(OnaEvents const * events, OnaContext const * ona) {
+	void Process(OnaContext const * ona, OnaEvents const * events) {
 		float const deltaSpeed = (events->deltaTime * 0.25f);
 		Vector2 velocity = {};
 
@@ -80,7 +86,7 @@ struct PlayerController {
 			velocity.x += deltaSpeed;
 		}
 
-		// playerPosition.Pass(velocity);
+		ona->vector2ChannelSend(playerPositionChannel, velocity);
 	}
 
 	void Exit(OnaContext const * ona) {
@@ -89,6 +95,43 @@ struct PlayerController {
 };
 
 extern "C" void OnaInit(OnaContext const * ona) {
-	ona->spawnSystem(SystemInfoOf<SceneController>());
-	ona->spawnSystem(SystemInfoOf<PlayerController>());
+	SystemInfo const sceneControllerInfo = {
+		.size = sizeof(SceneController),
+
+		.init = [](void * system, OnaContext const * ona) {
+			reinterpret_cast<SceneController *>(system)->Init(ona);
+		},
+
+		.process = [](void * system, OnaContext const * ona, OnaEvents const * events) {
+			reinterpret_cast<SceneController *>(system)->Process(ona, events);
+		},
+
+		.exit = [](void * system, OnaContext const * ona) {
+			reinterpret_cast<SceneController *>(system)->Exit(ona);
+		},
+	};
+
+	SystemInfo const playerControllerInfo = {
+		.size = sizeof(PlayerController),
+
+		.init = [](void * system, OnaContext const * ona) {
+			reinterpret_cast<PlayerController *>(system)->Init(ona);
+		},
+
+		.process = [](void * system, OnaContext const * ona, OnaEvents const * events) {
+			reinterpret_cast<PlayerController *>(system)->Process(ona, events);
+		},
+
+		.exit = [](void * system, OnaContext const * ona) {
+			reinterpret_cast<PlayerController *>(system)->Exit(ona);
+		},
+	};
+
+	playerPositionChannel = ona->vector2ChannelNew(ona->defaultAllocator());
+	ona->spawnSystem(&sceneControllerInfo);
+	ona->spawnSystem(&playerControllerInfo);
+}
+
+extern "C" void OnaExit(OnaContext const * ona) {
+	ona->vector2ChannelFree(&playerPositionChannel);
 }

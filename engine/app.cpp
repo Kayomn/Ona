@@ -21,21 +21,6 @@ static PackedStack<System> systems = {DefaultAllocator()};
 static GraphicsServer * graphicsServer = nullptr;
 
 static OnaContext const context = {
-	.spawnSystem = [](SystemInfo const * info) -> bool {
-		void * userdata = DefaultAllocator()->Allocate(info->size);
-
-		if (userdata && systems.Push(System{
-			.userdata = userdata,
-			.initializer = info->init,
-			.processor = info->process,
-			.finalizer = info->exit,
-		})) {
-			return true;
-		}
-
-		return false;
-	},
-
 	.defaultAllocator = DefaultAllocator,
 
 	.graphicsQueueAcquire = []() -> GraphicsQueue * {
@@ -63,12 +48,12 @@ static OnaContext const context = {
 		return LoadImage(allocator, *fileName, result);
 	},
 
-	.materialCreate = [](Image const * image) -> Material * {
-		return graphicsServer->CreateMaterial(*image);
-	},
-
 	.materialFree = [](Material * * material) {
 		graphicsServer->DeleteMaterial(*material);
+	},
+
+	.materialNew = [](Image const * image) -> Material * {
+		return graphicsServer->CreateMaterial(*image);
 	},
 
 	.renderSprite = [](
@@ -77,6 +62,51 @@ static OnaContext const context = {
 		Sprite const * sprite
 	) {
 		graphicsQueue->RenderSprite(spriteMaterial, *sprite);
+	},
+
+	.spawnSystem = [](SystemInfo const * info) -> bool {
+		void * userdata = DefaultAllocator()->Allocate(info->size);
+
+		if (userdata && systems.Push(System{
+			.userdata = userdata,
+			.initializer = info->init,
+			.processor = info->process,
+			.finalizer = info->exit,
+		})) {
+			return true;
+		}
+
+		return false;
+	},
+
+	.stringAssign = [](String * destinationString, char const * value) {
+		(*destinationString) = String{value};
+	},
+
+	.stringCopy = [](String * destinationString, String const * sourceString) {
+		(*destinationString) = (*sourceString);
+	},
+
+	.stringDestroy = [](String * string) {
+		string->~String();
+	},
+
+	.vector2ChannelFree = [](Vector2Channel * * channel) {
+		delete (*channel);
+
+		(*channel) = nullptr;
+	},
+
+	.vector2ChannelNew = [](Allocator * allocator) -> Vector2Channel * {
+		return new Vector2Channel{};
+	},
+
+	.vector2ChannelReceive = [](Vector2Channel * channel, Vector2 * output) {
+		channel->Receive(*output);
+	},
+
+	.vector2ChannelSend = [](Vector2Channel * channel, Vector2 input) {
+		channel->Send(input);
 	},
 };
 
@@ -136,7 +166,7 @@ int main(int argv, char const * const * argc) {
 	}
 
 	if (graphicsServer) {
-		Async async = {defaultAllocator, 0.25f};
+		AsyncScheduler async = {defaultAllocator, 0.25f};
 		OnaEvents events = {};
 
 		systems.ForEach([](System const & system) {
