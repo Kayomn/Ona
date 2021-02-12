@@ -81,6 +81,8 @@ static OnaContext const context = {
 };
 
 int main(int argv, char const * const * argc) {
+	constexpr Vector2 DisplaySizeDefault = Vector2{640, 480};
+	String displayNameDefault = String{"Ona"};
 	Allocator * defaultAllocator = DefaultAllocator();
 	ConfigEnvironment configEnv = {defaultAllocator};
 
@@ -118,17 +120,17 @@ int main(int argv, char const * const * argc) {
 	});
 
 	{
-		String graphics = {"Graphics"};
+		String const graphics = {"Graphics"};
 
-		Vector2 initialDisplaySize = configEnv.ReadVector2({
+		Vector2 const initialDisplaySize = configEnv.ReadVector2({
 			graphics,
 			String{"displaySize"}
-		}, 0, Vector2{640, 480});
+		}, 0, DisplaySizeDefault);
 
 		graphicsServer = LoadGraphics(
 			initialDisplaySize.x,
 			initialDisplaySize.y,
-			configEnv.ReadString({graphics, String{"displayTitle"}}, 0, String{"Ona"}),
+			configEnv.ReadString({graphics, String{"displayTitle"}}, 0, displayNameDefault),
 			configEnv.ReadString({graphics, String{"server"}}, 0, String{"opengl"})
 		);
 	}
@@ -144,8 +146,8 @@ int main(int argv, char const * const * argc) {
 		while (graphicsServer->ReadEvents(&events)) {
 			graphicsServer->Clear();
 
-			systems.ForEach([&events, &async](System const & system) {
-				async.Execute([&system, &events]() {
+			systems.ForEach([&](System const & system) {
+				async.Execute([&]() {
 					system.processor(system.userdata, &context, &events);
 				});
 			});
