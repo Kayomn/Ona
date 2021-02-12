@@ -192,7 +192,7 @@ namespace Ona {
 	/**
 	 * Asynchronous task scheduler backed by `Ona::Thread`.
 	 */
-	class AsyncScheduler final : public Object {
+	class TaskScheduler final : public Object {
 		DynamicArray<Thread> threads;
 
 		Condition taskCondition;
@@ -211,9 +211,9 @@ namespace Ona {
 		 * `hardwarePriority` to determine how much of the hardware to use as a value between `0`
 		 * and `1`.
 		 */
-		AsyncScheduler(Allocator * allocator, float hardwarePriority);
+		TaskScheduler(Allocator * allocator, float hardwarePriority);
 
-		~AsyncScheduler() override;
+		~TaskScheduler() override;
 
 		/**
 		 * Dispatches `task` asynchronously.

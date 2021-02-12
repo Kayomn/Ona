@@ -36,7 +36,7 @@ namespace Ona {
 		this->senderMutex.Unlock();
 	}
 
-	AsyncScheduler::AsyncScheduler(
+	TaskScheduler::TaskScheduler(
 		Allocator * allocator,
 		float hardwarePriority
 	) :
@@ -91,7 +91,7 @@ namespace Ona {
 		}
 	}
 
-	AsyncScheduler::~AsyncScheduler() {
+	TaskScheduler::~TaskScheduler() {
 		this->isRunning.Store(0);
 		this->taskCondition.Signal();
 
@@ -101,7 +101,7 @@ namespace Ona {
 		this->taskCondition.Free();
 	}
 
-	void AsyncScheduler::Execute(Callable<void()> const & task) {
+	void TaskScheduler::Execute(Callable<void()> const & task) {
 		this->taskMutex.Lock();
 		this->tasks.Enqueue(task);
 		this->taskMutex.Unlock();
@@ -110,7 +110,7 @@ namespace Ona {
 		this->taskCondition.Signal();
 	}
 
-	void AsyncScheduler::Wait() {
+	void TaskScheduler::Wait() {
 		while (this->taskCount.Load());
 	}
 }

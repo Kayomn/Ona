@@ -166,7 +166,7 @@ int main(int argv, char const * const * argc) {
 	}
 
 	if (graphicsServer) {
-		AsyncScheduler async = {defaultAllocator, 0.25f};
+		TaskScheduler tasks = {defaultAllocator, 0.25f};
 		OnaEvents events = {};
 
 		systems.ForEach([](System const & system) {
@@ -177,12 +177,12 @@ int main(int argv, char const * const * argc) {
 			graphicsServer->Clear();
 
 			systems.ForEach([&](System const & system) {
-				async.Execute([&]() {
+				tasks.Execute([&]() {
 					system.processor(system.userdata, &context, &events);
 				});
 			});
 
-			async.Wait();
+			tasks.Wait();
 			graphicsServer->Update();
 		}
 
