@@ -123,9 +123,12 @@ namespace Ona {
 		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
-			if ((index == 0) && (value->type == Value::Type::Boolean)) {
+			if ((value->type == Value::Type::Boolean) && (index == 0)) {
+				// Single-value access.
 				return (*reinterpret_cast<bool *>(value->userdata));
-			} else if (value->type == Value::Type::Array) {
+			}
+
+			if (value->type == Value::Type::Array) {
 				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
@@ -149,9 +152,12 @@ namespace Ona {
 		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
-			if ((index == 0) && (value->type == Value::Type::Vector2)) {
+			if ((value->type == Value::Type::Integer) && (index == 0)) {
+				// Single-value access.
 				return (*reinterpret_cast<int64_t *>(value->userdata));
-			} else if (value->type == Value::Type::Array) {
+			}
+
+			if (value->type == Value::Type::Array) {
 				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
@@ -175,16 +181,19 @@ namespace Ona {
 		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
-			if ((index == 0) && (value->type == Value::Type::Floating)) {
-				return (*reinterpret_cast<double *>(value->userdata));
-			} else if (value->type == Value::Type::Array) {
+			if ((value->type == Value::Type::Floating) && (index == 0)) {
+				// Single-value access.
+				return (*reinterpret_cast<float *>(value->userdata));
+			}
+
+			if (value->type == Value::Type::Array) {
 				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
 					Value * value = &array->At(index);
 
 					if (value->type == Value::Type::Floating) {
-						return (*reinterpret_cast<double *>(value->userdata));
+						return (*reinterpret_cast<float *>(value->userdata));
 					}
 				}
 			}
@@ -201,9 +210,12 @@ namespace Ona {
 		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
-			if ((index == 0) && (value->type == Value::Type::String)) {
+			if ((value->type == Value::Type::String) && (index == 0)) {
+				// Single-value access.
 				return (*reinterpret_cast<String *>(value->userdata));
-			} else if (value->type == Value::Type::Array) {
+			}
+
+			if (value->type == Value::Type::Array) {
 				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
@@ -227,9 +239,12 @@ namespace Ona {
 		Value * value = Value::Find(&this->globals, path);
 
 		if (value) {
-			if ((index == 0) && (value->type == Value::Type::Vector2)) {
+			if ((value->type == Value::Type::Vector2) && (index == 0)) {
+				// Single-value access.
 				return (*reinterpret_cast<Vector2 *>(value->userdata));
-			} else if (value->type == Value::Type::Array) {
+			}
+
+			if (value->type == Value::Type::Array) {
 				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
