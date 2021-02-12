@@ -33,7 +33,8 @@ compile_command = [compiler, version, ("-I" + os.path.abspath(".")), "-c", "-g"]
 
 # Compile common library.
 output_file_path = os.path.join(output_path, "libcommon.a")
-needs_rebuild = (not os.path.exists(output_file_path) or (os.path.getmtime(os.path.join(root_path, "common.hpp")) > os.path.getmtime(output_file_path)))
+output_file_mod_time = (os.path.getmtime(output_file_path) if os.path.exists(output_file_path) else 0)
+needs_rebuild = (os.path.getmtime(os.path.join(root_path, "common.hpp")) > output_file_mod_time)
 source_file_names = []
 object_file_names = []
 
@@ -53,6 +54,8 @@ for file_name in os.listdir(common_path):
 				(not os.path.exists(object_file_name)) or
 				(os.path.getmtime(file_name) > os.path.getmtime(object_file_name))
 			)
+	elif (file_name.endswith(".hpp")):
+		needs_rebuild |= (os.path.getmtime(file_name) > output_file_mod_time)
 
 if (needs_rebuild):
 	print("Building common...")
@@ -60,7 +63,8 @@ if (needs_rebuild):
 	subprocess.call(["ar", "rcs", output_file_path] + object_file_names)
 
 output_file_path = os.path.join(output_path, "engine")
-needs_rebuild |= (not os.path.exists(output_file_path) or (os.path.getmtime(os.path.join(root_path, "engine.hpp")) > os.path.getmtime(output_file_path)))
+output_file_mod_time = (os.path.getmtime(output_file_path) if os.path.exists(output_file_path) else 0)
+needs_rebuild |= (os.path.getmtime(os.path.join(root_path, "engine.hpp")) > output_file_mod_time)
 source_file_names = []
 object_file_names = []
 
@@ -78,6 +82,8 @@ for file_name in os.listdir(engine_path):
 				(not os.path.exists(object_file_name)) or
 				(os.path.getmtime(file_name) > os.path.getmtime(object_file_name))
 			)
+	elif (file_name.endswith(".hpp")):
+		needs_rebuild |= (os.path.getmtime(file_name) > output_file_mod_time)
 
 if (needs_rebuild):
 	print("Building engine...")
