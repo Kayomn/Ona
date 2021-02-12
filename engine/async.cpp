@@ -22,7 +22,10 @@ namespace Ona {
 			String threadName = {"ona.thread."};
 
 			for (uint32_t i = 0; i < this->threads.Length(); i += 1) {
-				AcquireThread(String::Concat({threadName, DecStringUnsigned(i)}), [this]() {
+				Ona::ThreadError const threadError = AcquireThread(String::Concat({
+					threadName,
+					DecStringUnsigned(i)
+				}), [this]() {
 					for (;;) {
 						this->taskMutex.Lock();
 
@@ -47,6 +50,8 @@ namespace Ona {
 						task.Invoke();
 					}
 				}, this->threads.At(i));
+
+				assert(threadError == ThreadError::None);
 			}
 		}
 	}
