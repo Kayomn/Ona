@@ -277,6 +277,14 @@ namespace Ona {
 		void Store(uint32_t value);
 	};
 
+	constexpr bool IsAlpha(int const c) {
+		return (((c >= 'A') && (c <= 'Z')) || ((c >= 'a') && (c <= 'z')));
+	}
+
+	constexpr bool IsNumeric(int const c) {
+		return ((c >= '0') && (c <= '9'));
+	}
+
 	/**
 	 * Reference-counted, UTF-8-encoded character sequence.
 	 *
