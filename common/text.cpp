@@ -184,30 +184,36 @@ namespace Ona {
 	}
 
 	String String::ZeroSentineled() const {
-		if (this->Chars().At(this->size - 1) != 0) {
-			// String is not zero-sentineled, so make a copy that is.
-			String sentineledString = {'\0', (this->size + 1)};
+		Ona::Chars chars = this->Chars();
 
-			if (sentineledString.size) {
-				sentineledString.length = this->length;
+		if (chars.length) {
+			if (chars.At(chars.length - 1) != 0) {
+				// String is not zero-sentineled, so make a copy that is.
+				String sentineledString = {'\0', (this->size + 1)};
 
-				if (this->IsDynamic()) {
-					CopyMemory(Slice<uint8_t>{
-						.length = sentineledString.length,
-						.pointer = (sentineledString.buffer.dynamic + sizeof(AtomicU32))
-					}, this->Bytes());
-				} else {
-					CopyMemory(Slice<uint8_t>{
-						.length = sentineledString.length,
-						.pointer = sentineledString.buffer.static_
-					}, this->Bytes());
+				if (sentineledString.size) {
+					sentineledString.length = this->length;
+
+					if (this->IsDynamic()) {
+						CopyMemory(Slice<uint8_t>{
+							.length = sentineledString.length,
+							.pointer = (sentineledString.buffer.dynamic + sizeof(AtomicU32))
+						}, this->Bytes());
+					} else {
+						CopyMemory(Slice<uint8_t>{
+							.length = sentineledString.length,
+							.pointer = sentineledString.buffer.static_
+						}, this->Bytes());
+					}
 				}
+
+				return sentineledString;
 			}
 
-			return sentineledString;
+			return *this;
 		}
 
-		return *this;
+		return String{'0', 1};
 	}
 
 	String DecStringSigned(int64_t value) {
