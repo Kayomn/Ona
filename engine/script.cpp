@@ -111,7 +111,216 @@ namespace Ona {
 	}
 
 	ScriptError ConfigEnvironment::Parse(String const & source) {
-		// TODO: Implement.
+		enum class TokenType {
+			Invalid,
+			BracketLeft,
+			BracketRight,
+			ParenLeft,
+			ParenRight,
+			Colon,
+			Comma,
+			Period,
+			Identifier,
+			NumberLiteral,
+			StringLiteral,
+		};
+
+		struct Token {
+			String text;
+
+			TokenType type;
+		};
+
+		PackedStack<Token> tokens = {this->globals.AllocatorOf()};
+		Slice<char const> sourceChars = source.Chars();
+
+		for (size_t i = 0; i < sourceChars.length;) {
+			switch (sourceChars.At(i)) {
+				case '\n':
+				case '\t':
+				case ' ':
+				case '\r':
+				case '\v':
+				case '\f': {
+					i += 1;
+
+					break;
+				}
+
+				case '[': {
+					tokens.Push(Token{
+						.text = String{"["},
+						.type = TokenType::BracketLeft,
+					});
+
+					i += 1;
+
+					break;
+				}
+
+				case ']': {
+					tokens.Push(Token{
+						.text = String{"]"},
+						.type = TokenType::BracketRight,
+					});
+
+					i += 1;
+
+					break;
+				}
+
+				case '(': {
+					tokens.Push(Token{
+						.text = String{"("},
+						.type = TokenType::ParenLeft,
+					});
+
+					i += 1;
+
+					break;
+				}
+
+				case ')': {
+					tokens.Push(Token{
+						.text = String{")"},
+						.type = TokenType::ParenRight,
+					});
+
+					i += 1;
+
+					break;
+				}
+
+				case '.': {
+					tokens.Push(Token{
+						.text = String{"."},
+						.type = TokenType::Period,
+					});
+
+					i += 1;
+
+					break;
+				}
+
+				case ':': {
+					tokens.Push(Token{
+						.text = String{":"},
+						.type = TokenType::Colon,
+					});
+
+					i += 1;
+
+					break;
+				}
+
+				case ',': {
+					tokens.Push(Token{
+						.text = String{","},
+						.type = TokenType::Comma,
+					});
+
+					i += 1;
+
+					break;
+				}
+
+				case '"': {
+					size_t const iNext = (i + 1);
+					size_t j = iNext;
+
+					while ((j < sourceChars.length) && sourceChars.At(j) != '"') j += 1;
+
+					if (sourceChars.At(j) == '"') {
+						tokens.Push(Token{
+							.text = String{Slice<char const>{
+								.length = (j - iNext),
+								.pointer = (sourceChars.pointer + iNext)
+							}},
+
+							.type = TokenType::NumberLiteral,
+						});
+
+						j += 1;
+					} else {
+						tokens.Push(Token{
+							.text = String{"Unexpected end of file before end of string literal"},
+							.type = TokenType::Invalid,
+						});
+					}
+
+					i = j;
+
+					break;
+				}
+
+				case '0':
+				case '1':
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+				case '7':
+				case '8':
+				case '9': {
+					size_t j = (i + 1);
+
+					while ((j < sourceChars.length) && IsNumeric(sourceChars.At(j))) j += 1;
+
+					if ((j < sourceChars.length) && (sourceChars.At(j) == '.')) {
+						j += 1;
+
+						if ((j < sourceChars.length) && IsNumeric(sourceChars.At(j))) {
+							// Handle decimal places.
+							j += 1;
+
+							while ((j < sourceChars.length) && IsNumeric(sourceChars.At(j))) j += 1;
+						} else {
+							// Just a regular period, go back.
+							j -= 2;
+						}
+					}
+
+					tokens.Push(Token{
+						.text = String{Slice<char const>{
+							.length = (j - i),
+							.pointer = (sourceChars.pointer + i)
+						}},
+
+						.type = TokenType::NumberLiteral,
+					});
+
+					i = j;
+
+					break;
+				}
+
+				default: {
+					size_t j = (i + 1);
+
+					while ((j < sourceChars.length) && IsAlpha(sourceChars.At(j))) j += 1;
+
+					tokens.Push(Token{
+						.text = String{Slice<char const>{
+							.length = (j - i),
+							.pointer = (sourceChars.pointer + i)
+						}},
+
+						.type = TokenType::Identifier,
+					});
+
+					i = j;
+
+					break;
+				}
+			}
+		}
+
+		tokens.ForEach([](Token const & token) {
+			Print(token.text);
+			Print(String{"\n"});
+		});
+
 		return ScriptError::None;
 	}
 
