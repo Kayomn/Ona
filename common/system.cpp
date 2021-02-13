@@ -272,7 +272,9 @@ namespace Ona {
 			pthread_t thread;
 
 			switch (pthread_create(&thread, nullptr, [](void * userdata) -> void * {
-				reinterpret_cast<Callable<void()> *>(userdata)->Invoke();
+				auto action = (*reinterpret_cast<Callable<void()> *>(userdata));
+
+				action.Invoke();
 
 				return nullptr;
 			}, &action)) {
@@ -378,7 +380,7 @@ namespace Ona {
 	}
 
 	Allocator * DefaultAllocator() {
-		static class : public Object, public Allocator {
+		thread_local class : public Object, public Allocator {
 			uint8_t * Allocate(size_t size) override {
 				return reinterpret_cast<uint8_t *>(malloc(size));
 			}
@@ -390,7 +392,7 @@ namespace Ona {
 			uint8_t * Reallocate(void * allocation, size_t size) override {
 				return reinterpret_cast<uint8_t *>(realloc(allocation, size));
 			}
-		} allocator;
+		} allocator = {};
 
 		return &allocator;
 	}
