@@ -231,6 +231,8 @@ namespace Ona {
 
 	enum class ScriptError {
 		None,
+		ParsingSyntax,
+		OutOfMemory,
 	};
 
 	class ConfigEnvironment final : public Object {

@@ -9,6 +9,8 @@ namespace Ona {
 			Floating,
 			String,
 			Vector2,
+			Vector3,
+			Vector4,
 			Array,
 		};
 
@@ -20,11 +22,11 @@ namespace Ona {
 
 		uint8_t userdata[UserdataSize];
 
-		static Value * Find(
-			HashTable<String, Value> * object,
+		static Value const * Find(
+			HashTable<String, Value> const * object,
 			std::initializer_list<String> const & path
 		) {
-			Value * value = nullptr;
+			Value const * value = nullptr;
 
 			for (String const & pathNode : path) {
 				if (object == nullptr) return nullptr;
@@ -32,7 +34,7 @@ namespace Ona {
 				value = object->Lookup(pathNode);
 
 				if (value && (value->type != Value::Type::Object)) {
-					object = reinterpret_cast<HashTable<String, Value> *>(value->userdata);
+					object = reinterpret_cast<HashTable<String, Value> const *>(value->userdata);
 				} else {
 					object = nullptr;
 				}
@@ -74,7 +76,9 @@ namespace Ona {
 				case Type::Boolean:
 				case Type::Integer:
 				case Type::Floating:
-				case Type::Vector2: break;
+				case Type::Vector2:
+				case Type::Vector3:
+				case Type::Vector4: break;
 			}
 		}
 	};
@@ -90,20 +94,22 @@ namespace Ona {
 	}
 
 	uint32_t ConfigEnvironment::Count(std::initializer_list<String> const & path) {
-		Value * value = Value::Find(&this->globals, path);
+		Value const * value = Value::Find(&this->globals, path);
 
 		if (value) switch (value->type) {
 			case Value::Type::Array:
-					return reinterpret_cast<DynamicArray<Value> *>(value->userdata)->Length();
+					return reinterpret_cast<DynamicArray<Value> const *>(value->userdata)->Length();
 
 			case Value::Type::Object:
-					return reinterpret_cast<HashTable<String, Value> *>(value->userdata)->Count();
+					return reinterpret_cast<HashTable<String, Value> const *>(value->userdata)->Count();
 
 			case Value::Type::Boolean:
 			case Value::Type::Integer:
 			case Value::Type::Floating:
 			case Value::Type::String:
 			case Value::Type::Vector2:
+			case Value::Type::Vector3:
+			case Value::Type::Vector4:
 					return 1;
 		}
 
@@ -113,16 +119,18 @@ namespace Ona {
 	ScriptError ConfigEnvironment::Parse(String const & source) {
 		enum class TokenType {
 			Invalid,
-			BracketLeft,
-			BracketRight,
+			BraceLeft,
+			BraceRight,
 			ParenLeft,
 			ParenRight,
 			Colon,
+			SemiColon,
 			Comma,
 			Period,
 			Identifier,
 			NumberLiteral,
 			StringLiteral,
+			EOF,
 		};
 
 		struct Token {
@@ -131,7 +139,8 @@ namespace Ona {
 			TokenType type;
 		};
 
-		PackedStack<Token> tokens = {this->globals.AllocatorOf()};
+		Allocator * parsingAllocator = this->globals.AllocatorOf();
+		PackedStack<Token> tokens = {parsingAllocator};
 		Slice<char const> sourceChars = source.Chars();
 
 		for (size_t i = 0; i < sourceChars.length;) {
@@ -147,10 +156,10 @@ namespace Ona {
 					break;
 				}
 
-				case '[': {
+				case '{': {
 					tokens.Push(Token{
-						.text = String{"["},
-						.type = TokenType::BracketLeft,
+						.text = String{"{"},
+						.type = TokenType::BraceLeft,
 					});
 
 					i += 1;
@@ -158,10 +167,10 @@ namespace Ona {
 					break;
 				}
 
-				case ']': {
+				case '}': {
 					tokens.Push(Token{
-						.text = String{"]"},
-						.type = TokenType::BracketRight,
+						.text = String{"}"},
+						.type = TokenType::BraceRight,
 					});
 
 					i += 1;
@@ -232,12 +241,12 @@ namespace Ona {
 
 					if (sourceChars.At(j) == '"') {
 						tokens.Push(Token{
-							.text = String{Slice<char const>{
+							.text = String{Chars{
 								.length = (j - iNext),
 								.pointer = (sourceChars.pointer + iNext)
 							}},
 
-							.type = TokenType::NumberLiteral,
+							.type = TokenType::StringLiteral,
 						});
 
 						j += 1;
@@ -265,16 +274,16 @@ namespace Ona {
 				case '9': {
 					size_t j = (i + 1);
 
-					while ((j < sourceChars.length) && IsNumeric(sourceChars.At(j))) j += 1;
+					while ((j < sourceChars.length) && IsDigit(sourceChars.At(j))) j += 1;
 
 					if ((j < sourceChars.length) && (sourceChars.At(j) == '.')) {
 						j += 1;
 
-						if ((j < sourceChars.length) && IsNumeric(sourceChars.At(j))) {
+						if ((j < sourceChars.length) && IsDigit(sourceChars.At(j))) {
 							// Handle decimal places.
 							j += 1;
 
-							while ((j < sourceChars.length) && IsNumeric(sourceChars.At(j))) j += 1;
+							while ((j < sourceChars.length) && IsDigit(sourceChars.At(j))) j += 1;
 						} else {
 							// Just a regular period, go back.
 							j -= 2;
@@ -316,9 +325,320 @@ namespace Ona {
 			}
 		}
 
+		tokens.Push(Token{
+			.type = TokenType::EOF,
+		});
+
 		tokens.ForEach([](Token const & token) {
 			Print(token.text);
 			Print(String{"\n"});
+		});
+
+		enum class ParseState {
+			None,
+			Declaration,
+		};
+
+		PackedStack<HashTable<String, Value> *> objectStack = {this->globals.AllocatorOf()};
+		ParseState parseState = ParseState::None;
+		size_t tokenCursor = 0;
+		Token declarationToken = {};
+
+		auto const eatToken = [&]() -> Token const & {
+			Token const * token = &tokens.At(tokenCursor);
+			tokenCursor += 1;
+
+			return (*token);
+		};
+
+		objectStack.Push(&this->globals);
+
+		for (;;) {
+			switch (parseState) {
+				case ParseState::None: {
+					declarationToken = eatToken();
+
+					switch (declarationToken.type) {
+						case TokenType::Identifier: {
+							parseState = ParseState::Declaration;
+
+							break;
+						}
+
+						case TokenType::BraceRight: {
+							if (objectStack.Count() == 1) {
+								// Unexpected closing brace.
+								return ScriptError::ParsingSyntax;
+							}
+
+							objectStack.Pop(1);
+
+							parseState = ParseState::None;
+
+							break;
+						}
+
+						case TokenType::EOF: {
+							if (objectStack.Count() > 1) {
+								// Missing closing brace.
+								return ScriptError::ParsingSyntax;
+							}
+
+							return ScriptError::None;
+						}
+
+						// Expected declaration identifier or closing brace.
+						default: return ScriptError::ParsingSyntax;
+					}
+
+					break;
+				}
+
+				case ParseState::Declaration: {
+					Token const assignmentToken = eatToken();
+
+					switch (assignmentToken.type) {
+						case TokenType::Colon: {
+							Token const valueToken = eatToken();
+
+							switch (valueToken.type) {
+								case TokenType::NumberLiteral: {
+									Value integerValue = {
+										.type = Value::Type::Integer,
+									};
+
+									// TODO
+									new (integerValue.userdata) int64_t{0};
+
+									if (!objectStack.Peek()->Insert(
+										declarationToken.text,
+										integerValue
+									)) {
+										return ScriptError::OutOfMemory;
+									}
+
+									break;
+								}
+
+								case TokenType::StringLiteral: {
+									Value stringValue = {
+										.type = Value::Type::String,
+									};
+
+									new (stringValue.userdata) String{valueToken.text};
+
+									if (!objectStack.Peek()->Insert(
+										declarationToken.text,
+										stringValue
+									)) {
+										return ScriptError::OutOfMemory;
+									}
+
+									break;
+								}
+
+								case TokenType::ParenLeft: {
+									enum {
+										ValuesMax = 4,
+									};
+
+									float valueBuffer[ValuesMax] = {};
+									Token valueToken = {};
+									uint8_t values = 0;
+
+									do {
+										valueToken = eatToken();
+
+										if (valueToken.type != TokenType::NumberLiteral) {
+											// Unexpected syntax in vector expression.
+											return ScriptError::ParsingSyntax;
+										}
+
+										if (values == ValuesMax) {
+											// Vector expressions cannot contain more than four
+											// number literals.
+											return ScriptError::ParsingSyntax;
+										}
+
+										double parsedFloating = 0;
+
+										if (!ParseFloating(valueToken.text, parsedFloating)) {
+											// Number literal is not a valid float.
+											return ScriptError::ParsingSyntax;
+										}
+
+										// TODO
+										valueBuffer[values] = static_cast<float>(parsedFloating);
+										values += 1;
+										valueToken = eatToken();
+									} while (valueToken.type == TokenType::Comma);
+
+									if (valueToken.type != TokenType::ParenRight) {
+										// Unexpected symbol in vector expression.
+										return ScriptError::ParsingSyntax;
+									}
+
+									switch (values) {
+										case 2: {
+											Value value = {
+												.type = Value::Type::Vector2,
+											};
+
+											new (value.userdata) Vector2{
+												valueBuffer[0],
+												valueBuffer[1]
+											};
+
+											objectStack.Peek()->Insert(
+												declarationToken.text,
+												value
+											);
+
+											break;
+										}
+
+										case 3: {
+											Value value = {
+												.type = Value::Type::Vector3,
+											};
+
+											new (value.userdata) Vector3{
+												valueBuffer[0],
+												valueBuffer[1],
+												valueBuffer[2]
+											};
+
+											objectStack.Peek()->Insert(
+												declarationToken.text,
+												value
+											);
+
+											break;
+										}
+
+										case 4: {
+											Value value = {
+												.type = Value::Type::Vector4,
+											};
+
+											new (value.userdata) Vector4{
+												valueBuffer[0],
+												valueBuffer[1],
+												valueBuffer[2],
+												valueBuffer[3]
+											};
+
+											objectStack.Peek()->Insert(
+												declarationToken.text,
+												value
+											);
+
+											break;
+										}
+
+										// Vector expressions must contain 2, 3, or 4 number
+										// literals.
+										default: return ScriptError::ParsingSyntax;
+									}
+
+									break;
+								}
+
+								// Unexpected expression after colon.
+								default: return ScriptError::ParsingSyntax;
+							}
+
+							switch (eatToken().type) {
+								case TokenType::Comma: {
+									parseState = ParseState::None;
+
+									break;
+								}
+
+								case TokenType::BraceRight: {
+									if (objectStack.Count() == 1) {
+										// Unexpected closing brace.
+										return ScriptError::ParsingSyntax;
+									}
+
+									objectStack.Pop(1);
+
+									parseState = ParseState::None;
+
+									break;
+								}
+
+								// End of file arrived.
+								case TokenType::EOF: {
+									if (objectStack.Count() > 1) {
+										// Missing closing brace.
+										return ScriptError::ParsingSyntax;
+									}
+
+									return ScriptError::None;
+								}
+
+								// Unexpected end of declaration.
+								default: return ScriptError::ParsingSyntax;
+							}
+
+							break;
+						}
+
+						case TokenType::BraceLeft: {
+							HashTable<String, Value> * parentObject = objectStack.Peek();
+
+							auto insertedObject = parentObject->Require(
+								declarationToken.text,
+
+								[parentObject]() -> Value {
+									Value objectValue = {
+										.type = Value::Type::String,
+									};
+
+									// Can't just pass the result of this "new" to the object stack
+									// because memory is referencing the local stack "objectValue",
+									// and not the final resting place of the object inside the hash
+									// table.
+									new (objectValue.userdata) HashTable<String, Value>{
+										parentObject->AllocatorOf()
+									};
+
+									return objectValue;
+								}
+							);
+
+							if (!insertedObject) return ScriptError::OutOfMemory;
+
+							if (!objectStack.Push(reinterpret_cast<HashTable<String, Value> *>(
+								insertedObject->userdata
+							))) {
+								return ScriptError::OutOfMemory;
+							}
+
+							parseState = ParseState::None;
+
+							break;
+						}
+
+						// Unexpected symbol after declaration identifier.
+						default: return ScriptError::ParsingSyntax;
+					}
+
+					break;
+				}
+			}
+		}
+
+		objectStack.ForEach([](HashTable<String, Value> * object) {
+			object->ForEach([](String const & key, Value const & value) {
+				Print(key);
+				Print(String{": "});
+				Print(DecStringUnsigned(static_cast<int>(value.type)));
+				Print(String{"\n"});
+			});
+
+			Print(String{"\n\n"});
 		});
 
 		return ScriptError::None;
@@ -329,22 +649,22 @@ namespace Ona {
 		int32_t index,
 		bool fallback
 	) {
-		Value * value = Value::Find(&this->globals, path);
+		Value const * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((value->type == Value::Type::Boolean) && (index == 0)) {
 				// Single-value access.
-				return (*reinterpret_cast<bool *>(value->userdata));
+				return (*reinterpret_cast<bool const *>(value->userdata));
 			}
 
 			if (value->type == Value::Type::Array) {
-				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
+				auto array = reinterpret_cast<DynamicArray<Value> const *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
-					Value * value = &array->At(index);
+					Value const * value = &array->At(index);
 
 					if (value->type == Value::Type::Boolean) {
-						return (*reinterpret_cast<bool *>(value->userdata));
+						return (*reinterpret_cast<bool const *>(value->userdata));
 					}
 				}
 			}
@@ -358,22 +678,22 @@ namespace Ona {
 		int32_t index,
 		int64_t fallback
 	) {
-		Value * value = Value::Find(&this->globals, path);
+		Value const * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((value->type == Value::Type::Integer) && (index == 0)) {
 				// Single-value access.
-				return (*reinterpret_cast<int64_t *>(value->userdata));
+				return (*reinterpret_cast<int64_t const *>(value->userdata));
 			}
 
 			if (value->type == Value::Type::Array) {
-				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
+				auto array = reinterpret_cast<DynamicArray<Value> const *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
-					Value * value = &array->At(index);
+					Value const * value = &array->At(index);
 
 					if (value->type == Value::Type::Integer) {
-						return (*reinterpret_cast<int64_t *>(value->userdata));
+						return (*reinterpret_cast<int64_t const *>(value->userdata));
 					}
 				}
 			}
@@ -387,22 +707,22 @@ namespace Ona {
 		int32_t index,
 		double fallback
 	) {
-		Value * value = Value::Find(&this->globals, path);
+		Value const * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((value->type == Value::Type::Floating) && (index == 0)) {
 				// Single-value access.
-				return (*reinterpret_cast<float *>(value->userdata));
+				return (*reinterpret_cast<float const *>(value->userdata));
 			}
 
 			if (value->type == Value::Type::Array) {
-				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
+				auto array = reinterpret_cast<DynamicArray<Value> const *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
-					Value * value = &array->At(index);
+					Value const * value = &array->At(index);
 
 					if (value->type == Value::Type::Floating) {
-						return (*reinterpret_cast<float *>(value->userdata));
+						return (*reinterpret_cast<float const *>(value->userdata));
 					}
 				}
 			}
@@ -416,22 +736,22 @@ namespace Ona {
 		int32_t index,
 		String const & fallback
 	) {
-		Value * value = Value::Find(&this->globals, path);
+		Value const * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((value->type == Value::Type::String) && (index == 0)) {
 				// Single-value access.
-				return (*reinterpret_cast<String *>(value->userdata));
+				return (*reinterpret_cast<String const *>(value->userdata));
 			}
 
 			if (value->type == Value::Type::Array) {
-				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
+				auto array = reinterpret_cast<DynamicArray<Value> const *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
-					Value * value = &array->At(index);
+					Value const * value = &array->At(index);
 
 					if (value->type == Value::Type::String) {
-						return (*reinterpret_cast<String *>(value->userdata));
+						return (*reinterpret_cast<String const *>(value->userdata));
 					}
 				}
 			}
@@ -445,22 +765,22 @@ namespace Ona {
 		int32_t index,
 		Vector2 fallback
 	) {
-		Value * value = Value::Find(&this->globals, path);
+		Value const * value = Value::Find(&this->globals, path);
 
 		if (value) {
 			if ((value->type == Value::Type::Vector2) && (index == 0)) {
 				// Single-value access.
-				return (*reinterpret_cast<Vector2 *>(value->userdata));
+				return (*reinterpret_cast<Vector2 const *>(value->userdata));
 			}
 
 			if (value->type == Value::Type::Array) {
-				auto array = reinterpret_cast<DynamicArray<Value> *>(value->userdata);
+				auto array = reinterpret_cast<DynamicArray<Value> const *>(value->userdata);
 
 				if ((index >= 0) && (index < array->Length())) {
-					Value * value = &array->At(index);
+					Value const * value = &array->At(index);
 
 					if (value->type == Value::Type::Vector2) {
-						return (*reinterpret_cast<Vector2 *>(value->userdata));
+						return (*reinterpret_cast<Vector2 const *>(value->userdata));
 					}
 				}
 			}
