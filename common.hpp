@@ -281,7 +281,7 @@ namespace Ona {
 		return (((c >= 'A') && (c <= 'Z')) || ((c >= 'a') && (c <= 'z')));
 	}
 
-	constexpr bool IsNumeric(int const c) {
+	constexpr bool IsDigit(int const c) {
 		return ((c >= '0') && (c <= '9'));
 	}
 
@@ -401,6 +401,12 @@ namespace Ona {
 	 * Excess format specifiers are ignored.
 	 */
 	String Format(String const & string, std::initializer_list<String> const & values);
+
+	bool ParseSigned(String const & string, int64_t & output);
+
+	bool ParseUnsigned(String const & string, int64_t & output);
+
+	bool ParseFloat(String const & string, double & output);
 
 	/**
 	 * File operations table used for defining the behavior of the file operations.
