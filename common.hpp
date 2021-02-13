@@ -402,11 +402,26 @@ namespace Ona {
 	 */
 	String Format(String const & string, std::initializer_list<String> const & values);
 
+	/**
+	 * Attempts to parse `string` as if it were a signed decimal integer, writing the result into
+	 * `output` if `string` could be parsed and returning `true`, otherwise `false` if the operation
+	 * failed.
+	 */
 	bool ParseSigned(String const & string, int64_t & output);
 
-	bool ParseUnsigned(String const & string, int64_t & output);
+	/**
+	 * Attempts to parse `string` as if it were an unsigned decimal integer, writing the result into
+	 * `output` if `string` could be parsed and returning `true`, otherwise `false` if the operation
+	 * failed.
+	 */
+	bool ParseUnsigned(String const & string, uint64_t & output);
 
-	bool ParseFloat(String const & string, double & output);
+	/**
+	 * Attempts to parse `string` as if it were a floating point number, writing the result into
+	 * `output` if `string` could be parsed and returning `true`, otherwise `false` if the operation
+	 * failed.
+	 */
+	bool ParseFloating(String const & string, double & output);
 
 	/**
 	 * File operations table used for defining the behavior of the file operations.
@@ -1096,6 +1111,8 @@ namespace Ona {
 	}
 
 	float Floor(float const value);
+
+	float Pow(float const value, float const exponent);
 
 	struct Matrix {
 		static constexpr size_t dimensions = 4;
