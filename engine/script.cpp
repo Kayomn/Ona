@@ -329,11 +329,6 @@ namespace Ona {
 			.type = TokenType::EOF,
 		});
 
-		tokens.ForEach([](Token const & token) {
-			Print(token.text);
-			Print(String{"\n"});
-		});
-
 		enum class ParseState {
 			None,
 			Declaration,
@@ -629,17 +624,6 @@ namespace Ona {
 				}
 			}
 		}
-
-		objectStack.ForEach([](HashTable<String, Value> * object) {
-			object->ForEach([](String const & key, Value const & value) {
-				Print(key);
-				Print(String{": "});
-				Print(DecStringUnsigned(static_cast<int>(value.type)));
-				Print(String{"\n"});
-			});
-
-			Print(String{"\n\n"});
-		});
 
 		return ScriptError::None;
 	}
