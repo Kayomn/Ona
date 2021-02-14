@@ -380,7 +380,10 @@ namespace Ona {
 	}
 
 	Allocator * DefaultAllocator() {
-		thread_local class : public Object, public Allocator {
+		class DefaultAllocator final : public Object, public Allocator {
+			int i;
+
+			public:
 			uint8_t * Allocate(size_t size) override {
 				return reinterpret_cast<uint8_t *>(malloc(size));
 			}
@@ -392,7 +395,9 @@ namespace Ona {
 			uint8_t * Reallocate(void * allocation, size_t size) override {
 				return reinterpret_cast<uint8_t *>(realloc(allocation, size));
 			}
-		} allocator = {};
+		};
+
+		static DefaultAllocator allocator = {};
 
 		return &allocator;
 	}
