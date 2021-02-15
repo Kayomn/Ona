@@ -588,7 +588,7 @@ namespace Ona {
 
 								[parentObject]() -> Value {
 									Value objectValue = {
-										.type = Value::Type::String,
+										.type = Value::Type::Object,
 									};
 
 									// Can't just pass the result of this "new" to the object stack
