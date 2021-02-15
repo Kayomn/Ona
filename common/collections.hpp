@@ -51,10 +51,10 @@ namespace Ona {
 		public:
 		HashTable(Allocator * allocator) :
 			allocator{allocator},
-			count{0},
-			buckets{0},
-			freeBuckets{0},
-			loadMaximum{0} { }
+			count{},
+			buckets{},
+			freeBuckets{},
+			loadMaximum{} { }
 
 		~HashTable() override {
 			auto destroyChain = [this](Bucket * bucket) {
