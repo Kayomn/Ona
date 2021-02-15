@@ -380,9 +380,7 @@ namespace Ona {
 	}
 
 	Allocator * DefaultAllocator() {
-		class DefaultAllocator final : public Object, public Allocator {
-			int i;
-
+		class Mallocator final : public Object, public Allocator {
 			public:
 			uint8_t * Allocate(size_t size) override {
 				return reinterpret_cast<uint8_t *>(malloc(size));
@@ -397,7 +395,7 @@ namespace Ona {
 			}
 		};
 
-		static DefaultAllocator allocator = {};
+		static Mallocator allocator = {};
 
 		return &allocator;
 	}
