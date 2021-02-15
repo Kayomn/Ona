@@ -325,6 +325,34 @@ namespace Ona {
 			int32_t index,
 			Vector2 fallback
 		);
+
+		/**
+		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
+		 * the resulting `Ona::Vector3` value at index `index`, otherwise `fallback` if the
+		 * specified path does not exist.
+		 *
+		 * For accessing single values, specify an array `index` of `0`. Attempting to index into a
+		 * non-array type at a non-zero index will fail to read the value.
+		 */
+		Vector3 ReadVector3(
+			std::initializer_list<String> const & path,
+			int32_t index,
+			Vector3 const & fallback
+		);
+
+		/**
+		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
+		 * the resulting `Ona::Vector4` value at index `index`, otherwise `fallback` if the
+		 * specified path does not exist.
+		 *
+		 * For accessing single values, specify an array `index` of `0`. Attempting to index into a
+		 * non-array type at a non-zero index will fail to read the value.
+		 */
+		Vector4 ReadVector4(
+			std::initializer_list<String> const & path,
+			int32_t index,
+			Vector4 const & fallback
+		);
 	};
 
 	#include "api.h"

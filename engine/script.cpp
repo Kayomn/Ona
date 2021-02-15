@@ -772,4 +772,62 @@ namespace Ona {
 
 		return fallback;
 	}
+
+	Vector3 ConfigEnvironment::ReadVector3(
+		std::initializer_list<String> const & path,
+		int32_t index,
+		Vector3 const & fallback
+	) {
+		Value const * value = Value::Find(&this->globals, path);
+
+		if (value) {
+			if ((value->type == Value::Type::Vector3) && (index == 0)) {
+				// Single-value access.
+				return (*reinterpret_cast<Vector3 const *>(value->userdata));
+			}
+
+			if (value->type == Value::Type::Array) {
+				auto array = reinterpret_cast<DynamicArray<Value> const *>(value->userdata);
+
+				if ((index >= 0) && (index < array->Length())) {
+					Value const * value = &array->At(index);
+
+					if (value->type == Value::Type::Vector3) {
+						return (*reinterpret_cast<Vector3 const *>(value->userdata));
+					}
+				}
+			}
+		}
+
+		return fallback;
+	}
+
+	Vector4 ConfigEnvironment::ReadVector4(
+		std::initializer_list<String> const & path,
+		int32_t index,
+		Vector4 const & fallback
+	) {
+		Value const * value = Value::Find(&this->globals, path);
+
+		if (value) {
+			if ((value->type == Value::Type::Vector4) && (index == 0)) {
+				// Single-value access.
+				return (*reinterpret_cast<Vector4 const *>(value->userdata));
+			}
+
+			if (value->type == Value::Type::Array) {
+				auto array = reinterpret_cast<DynamicArray<Value> const *>(value->userdata);
+
+				if ((index >= 0) && (index < array->Length())) {
+					Value const * value = &array->At(index);
+
+					if (value->type == Value::Type::Vector4) {
+						return (*reinterpret_cast<Vector4 const *>(value->userdata));
+					}
+				}
+			}
+		}
+
+		return fallback;
+	}
 }
