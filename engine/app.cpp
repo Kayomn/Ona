@@ -114,19 +114,6 @@ int main(int argv, char const * const * argc) {
 	constexpr Vector2 DisplaySizeDefault = Vector2{640, 480};
 	String displayNameDefault = String{"Ona"};
 	Allocator * defaultAllocator = DefaultAllocator();
-	ConfigEnvironment configEnv = {defaultAllocator};
-
-	{
-		Owned<FileContents> fileContents = {};
-
-		if (LoadFile(
-			defaultAllocator,
-			String{"config.ona"},
-			fileContents.value
-		) == FileLoadError::None) {
-			configEnv.Parse(fileContents.value.ToString());
-		}
-	}
 
 	RegisterImageLoader(String{"bmp"}, LoadBitmap);
 	RegisterGraphicsLoader(String{"opengl"}, LoadOpenGL);
@@ -150,7 +137,17 @@ int main(int argv, char const * const * argc) {
 	});
 
 	{
+		ConfigEnvironment configEnv = {defaultAllocator};
 		String const graphics = {"Graphics"};
+		Owned<FileContents> fileContents = {};
+
+		if (LoadFile(
+			defaultAllocator,
+			String{"config.ona"},
+			fileContents.value
+		) == FileLoadError::None) {
+			configEnv.Parse(fileContents.value.ToString());
+		}
 
 		Vector2 const initialDisplaySize = configEnv.ReadVector2({
 			graphics,
