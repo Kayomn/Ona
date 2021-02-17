@@ -465,44 +465,46 @@ namespace Ona {
 		}
 
 		Material * CreateMaterial(Image const & image) override {
-			GLuint textureHandle;
+			if ((image.dimensions.x > 0) && (image.dimensions.y > 0)) {
+				GLuint textureHandle;
 
-			glCreateTextures(GL_TEXTURE_2D, 1, (&textureHandle));
+				glCreateTextures(GL_TEXTURE_2D, 1, (&textureHandle));
 
-			glTextureStorage2D(
-				textureHandle,
-				1,
-				GL_RGBA8,
-				image.dimensions.x,
-				image.dimensions.y
-			);
-
-			// Was the texture allocated and initialized?
-			if (glGetError() == GL_NO_ERROR) {
-				glTextureSubImage2D(
+				glTextureStorage2D(
 					textureHandle,
-					0,
-					0,
-					0,
+					1,
+					GL_RGBA8,
 					image.dimensions.x,
-					image.dimensions.y,
-					GL_RGBA,
-					GL_UNSIGNED_BYTE,
-					image.pixels
+					image.dimensions.y
 				);
 
-				// Was the texture pixel data assigned?
+				// Was the texture allocated and initialized?
 				if (glGetError() == GL_NO_ERROR) {
-					// Provided all prerequesites are met, these should not fail.
-					glTextureParameteri(textureHandle, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-					glTextureParameteri(textureHandle, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-					glTextureParameteri(textureHandle, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-					glTextureParameteri(textureHandle, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+					glTextureSubImage2D(
+						textureHandle,
+						0,
+						0,
+						0,
+						image.dimensions.x,
+						image.dimensions.y,
+						GL_RGBA,
+						GL_UNSIGNED_BYTE,
+						image.pixels
+					);
 
-					return new Material{
-						.dimensions = image.dimensions,
-						.textureHandle = textureHandle,
-					};
+					// Was the texture pixel data assigned?
+					if (glGetError() == GL_NO_ERROR) {
+						// Provided all prerequesites are met, these should not fail.
+						glTextureParameteri(textureHandle, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+						glTextureParameteri(textureHandle, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+						glTextureParameteri(textureHandle, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+						glTextureParameteri(textureHandle, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+						return new Material{
+							.dimensions = image.dimensions,
+							.textureHandle = textureHandle,
+						};
+					}
 				}
 			}
 
