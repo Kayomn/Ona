@@ -121,7 +121,7 @@ int main(int argv, char const * const * argc) {
 	EnumerateFiles(String{"modules"}, [](String const & fileName) {
 		Library moduleLibrary;
 
-		if (OpenLibrary(String::Concat({String{"./"}, fileName}), moduleLibrary)) {
+		if (OpenLibrary(String::Concat({String{"./modules/"}, fileName}), moduleLibrary)) {
 			auto initializer = reinterpret_cast<ModuleInitializer>(
 				moduleLibrary.FindSymbol(String{"OnaInit"})
 			);
