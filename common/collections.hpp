@@ -1,6 +1,6 @@
 
 namespace Ona {
-	template<typename KeyType, typename ValueType> class HashTable : public Object {
+	template<typename KeyType, typename ValueType> class HashTable final : public Object {
 		private:
 		struct Item {
 			KeyType key;
@@ -336,7 +336,7 @@ namespace Ona {
 		virtual void ForEach(Callable<void(ValueType const &)> const & action) const = 0;
 	};
 
-	template<typename ValueType> class PackedStack : public Object {
+	template<typename ValueType> class PackedStack final : public Object {
 		private:
 		Allocator * allocator;
 
