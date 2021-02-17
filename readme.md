@@ -24,6 +24,20 @@ Most of these may already be present on the operating systems of most users, as 
 
 Open a terminal and run `./build.py`. If the project has already been previously compiled, it is recommended to run `./clean.py` first to purge the previous build binaries entirely. For general development, cleaning is not necessary as the build script does incremental builds.
 
+## Configuration
+
+The engine executable behavior may be configured by creating a `config.ona` text file in the same directory.
+
+```
+"Graphics {
+    displayTitle: "Ona Demo",
+    displaySize: (640, 480),
+    server: "opengl"
+}
+```
+
+Above is a simple example of how the display properties of the executable may be changed. A custom configuration file format is used, which allows for the expression of data structures not commonly supported in configuration files like vectors.
+
 ## Modules
 
 Ona supports the loading of external code modules at runtime in order to introduce additional functionality to the engine. Modules may implement the following:
