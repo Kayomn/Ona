@@ -14,7 +14,6 @@ struct SceneController {
 	Vector2 actors[ActorsMax];
 
 	void Init(OnaContext const * ona) {
-		Image actorImage = {};
 		Allocator * allocator = ona->defaultAllocator();
 		this->graphicsQueue = ona->graphicsQueueAcquire();
 
@@ -25,17 +24,13 @@ struct SceneController {
 			};
 		}
 
-		String filePath = {};
+		Image actorImage = {};
 
-		ona->stringAssign(&filePath, "./actor.bmp");
-
-		if (ona->imageLoad(allocator, &filePath, &actorImage)) {
+		if (ona->imageSolid(allocator, Point2{32, 32}, Color{255, 255, 255, 255}, &actorImage) == 0) {
 			this->actorMaterial = ona->materialNew(&actorImage);
 
 			ona->imageFree(&actorImage);
 		}
-
-		ona->stringDestroy(&filePath);
 	}
 
 	void Process(OnaContext const * ona, OnaEvents const * events) {
