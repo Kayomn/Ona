@@ -125,6 +125,8 @@ namespace Ona {
 	 * Checks if the error type is equal to `0` (no error).
 	 */
 	template<typename ErrorType> constexpr bool IsOk(ErrorType errorType) {
+		static_assert(std::is_enum_v<ErrorType>, "Can only check enums for \"ok-ness\"");
+
 		return (errorType == static_cast<ErrorType>(0));
 	}
 
