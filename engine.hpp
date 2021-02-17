@@ -180,7 +180,7 @@ namespace Ona {
 		Vector2 userdata;
 
 		public:
-		Vector2Channel() = default;
+		Vector2Channel();
 
 		~Vector2Channel() override;
 
