@@ -1,6 +1,13 @@
 #include "engine.hpp"
 
 namespace Ona {
+	Vector2Channel::Vector2Channel() {
+		assert(IsOk(CreateMutex(this->senderMutex)));
+		assert(IsOk(CreateMutex(this->receiverMutex)));
+		assert(IsOk(CreateCondition(this->senderCondition)));
+		assert(IsOk(CreateCondition(this->receiverCondition)));
+	}
+
 	Vector2Channel::~Vector2Channel() {
 		this->senderMutex.Free();
 		this->receiverMutex.Free();
