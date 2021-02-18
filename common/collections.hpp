@@ -336,7 +336,9 @@ namespace Ona {
 		virtual void ForEach(Callable<void(ValueType const &)> const & action) const = 0;
 	};
 
-	template<typename ValueType> class PackedStack final : public Object {
+	template<
+		typename ValueType
+	> class PackedStack final : public Object, public Sequence<ValueType> {
 		private:
 		Allocator * allocator;
 
@@ -392,15 +394,15 @@ namespace Ona {
 			return success;
 		}
 
-		uint32_t Count() const {
+		uint32_t Count() const override {
 			return this->count;
 		}
 
-		void ForEach(Callable<void(ValueType &)> const & action) {
+		void ForEach(Callable<void(ValueType &)> const & action) override {
 			for (uint32_t i = 0; i < this->count; i += 1) action.Invoke(this->values.At(i));
 		}
 
-		void ForEach(Callable<void(ValueType const &)> const & action) const {
+		void ForEach(Callable<void(ValueType const &)> const & action) const override {
 			for (uint32_t i = 0; i < this->count; i += 1) action.Invoke(this->values.At(i));
 		}
 
@@ -448,7 +450,9 @@ namespace Ona {
 		}
 	};
 
-	template<typename ValueType> class PackedQueue final : public Object {
+	template<
+		typename ValueType
+	> class PackedQueue final : public Object, public Sequence<ValueType> {
 		Allocator * allocator;
 
 		uint32_t count;
@@ -476,7 +480,7 @@ namespace Ona {
 			this->tail = 0;
 		}
 
-		uint32_t Count() const {
+		uint32_t Count() const override {
 			return this->count;
 		}
 
@@ -505,11 +509,11 @@ namespace Ona {
 			return bufferTail;
 		}
 
-		void ForEach(Callable<void(ValueType &)> const & action) {
+		void ForEach(Callable<void(ValueType &)> const & action) override {
 
 		}
 
-		void ForEach(Callable<void(ValueType const &)> const & action) const {
+		void ForEach(Callable<void(ValueType const &)> const & action) const override {
 
 		}
 
