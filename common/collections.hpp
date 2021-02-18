@@ -510,11 +510,11 @@ namespace Ona {
 		}
 
 		void ForEach(Callable<void(ValueType &)> const & action) override {
-
+			for (uint32_t i = this->head; i < this->tail; i += 1) action.Invoke(this->values.At(i));
 		}
 
 		void ForEach(Callable<void(ValueType const &)> const & action) const override {
-
+			for (uint32_t i = this->head; i < this->tail; i += 1) action.Invoke(this->values.At(i));
 		}
 
 		bool Reserve(uint32_t capacity) {
