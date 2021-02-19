@@ -29,7 +29,7 @@ Open a terminal and run `./build.py`. If the project has already been previously
 The engine executable behavior may be configured by creating a `config.ona` text file in the same directory.
 
 ```
-"Graphics {
+Graphics {
     displayTitle: "Ona Demo",
     displaySize: (640, 480),
     server: "opengl"
