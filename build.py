@@ -3,17 +3,22 @@
 import os
 import subprocess
 import json
+import shutil
 
 compiler = "clang++"
 version = "-std=c++17"
 output_dir = "output"
 modules_dir = "modules"
+thirdparty_dir = "thirdparty"
 
 if (not os.path.exists(output_dir)):
 	os.mkdir(output_dir)
 
 if (not os.path.exists(modules_dir)):
 	os.mkdir(modules_dir)
+
+if (not os.path.exists(thirdparty_dir)):
+	os.mkdir(thirdparty_dir)
 
 output_modules_dir = os.path.join(output_dir, modules_dir)
 
@@ -116,10 +121,18 @@ library_file_paths = [
 	"-lGL",
 	"-lGLEW",
 	"-lpthread",
-	common_lib_file_path
+	common_lib_file_path,
+	os.path.join(output_path, "libmarl.a")
 ]
 
 build_component("common", [], common_lib_file_path, lib_linker)
+
+for file_name in os.listdir(thirdparty_dir):
+	build_script_file = (os.path.join(thirdparty_dir, file_name) + ".py")
+
+	if (os.path.isfile(build_script_file)):
+		with open(build_script_file) as file:
+			exec(file.read())
 
 for file_name in os.listdir(modules_dir):
 	module_path = os.path.join(modules_dir, file_name)

@@ -51,7 +51,7 @@ enum ImageLoadError {
 
 struct Allocator;
 
-struct Vector2Channel;
+struct Channel;
 
 struct GraphicsQueue;
 
@@ -138,6 +138,22 @@ struct SystemInfo {
 struct OnaContext {
 	struct Allocator * (*defaultAllocator)();
 
+	void (*channelClose)(struct Channel * * channel);
+
+	struct Channel * (*channelOpen)(uint32_t typeSize);
+
+	uint32_t (*channelReceive)(
+		struct Channel * channel,
+		size_t outputBufferLength,
+		void * outputBufferPointer
+	);
+
+	uint32_t (*channelSend)(
+		struct Channel * channel,
+		size_t inputBufferLength,
+		void const * inputBufferPointer
+	);
+
 	struct GraphicsQueue * (*graphicsQueueAcquire)();
 
 	enum ImageError (*imageSolid)(
@@ -172,14 +188,6 @@ struct OnaContext {
 	void (*stringCopy)(String * destinationString, String const * sourceString);
 
 	void (*stringDestroy)(String * string);
-
-	void (*vector2ChannelFree)(struct Vector2Channel * * channel);
-
-	Vector2Channel * (*vector2ChannelNew)(Allocator * allocator);
-
-	void (*vector2ChannelReceive)(struct Vector2Channel * channel, Vector2 * userdata);
-
-	void (*vector2ChannelSend)(struct Vector2Channel * channel, Vector2 userdata);
 };
 
 #endif

@@ -633,151 +633,6 @@ namespace Ona {
 	bool OpenLibrary(String const & libraryPath, Library & result);
 
 	/**
-	 * Resource for acquiring mutually exclusive (locking) access to a section of code for a
-	 * programmatically determined amount of time.
-	 */
-	struct Mutex {
-		void * handle;
-
-		/**
-		 * Frees the resources associated with the `Mutex`.
-		 */
-		void Free();
-
-		/**
-		 * Locks the region of code it is called in, preventing any other concurrent code from proceding
-		 * past it.
-		 */
-		void Lock();
-
-		/**
-		 * Ends the locked state, allowing concurrent code to continue past the region it had locked.
-		 */
-		void Unlock();
-	};
-
-	/**
-	 * Errors used when the creation of a `Mutex` has failed.
-	 */
-	enum class MutexError {
-		None,
-		OSFailure,
-		OutOfMemory,
-		ResourceLimit,
-	};
-
-	/**
-	 * Attempts to create a mutex.
-	 *
-	 * A successfully created mutex will be written to `result` and `MutexError::None` is returned.
-	 * Otherwise:
-	 *
-	 * `MutexError::OutOfMemory` occurs when the OS failed to allocate the memory necessary to
-	 * create the mutex.
-	 *
-	 * `MutexError::ResourceLimit` occurs when the operating system and / or hardware has either
-	 * a hard or soft limit on mutexes and the request has failed because it has been reached.
-	 *
-	 * `MutexError::OSFailure` is an ambiguous catch-all error state that covers any implementation-
-	 * specific errors on the part of the operating system. These should be considered
-	 * unrecoverable.
-	 */
-	MutexError CreateMutex(Mutex & result);
-
-	/**
-	 * TODO(Kayomn): Document.
-	 */
-	struct Condition {
-		void * handle;
-
-		/**
-		 * TODO(Kayomn): Document.
-		 */
-		void Free();
-
-		/**
-		 * TODO(Kayomn): Document.
-		 */
-		void Signal();
-
-		/**
-		 * TODO(Kayomn): Document.
-		 */
-		void Wait(Mutex & mutex);
-	};
-
-	/**
-	 * Errors used when the creation of a `Condition` has failed.
-	 */
-	enum class ConditionError {
-		None,
-		OSFailure,
-		OutOfMemory,
-		ResourceLimit,
-	};
-
-	/**
-	 * Attempts to create a thread condition variable.
-	 *
-	 * A successfully created condition will be written to `result` and `ConditionError::None` is
-	 * returned. Otherwise:
-	 *
-	 * `ConditionError::OutOfMemory` occurs when the OS failed to allocate the memory necessary to
-	 * create the condition.
-	 *
-	 * `ConditionError::ResourceLimit` occurs when the operating system and / or hardware has either a
-	 * hard or soft limit on conditions and the request has failed because it has been reached.
-	 *
-	 * `ConditionError::OSFailure` is an ambiguous catch-all error state that covers any
-	 * implementation- specific errors on the part of the operating system. These should be
-	 * considered unrecoverable.
-	 */
-	ConditionError CreateCondition(Condition & result);
-
-	/**
-	 * Handle to a concurrent agent used for processing things in parallel.
-	 */
-	struct Thread {
-		void * handle;
-
-		void Join();
-	};
-
-	enum class ThreadError {
-		None,
-		OSFailure,
-		EmptyAction,
-		ResourceLimit,
-	};
-
-	/**
-	 * Attempts to acquire a thread instance.
-	 *
-	 * Some operating systems have a hard limit for the length of `name`. If this is exceded, it
-	 * will simply be truncated on the tail.
-	 *
-	 * A successfully acquired thread will start executing `action`, be assigned the name specified
-	 * in `name`, have the result written to `result`, and returns `ThreadError::None`. Otherwise:
-	 *
-	 * `ThreadError::EmptyAction` occurs when `action` does not have any kind of callable operation
-	 * assigned to it.
-	 *
-	 * `ThreadError::ResourceLimit` occurs when the operating system and / or hardware has either a
-	 * hard or soft limit on threads and the request has failed because it has been reached.
-	 *
-	 * `ThreadError::OSFailure` is an ambiguous catch-all error state that covers any
-	 * implementation-specific errors on the part of the operating system. These should be
-	 * considered unrecoverable.
-	 */
-	ThreadError AcquireThread(String const & name, Callable<void()> action, Thread & result);
-
-	/**
-	 * Returns the number of hardware-mappable contexts for executing code concurrently. On most
-	 * platforms, this is the number of CPU cores that are currently online.
-	 */
-	uint32_t CountHardwareConcurrency();
-
-	/**
 	 * Prints `message` to the operating system standard output.
 	 */
 	void Print(String const & message);
@@ -1257,6 +1112,22 @@ namespace Ona {
 	constexpr int64_t Area(Point2 dimensions) {
 		return (dimensions.x * dimensions.y);
 	}
+
+	class Channel;
+
+	void CloseChannel(Channel * & channel);
+
+	Channel * OpenChannel(uint32_t typeSize);
+
+	uint32_t ChannelReceive(Channel * channel, Slice<uint8_t> outputBuffer);
+
+	uint32_t ChannelSend(Channel * channel, Slice<uint8_t const> const & inputBuffer);
+
+	void InitScheduler();
+
+	void ScheduleTask(Callable<void()> const & task);
+
+	void WaitAllTasks();
 }
 
 #include "common/collections.hpp"

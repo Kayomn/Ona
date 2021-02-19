@@ -23,6 +23,34 @@ static GraphicsServer * graphicsServer = nullptr;
 static OnaContext const context = {
 	.defaultAllocator = DefaultAllocator,
 
+	.channelClose = [](Channel * * channel) {
+		CloseChannel(*channel);
+	},
+
+	.channelOpen = OpenChannel,
+
+	.channelReceive = [](
+		Channel * channel,
+		size_t outputBufferLength,
+		void * outputBufferPointer
+	) -> uint32_t {
+		return ChannelReceive(channel, Slice<uint8_t>{
+			.length = outputBufferLength,
+			.pointer = reinterpret_cast<uint8_t *>(outputBufferPointer)
+		});
+	},
+
+	.channelSend = [](
+		Channel * channel,
+		size_t inputBufferLength,
+		void const * inputBufferPointer
+	) -> uint32_t {
+		return ChannelSend(channel, Slice<uint8_t const>{
+			.length = inputBufferLength,
+			.pointer = reinterpret_cast<uint8_t const *>(inputBufferPointer)
+		});
+	},
+
 	.graphicsQueueAcquire = []() -> GraphicsQueue * {
 		return graphicsServer->AcquireQueue();
 	},
@@ -90,24 +118,6 @@ static OnaContext const context = {
 	.stringDestroy = [](String * string) {
 		string->~String();
 	},
-
-	.vector2ChannelFree = [](Vector2Channel * * channel) {
-		delete (*channel);
-
-		(*channel) = nullptr;
-	},
-
-	.vector2ChannelNew = [](Allocator * allocator) -> Vector2Channel * {
-		return new Vector2Channel{};
-	},
-
-	.vector2ChannelReceive = [](Vector2Channel * channel, Vector2 * output) {
-		channel->Receive(*output);
-	},
-
-	.vector2ChannelSend = [](Vector2Channel * channel, Vector2 input) {
-		channel->Send(input);
-	},
 };
 
 int main(int argv, char const * const * argc) {
@@ -163,8 +173,9 @@ int main(int argv, char const * const * argc) {
 	}
 
 	if (graphicsServer) {
-		TaskScheduler tasks = {defaultAllocator, 0.25f};
 		OnaEvents events = {};
+
+		InitScheduler();
 
 		systems.ForEach([](System const & system) {
 			if (system.initializer) system.initializer(system.userdata, &context);
@@ -174,19 +185,19 @@ int main(int argv, char const * const * argc) {
 			graphicsServer->Clear();
 
 			systems.ForEach([&](System const & system) {
-				tasks.Execute([&]() {
+				ScheduleTask([&]() {
 					system.processor(system.userdata, &context, &events);
 				});
 			});
 
-			tasks.Wait();
+			WaitAllTasks();
 			graphicsServer->Update();
 		}
 
-		systems.ForEach([](System const & system) {
+		systems.ForEach([defaultAllocator](System const & system) {
 			if (system.finalizer) system.finalizer(system.userdata, &context);
 
-			DefaultAllocator()->Deallocate(system.userdata);
+			defaultAllocator->Deallocate(system.userdata);
 		});
 	}
 

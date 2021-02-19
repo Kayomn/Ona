@@ -1,6 +1,6 @@
 #include "modules/demo.hpp"
 
-static Vector2Channel * playerPositionChannel;
+static Channel * playerPositionChannel;
 
 struct SceneController {
 	enum {
@@ -48,7 +48,12 @@ struct SceneController {
 			ona->renderSprite(this->graphicsQueue, this->actorMaterial, &actorSprite);
 		}
 
-		ona->vector2ChannelReceive(playerPositionChannel, &this->actors[0]);
+		Vector2 velocity;
+
+		ona->channelReceive(playerPositionChannel, sizeof(Vector2), &velocity);
+
+		this->actors[0].x += velocity.x;
+		this->actors[0].y += velocity.y;
 	}
 
 	void Exit(OnaContext const * ona) {
@@ -81,7 +86,7 @@ struct PlayerController {
 			velocity.x += deltaSpeed;
 		}
 
-		ona->vector2ChannelSend(playerPositionChannel, velocity);
+		ona->channelSend(playerPositionChannel, sizeof(Vector2), &velocity);
 	}
 
 	void Exit(OnaContext const * ona) {
@@ -122,11 +127,11 @@ extern "C" void OnaInit(OnaContext const * ona) {
 		},
 	};
 
-	playerPositionChannel = ona->vector2ChannelNew(ona->defaultAllocator());
+	playerPositionChannel = ona->channelOpen(sizeof(Vector2));
 	ona->spawnSystem(&sceneControllerInfo);
 	ona->spawnSystem(&playerControllerInfo);
 }
 
 extern "C" void OnaExit(OnaContext const * ona) {
-	ona->vector2ChannelFree(&playerPositionChannel);
+	ona->channelClose(&playerPositionChannel);
 }
