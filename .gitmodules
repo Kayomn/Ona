@@ -1,0 +1,3 @@
+[submodule "thirdparty/marl"]
+	path = thirdparty/marl
+	url = https://github.com/google/marl
