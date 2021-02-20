@@ -140,194 +140,7 @@ namespace Ona {
 		};
 
 		Allocator * parsingAllocator = this->globals.AllocatorOf();
-		PackedStack<Token> tokens = {parsingAllocator};
 		Slice<char const> sourceChars = source.Chars();
-
-		for (size_t i = 0; i < sourceChars.length;) {
-			switch (sourceChars.At(i)) {
-				case '\n':
-				case '\t':
-				case ' ':
-				case '\r':
-				case '\v':
-				case '\f': {
-					i += 1;
-
-					break;
-				}
-
-				case '{': {
-					tokens.Push(Token{
-						.text = String{"{"},
-						.type = TokenType::BraceLeft,
-					});
-
-					i += 1;
-
-					break;
-				}
-
-				case '}': {
-					tokens.Push(Token{
-						.text = String{"}"},
-						.type = TokenType::BraceRight,
-					});
-
-					i += 1;
-
-					break;
-				}
-
-				case '(': {
-					tokens.Push(Token{
-						.text = String{"("},
-						.type = TokenType::ParenLeft,
-					});
-
-					i += 1;
-
-					break;
-				}
-
-				case ')': {
-					tokens.Push(Token{
-						.text = String{")"},
-						.type = TokenType::ParenRight,
-					});
-
-					i += 1;
-
-					break;
-				}
-
-				case '.': {
-					tokens.Push(Token{
-						.text = String{"."},
-						.type = TokenType::Period,
-					});
-
-					i += 1;
-
-					break;
-				}
-
-				case ':': {
-					tokens.Push(Token{
-						.text = String{":"},
-						.type = TokenType::Colon,
-					});
-
-					i += 1;
-
-					break;
-				}
-
-				case ',': {
-					tokens.Push(Token{
-						.text = String{","},
-						.type = TokenType::Comma,
-					});
-
-					i += 1;
-
-					break;
-				}
-
-				case '"': {
-					size_t const iNext = (i + 1);
-					size_t j = iNext;
-
-					while ((j < sourceChars.length) && sourceChars.At(j) != '"') j += 1;
-
-					if (sourceChars.At(j) == '"') {
-						tokens.Push(Token{
-							.text = String{Chars{
-								.length = (j - iNext),
-								.pointer = (sourceChars.pointer + iNext)
-							}},
-
-							.type = TokenType::StringLiteral,
-						});
-
-						j += 1;
-					} else {
-						tokens.Push(Token{
-							.text = String{"Unexpected end of file before end of string literal"},
-							.type = TokenType::Invalid,
-						});
-					}
-
-					i = j;
-
-					break;
-				}
-
-				case '0':
-				case '1':
-				case '2':
-				case '3':
-				case '4':
-				case '5':
-				case '6':
-				case '7':
-				case '8':
-				case '9': {
-					size_t j = (i + 1);
-
-					while ((j < sourceChars.length) && IsDigit(sourceChars.At(j))) j += 1;
-
-					if ((j < sourceChars.length) && (sourceChars.At(j) == '.')) {
-						j += 1;
-
-						if ((j < sourceChars.length) && IsDigit(sourceChars.At(j))) {
-							// Handle decimal places.
-							j += 1;
-
-							while ((j < sourceChars.length) && IsDigit(sourceChars.At(j))) j += 1;
-						} else {
-							// Just a regular period, go back.
-							j -= 2;
-						}
-					}
-
-					tokens.Push(Token{
-						.text = String{Slice<char const>{
-							.length = (j - i),
-							.pointer = (sourceChars.pointer + i)
-						}},
-
-						.type = TokenType::NumberLiteral,
-					});
-
-					i = j;
-
-					break;
-				}
-
-				default: {
-					size_t j = (i + 1);
-
-					while ((j < sourceChars.length) && IsAlpha(sourceChars.At(j))) j += 1;
-
-					tokens.Push(Token{
-						.text = String{Slice<char const>{
-							.length = (j - i),
-							.pointer = (sourceChars.pointer + i)
-						}},
-
-						.type = TokenType::Identifier,
-					});
-
-					i = j;
-
-					break;
-				}
-			}
-		}
-
-		tokens.Push(Token{
-			.type = TokenType::EOF,
-		});
 
 		enum class ParseState {
 			None,
@@ -336,14 +149,180 @@ namespace Ona {
 
 		PackedStack<HashTable<String, Value> *> objectStack = {this->globals.AllocatorOf()};
 		ParseState parseState = ParseState::None;
-		size_t tokenCursor = 0;
 		Token declarationToken = {};
 
-		auto const eatToken = [&]() -> Token const & {
-			Token const * token = &tokens.At(tokenCursor);
-			tokenCursor += 1;
+		// In order to avoid allocating memory, the tokenizer is a stateful functor that lazily
+		// returns a new tokens from the string with each iteration. An end-of-file (EOF) token is
+		// returned the indicate when the end of the string has been reached.
+		auto eatToken = [&, i = (size_t)0]() mutable -> Token {
+			while (i < sourceChars.length) {
+				switch (sourceChars.At(i)) {
+					case '\n':
+					case '\t':
+					case ' ':
+					case '\r':
+					case '\v':
+					case '\f': {
+						i += 1;
 
-			return (*token);
+						break;
+					}
+
+					case '{': {
+						i += 1;
+
+						return Token{
+							.text = String{"{"},
+							.type = TokenType::BraceLeft,
+						};
+					}
+
+					case '}': {
+						i += 1;
+
+						return Token{
+							.text = String{"}"},
+							.type = TokenType::BraceRight,
+						};
+					}
+
+					case '(': {
+						i += 1;
+
+						return Token{
+							.text = String{"("},
+							.type = TokenType::ParenLeft,
+						};
+					}
+
+					case ')': {
+						i += 1;
+
+						return Token{
+							.text = String{")"},
+							.type = TokenType::ParenRight,
+						};
+					}
+
+					case '.': {
+						i += 1;
+
+						return Token{
+							.text = String{"."},
+							.type = TokenType::Period,
+						};
+					}
+
+					case ':': {
+						i += 1;
+
+						return Token{
+							.text = String{":"},
+							.type = TokenType::Colon,
+						};
+					}
+
+					case ',': {
+						i += 1;
+
+						return Token{
+							.text = String{","},
+							.type = TokenType::Comma,
+						};
+					}
+
+					case '"': {
+						size_t const iNext = (i + 1);
+						size_t j = iNext;
+
+						while ((j < sourceChars.length) && sourceChars.At(j) != '"') j += 1;
+
+						if (sourceChars.At(j) == '"') {
+							i = (j + 1);
+
+							return Token{
+								.text = String{Chars{
+									.length = (j - iNext),
+									.pointer = (sourceChars.pointer + iNext)
+								}},
+
+								.type = TokenType::StringLiteral,
+							};
+						}
+
+						i = j;
+
+						return Token{
+							.text = String{"Unexpected end of file before end of string literal"},
+							.type = TokenType::Invalid,
+						};
+					}
+
+					case '0':
+					case '1':
+					case '2':
+					case '3':
+					case '4':
+					case '5':
+					case '6':
+					case '7':
+					case '8':
+					case '9': {
+						size_t j = (i + 1);
+
+						while ((j < sourceChars.length) && IsDigit(sourceChars.At(j))) j += 1;
+
+						if ((j < sourceChars.length) && (sourceChars.At(j) == '.')) {
+							j += 1;
+
+							if ((j < sourceChars.length) && IsDigit(sourceChars.At(j))) {
+								// Handle decimal places.
+								j += 1;
+
+								while ((j < sourceChars.length) && IsDigit(sourceChars.At(j))) j += 1;
+							} else {
+								// Just a regular period, go back.
+								j -= 2;
+							}
+						}
+
+						size_t const iOld = i;
+						i = j;
+
+						return Token{
+							.text = String{Slice<char const>{
+								.length = (j - iOld),
+								.pointer = (sourceChars.pointer + iOld)
+							}},
+
+							.type = TokenType::NumberLiteral,
+						};
+					}
+
+					default: {
+						size_t j = (i + 1);
+
+						while ((j < sourceChars.length) && IsAlpha(sourceChars.At(j))) j += 1;
+
+						size_t const iOld = i;
+						i = j;
+
+						return Token{
+							.text = String{Slice<char const>{
+								.length = (j - iOld),
+								.pointer = (sourceChars.pointer + iOld)
+							}},
+
+							.type = TokenType::Identifier,
+						};
+					}
+				}
+			}
+
+			return Token{
+				.text = String{},
+				.type = TokenType::EOF,
+			};
 		};
 
 		objectStack.Push(&this->globals);
