@@ -13,11 +13,9 @@ namespace Ona {
 	) {
 		GraphicsLoader * graphicsLoader = graphicsLoaders.Lookup(server);
 
-		return (
-			graphicsLoader ?
-			(*graphicsLoader)(displayTitle, displayWidth, displayHeight) :
-			nullptr
-		);
+		if (graphicsLoader) return (*graphicsLoader)(displayTitle, displayWidth, displayHeight);
+
+		return nullptr;
 	}
 
 	void RegisterGraphicsLoader(String const & server, GraphicsLoader graphicsLoader) {
