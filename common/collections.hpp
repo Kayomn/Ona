@@ -327,18 +327,7 @@ namespace Ona {
 		}
 	};
 
-	template<typename ValueType> class Sequence {
-		public:
-		virtual uint32_t Count() const = 0;
-
-		virtual void ForEach(Callable<void(ValueType &)> const & action) = 0;
-
-		virtual void ForEach(Callable<void(ValueType const &)> const & action) const = 0;
-	};
-
-	template<
-		typename ValueType
-	> class PackedStack final : public Object, public Sequence<ValueType> {
+	template<typename ValueType> class PackedStack final : public Object {
 		private:
 		Allocator * allocator;
 
@@ -394,15 +383,15 @@ namespace Ona {
 			return success;
 		}
 
-		uint32_t Count() const override {
+		uint32_t Count() const {
 			return this->count;
 		}
 
-		void ForEach(Callable<void(ValueType &)> const & action) override {
+		void ForEach(Callable<void(ValueType &)> const & action) {
 			for (uint32_t i = 0; i < this->count; i += 1) action.Invoke(this->values.At(i));
 		}
 
-		void ForEach(Callable<void(ValueType const &)> const & action) const override {
+		void ForEach(Callable<void(ValueType const &)> const & action) const {
 			for (uint32_t i = 0; i < this->count; i += 1) action.Invoke(this->values.At(i));
 		}
 
@@ -450,9 +439,7 @@ namespace Ona {
 		}
 	};
 
-	template<
-		typename ValueType
-	> class PackedQueue final : public Object, public Sequence<ValueType> {
+	template<typename ValueType> class PackedQueue final : public Object {
 		Allocator * allocator;
 
 		uint32_t count;
@@ -480,7 +467,7 @@ namespace Ona {
 			this->tail = 0;
 		}
 
-		uint32_t Count() const override {
+		uint32_t Count() const {
 			return this->count;
 		}
 
@@ -509,11 +496,11 @@ namespace Ona {
 			return bufferTail;
 		}
 
-		void ForEach(Callable<void(ValueType &)> const & action) override {
+		void ForEach(Callable<void(ValueType &)> const & action) {
 			for (uint32_t i = this->head; i < this->tail; i += 1) action.Invoke(this->values.At(i));
 		}
 
-		void ForEach(Callable<void(ValueType const &)> const & action) const override {
+		void ForEach(Callable<void(ValueType const &)> const & action) const {
 			for (uint32_t i = this->head; i < this->tail; i += 1) action.Invoke(this->values.At(i));
 		}
 
