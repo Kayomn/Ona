@@ -673,7 +673,7 @@ namespace Ona {
 		}
 	};
 
-	class Allocator {
+	class Allocator : public Object {
 		public:
 		virtual uint8_t * Allocate(size_t size) = 0;
 

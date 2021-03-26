@@ -241,7 +241,7 @@ namespace Ona {
 	}
 
 	Allocator * DefaultAllocator() {
-		class Mallocator final : public Object, public Allocator {
+		class Mallocator final : public Allocator {
 			public:
 			uint8_t * Allocate(size_t size) override {
 				return reinterpret_cast<uint8_t *>(malloc(size));

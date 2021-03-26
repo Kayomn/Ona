@@ -92,14 +92,14 @@ namespace Ona {
 
 	struct Material;
 
-	class GraphicsQueue {
+	class GraphicsQueue : public Object {
 		public:
 		virtual void RenderSprite(Material * material, Sprite const & sprite) = 0;
 	};
 
 	struct OnaEvents;
 
-	class GraphicsServer {
+	class GraphicsServer : public Object {
 		public:
 		/**
 		 * Clears the backbuffer to black.

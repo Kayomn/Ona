@@ -292,7 +292,7 @@ namespace Ona {
 		}
 	};
 
-	class OpenGLGraphicsQueue final : public Object, public GraphicsQueue {
+	class OpenGLGraphicsQueue final : public GraphicsQueue {
 		public:
 		struct SpriteBatch {
 			struct Chunk {
@@ -414,7 +414,7 @@ namespace Ona {
 		}
 	};
 
-	class OpenGlGraphicsServer final : public Object, public GraphicsServer {
+	class OpenGlGraphicsServer final : public GraphicsServer {
 		public:
 		uint64_t timeNow, timeLast;
 
