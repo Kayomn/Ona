@@ -30,9 +30,9 @@ The engine executable behavior may be configured by creating a `config.ona` text
 
 ```
 Graphics {
-    displayTitle: "Ona Demo",
-    displaySize: (640, 480),
-    server: "opengl"
+    displayTitle "Ona Demo"
+    displaySize (640, 480)
+    server "opengl"
 }
 ```
 

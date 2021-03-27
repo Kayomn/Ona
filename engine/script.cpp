@@ -100,8 +100,9 @@ namespace Ona {
 			case Value::Type::Array:
 					return reinterpret_cast<DynamicArray<Value> const *>(value->userdata)->Length();
 
-			case Value::Type::Object:
-					return reinterpret_cast<HashTable<String, Value> const *>(value->userdata)->Count();
+			case Value::Type::Object: return reinterpret_cast<HashTable<String, Value> const *>(
+				value->userdata
+			)->Count();
 
 			case Value::Type::Boolean:
 			case Value::Type::Integer:
@@ -116,20 +117,20 @@ namespace Ona {
 		return 0;
 	}
 
-	ScriptError ConfigEnvironment::Parse(String const & source) {
+	ScriptError ConfigEnvironment::Parse(String const & source, String * errorMessage) {
 		enum class TokenType {
 			Invalid,
 			BraceLeft,
 			BraceRight,
 			ParenLeft,
 			ParenRight,
-			Colon,
 			SemiColon,
 			Comma,
 			Period,
 			Identifier,
 			NumberLiteral,
 			StringLiteral,
+			Newline,
 			EOF,
 		};
 
@@ -157,7 +158,15 @@ namespace Ona {
 		auto eatToken = [&, i = (size_t)0]() mutable -> Token {
 			while (i < sourceChars.length) {
 				switch (sourceChars.At(i)) {
-					case '\n':
+					case '\n': {
+						i += 1;
+
+						return Token{
+							.text = String{"\n"},
+							.type = TokenType::Newline,
+						};
+					}
+
 					case '\t':
 					case ' ':
 					case '\r':
@@ -210,15 +219,6 @@ namespace Ona {
 						return Token{
 							.text = String{"."},
 							.type = TokenType::Period,
-						};
-					}
-
-					case ':': {
-						i += 1;
-
-						return Token{
-							.text = String{":"},
-							.type = TokenType::Colon,
 						};
 					}
 
@@ -290,7 +290,7 @@ namespace Ona {
 						i = j;
 
 						return Token{
-							.text = String{Slice<char const>{
+							.text = String{Chars{
 								.length = (j - iOld),
 								.pointer = (sourceChars.pointer + iOld)
 							}},
@@ -308,7 +308,7 @@ namespace Ona {
 						i = j;
 
 						return Token{
-							.text = String{Slice<char const>{
+							.text = String{Chars{
 								.length = (j - iOld),
 								.pointer = (sourceChars.pointer + iOld)
 							}},
@@ -341,11 +341,27 @@ namespace Ona {
 
 						case TokenType::BraceRight: {
 							if (objectStack.Count() == 1) {
-								// Unexpected closing brace.
+								if (errorMessage) {
+									(*errorMessage) = String{"Unexpected closing brace"};
+								}
+
 								return ScriptError::ParsingSyntax;
 							}
 
 							objectStack.Pop(1);
+
+							TokenType const endlineTokenType = eatToken().type;
+
+							if (
+								(endlineTokenType != TokenType::Newline) &&
+								(endlineTokenType != TokenType::EOF)
+							) {
+								if (errorMessage) (*errorMessage) = String{
+									"Expected newline or end of file after closing brace"
+								};
+
+								return ScriptError::ParsingSyntax;
+							}
 
 							parseState = ParseState::None;
 
@@ -354,15 +370,26 @@ namespace Ona {
 
 						case TokenType::EOF: {
 							if (objectStack.Count() > 1) {
-								// Missing closing brace.
+								if (errorMessage) {
+									(*errorMessage) = String{"Expected closing brace"};
+								}
+
 								return ScriptError::ParsingSyntax;
 							}
 
 							return ScriptError::None;
 						}
 
-						// Expected declaration identifier or closing brace.
-						default: return ScriptError::ParsingSyntax;
+						// Ignore excess newline breaks.
+						case TokenType::Newline: break;
+
+						default: {
+							if (errorMessage) (*errorMessage) = String{
+								"Expected declaration identifier or closing brace"
+							};
+
+							return ScriptError::ParsingSyntax;
+						}
 					}
 
 					break;
@@ -372,188 +399,156 @@ namespace Ona {
 					Token const assignmentToken = eatToken();
 
 					switch (assignmentToken.type) {
-						case TokenType::Colon: {
-							Token const valueToken = eatToken();
+						case TokenType::NumberLiteral: {
+							Value integerValue = {
+								.type = Value::Type::Integer,
+							};
 
-							switch (valueToken.type) {
-								case TokenType::NumberLiteral: {
-									Value integerValue = {
-										.type = Value::Type::Integer,
-									};
+							// TODO: Implement number parsing.
+							new (integerValue.userdata) int64_t{0};
 
-									// TODO
-									new (integerValue.userdata) int64_t{0};
+							if (!objectStack.Peek()->Insert(declarationToken.text, integerValue)) {
+								if (errorMessage) (*errorMessage) = String{"Out of memory"};
 
-									if (!objectStack.Peek()->Insert(
-										declarationToken.text,
-										integerValue
-									)) {
-										return ScriptError::OutOfMemory;
-									}
-
-									break;
-								}
-
-								case TokenType::StringLiteral: {
-									Value stringValue = {
-										.type = Value::Type::String,
-									};
-
-									new (stringValue.userdata) String{valueToken.text};
-
-									if (!objectStack.Peek()->Insert(
-										declarationToken.text,
-										stringValue
-									)) {
-										return ScriptError::OutOfMemory;
-									}
-
-									break;
-								}
-
-								case TokenType::ParenLeft: {
-									enum {
-										ValuesMax = 4,
-									};
-
-									float valueBuffer[ValuesMax] = {};
-									Token valueToken = {};
-									uint8_t values = 0;
-
-									do {
-										valueToken = eatToken();
-
-										if (valueToken.type != TokenType::NumberLiteral) {
-											// Unexpected syntax in vector expression.
-											return ScriptError::ParsingSyntax;
-										}
-
-										if (values == ValuesMax) {
-											// Vector expressions cannot contain more than four
-											// number literals.
-											return ScriptError::ParsingSyntax;
-										}
-
-										double parsedFloating = 0;
-
-										if (!ParseFloating(valueToken.text, parsedFloating)) {
-											// Number literal is not a valid float.
-											return ScriptError::ParsingSyntax;
-										}
-
-										// TODO
-										valueBuffer[values] = static_cast<float>(parsedFloating);
-										values += 1;
-										valueToken = eatToken();
-									} while (valueToken.type == TokenType::Comma);
-
-									if (valueToken.type != TokenType::ParenRight) {
-										// Unexpected symbol in vector expression.
-										return ScriptError::ParsingSyntax;
-									}
-
-									switch (values) {
-										case 2: {
-											Value value = {
-												.type = Value::Type::Vector2,
-											};
-
-											new (value.userdata) Vector2{
-												valueBuffer[0],
-												valueBuffer[1]
-											};
-
-											objectStack.Peek()->Insert(
-												declarationToken.text,
-												value
-											);
-
-											break;
-										}
-
-										case 3: {
-											Value value = {
-												.type = Value::Type::Vector3,
-											};
-
-											new (value.userdata) Vector3{
-												valueBuffer[0],
-												valueBuffer[1],
-												valueBuffer[2]
-											};
-
-											objectStack.Peek()->Insert(
-												declarationToken.text,
-												value
-											);
-
-											break;
-										}
-
-										case 4: {
-											Value value = {
-												.type = Value::Type::Vector4,
-											};
-
-											new (value.userdata) Vector4{
-												valueBuffer[0],
-												valueBuffer[1],
-												valueBuffer[2],
-												valueBuffer[3]
-											};
-
-											objectStack.Peek()->Insert(
-												declarationToken.text,
-												value
-											);
-
-											break;
-										}
-
-										// Vector expressions must contain 2, 3, or 4 number
-										// literals.
-										default: return ScriptError::ParsingSyntax;
-									}
-
-									break;
-								}
-
-								// Unexpected expression after colon.
-								default: return ScriptError::ParsingSyntax;
+								return ScriptError::OutOfMemory;
 							}
 
-							switch (eatToken().type) {
-								case TokenType::Comma: {
-									parseState = ParseState::None;
+							break;
+						}
+
+						case TokenType::StringLiteral: {
+							Value stringValue = {
+								.type = Value::Type::String,
+							};
+
+							new (stringValue.userdata) String{assignmentToken.text};
+
+							if (!objectStack.Peek()->Insert(declarationToken.text, stringValue)) {
+								if (errorMessage) (*errorMessage) = String{"Out of memory"};
+
+								return ScriptError::OutOfMemory;
+							}
+
+							break;
+						}
+
+						case TokenType::ParenLeft: {
+							enum {
+								ValuesMax = 4,
+							};
+
+							float valueBuffer[ValuesMax] = {};
+							Token valueToken = {};
+							uint8_t values = 0;
+
+							do {
+								valueToken = eatToken();
+
+								if (valueToken.type != TokenType::NumberLiteral) {
+									if (errorMessage) (*errorMessage) = String{
+										"Unexpected syntax in vector literal"
+									};
+
+									return ScriptError::ParsingSyntax;
+								}
+
+								if (values == ValuesMax) {
+									if (errorMessage) (*errorMessage) = String{
+										"Vector literals cannot contain more than 4 numbers"
+									};
+
+									return ScriptError::ParsingSyntax;
+								}
+
+								double parsedFloating = 0;
+
+								if (!ParseFloating(valueToken.text, parsedFloating)) {
+									if (errorMessage) (*errorMessage) = String{
+										"Vector component is not a valid floating point value"
+									};
+
+									return ScriptError::ParsingSyntax;
+								}
+
+								valueBuffer[values] = static_cast<float>(parsedFloating);
+								values += 1;
+								valueToken = eatToken();
+							} while (valueToken.type == TokenType::Comma);
+
+							if (valueToken.type != TokenType::ParenRight) {
+								if (errorMessage) {
+									(*errorMessage) = String{"Unexpected syntax in vector literal"};
+								}
+
+								// Unexpected symbol in vector expression.
+								return ScriptError::ParsingSyntax;
+							}
+
+							switch (values) {
+								case 2: {
+									Value value = {
+										.type = Value::Type::Vector2,
+									};
+
+									new (value.userdata) Vector2{valueBuffer[0], valueBuffer[1]};
+
+									if (!objectStack.Peek()->Insert(declarationToken.text, value)) {
+										if (errorMessage) (*errorMessage) = String{"Out of memory"};
+
+										return ScriptError::OutOfMemory;
+									}
 
 									break;
 								}
 
-								case TokenType::BraceRight: {
-									if (objectStack.Count() == 1) {
-										// Unexpected closing brace.
-										return ScriptError::ParsingSyntax;
+								case 3: {
+									Value value = {
+										.type = Value::Type::Vector3,
+									};
+
+									new (value.userdata) Vector3{
+										valueBuffer[0],
+										valueBuffer[1],
+										valueBuffer[2]
+									};
+
+									if (!objectStack.Peek()->Insert(declarationToken.text, value)) {
+										if (errorMessage) (*errorMessage) = String{"Out of memory"};
+
+										return ScriptError::OutOfMemory;
 									}
-
-									objectStack.Pop(1);
-
-									parseState = ParseState::None;
 
 									break;
 								}
 
-								// End of file arrived.
-								case TokenType::EOF: {
-									if (objectStack.Count() > 1) {
-										// Missing closing brace.
-										return ScriptError::ParsingSyntax;
+								case 4: {
+									Value value = {
+										.type = Value::Type::Vector4,
+									};
+
+									new (value.userdata) Vector4{
+										valueBuffer[0],
+										valueBuffer[1],
+										valueBuffer[2],
+										valueBuffer[3]
+									};
+
+									if (!objectStack.Peek()->Insert(declarationToken.text, value)) {
+										if (errorMessage) (*errorMessage) = String{"Out of memory"};
+
+										return ScriptError::OutOfMemory;
 									}
 
-									return ScriptError::None;
+									break;
 								}
 
-								// Unexpected end of declaration.
-								default: return ScriptError::ParsingSyntax;
+								default: {
+									if (errorMessage) (*errorMessage) = String{
+										"Vector literals must contain 2, 3, or 4 numbers"
+									};
+
+									return ScriptError::ParsingSyntax;
+								}
 							}
 
 							break;
@@ -587,6 +582,8 @@ namespace Ona {
 							if (!objectStack.Push(reinterpret_cast<HashTable<String, Value> *>(
 								insertedObject->userdata
 							))) {
+								if (errorMessage) (*errorMessage) = String{"Out of memory"};
+
 								return ScriptError::OutOfMemory;
 							}
 
@@ -595,11 +592,39 @@ namespace Ona {
 							break;
 						}
 
-						// Unexpected symbol after declaration identifier.
-						default: return ScriptError::ParsingSyntax;
+						default: {
+							if (errorMessage) (*errorMessage) = String{
+								"Unexpected syntax after declaration"
+							};
+
+							return ScriptError::ParsingSyntax;
+						}
 					}
 
+					TokenType const endlineTokenType = eatToken().type;
+
+					if (
+						(endlineTokenType != TokenType::Newline) &&
+						(endlineTokenType != TokenType::EOF)
+					) {
+						if (errorMessage) (*errorMessage) = String{
+							"Expected newline or end of file after declaration"
+						};
+
+						return ScriptError::ParsingSyntax;
+					}
+
+					parseState = ParseState::None;
+
 					break;
+				}
+
+				default: {
+					if (errorMessage) {
+						(*errorMessage) = String{"Unexpected expression after declaration"};
+					}
+
+					return ScriptError::ParsingSyntax;
 				}
 			}
 		}

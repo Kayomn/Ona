@@ -156,7 +156,14 @@ int main(int argv, char const * const * argc) {
 			String{"config.ona"},
 			fileContents.value
 		) == FileLoadError::None) {
-			configEnv.Parse(fileContents.value.ToString());
+			String errorMessage = {};
+
+			if (configEnv.Parse(
+				fileContents.value.ToString(),
+				&errorMessage
+			) != ScriptError::None) {
+				Print(errorMessage);
+			}
 		}
 
 		Vector2 const initialDisplaySize = configEnv.ReadVector2({

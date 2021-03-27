@@ -193,8 +193,11 @@ namespace Ona {
 		 * Parses and executes `source` as an Ona configuration file.
 		 *
 		 * A `ScriptError` is returned, indicating the result of parsing `source`.
+		 *
+		 * If `errorMessage` is not null and the returned value is not equal to `ScriptError::None`,
+		 * a human-readable error message may have been written to `errorMessage`.
 		 */
-		ScriptError Parse(String const & source);
+		ScriptError Parse(String const & source, String * errorMessage);
 
 		/**
 		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
