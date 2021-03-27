@@ -24,7 +24,7 @@ namespace Ona {
 		}};
 	}
 
-	bool OpenFile(String const & filePath, File::OpenFlags openFlags, File & file) {
+	bool OpenFile(String const & filePath, FileAccess::OpenFlags openFlags, FileAccess & file) {
 		static FileOperations const unixFileOperations = {
 			.closer = [](void * handle) {
 				close(UserdataToHandle(handle));
@@ -73,9 +73,9 @@ namespace Ona {
 
 		int unixAccessFlags = 0;
 
-		if (openFlags & File::OpenRead) unixAccessFlags |= O_RDONLY;
+		if (openFlags & FileAccess::OpenRead) unixAccessFlags |= O_RDONLY;
 
-		if (openFlags & File::OpenWrite) unixAccessFlags |= (O_WRONLY | O_CREAT);
+		if (openFlags & FileAccess::OpenWrite) unixAccessFlags |= (O_WRONLY | O_CREAT);
 
 		/**
 		*         Read Write Execute
@@ -91,7 +91,7 @@ namespace Ona {
 		));
 
 		if (handle > 0) {
-			file = File{&unixFileOperations, reinterpret_cast<void *>(handle)};
+			file = FileAccess{&unixFileOperations, reinterpret_cast<void *>(handle)};
 
 			return true;
 		}
@@ -104,9 +104,9 @@ namespace Ona {
 		String const & filePath,
 		FileContents & fileContents
 	) {
-		Owned<File> file;
+		Owned<FileAccess> file = {};
 
-		if (OpenFile(filePath, File::OpenRead, file.value)) {
+		if (OpenFile(filePath, FileAccess::OpenRead, file.value)) {
 			int64_t const fileLength = file.value.SeekTail(0);
 
 			if ((fileLength > -1) && (fileLength < SIZE_MAX)) {

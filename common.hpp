@@ -447,7 +447,7 @@ namespace Ona {
 	/**
 	 * Interface to a file-like data resource.
 	 */
-	struct File {
+	struct FileAccess {
 		private:
 		void * handle;
 
@@ -463,9 +463,9 @@ namespace Ona {
 			OpenWrite = 0x2
 		};
 
-		File() = default;
+		FileAccess() = default;
 
-		File(
+		FileAccess(
 			FileOperations const * operations,
 			void * handle
 		) : handle{handle}, operations{operations} {
@@ -589,7 +589,7 @@ namespace Ona {
 	 * Reasons for why a file may fail to open are incredibly OS-specific and not exposed in this
 	 * function.
 	 */
-	bool OpenFile(String const & filePath, File::OpenFlags openFlags, File & result);
+	bool OpenFile(String const & filePath, FileAccess::OpenFlags openFlags, FileAccess & result);
 
 	FileLoadError LoadFile(
 		Allocator * allocator,

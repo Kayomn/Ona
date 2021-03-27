@@ -69,9 +69,9 @@ namespace Ona {
 		FixedArray<uint8_t, (sizeof(FileHeader) + sizeof(InfoHeader))> headerBuffer = {};
 		uint8_t const * const headerPointer = headerBuffer.Pointer();
 		auto const fileHeader = reinterpret_cast<FileHeader const *>(headerPointer);
-		Owned<File> file = {};
+		Owned<FileAccess> file = {};
 
-		if (OpenFile(filePath, File::OpenRead, file.value)) {
+		if (OpenFile(filePath, FileAccess::OpenRead, file.value)) {
 			if (
 				(file.value.Read(headerBuffer.Sliced(0, FileHeaderSize)) == FileHeaderSize) &&
 				(fileHeader->signature == Signature) &&
