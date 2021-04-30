@@ -6,15 +6,20 @@
 			"type": "cppdbg",
 			"request": "launch",
 			"program": "${workspaceFolder}/output/engine",
-			"args": [],
+			"args": ["--eval-command=\"source debug/gdb_printers.py\""],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}/output",
-			"environment": [
-				{"name": "LD_LIBRARY_PATH", "value": "${workspaceFolder}/output"}
+			"environment":
+			[
+				{
+					"name": "LD_LIBRARY_PATH",
+					"value": "${workspaceFolder}/output"
+				}
 			],
 			"externalConsole": false,
 			"MIMode": "gdb",
-			"setupCommands": [
+			"setupCommands":
+			[
 				{
 					"description": "Enable pretty-printing for gdb",
 					"text": "-enable-pretty-printing",
