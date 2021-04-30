@@ -7,6 +7,8 @@ struct SceneController {
 		ActorsMax = 32,
 	};
 
+	GraphicsServer * graphicsServer;
+
 	GraphicsQueue * graphicsQueue;
 
 	Material * actorMaterial;
@@ -15,7 +17,8 @@ struct SceneController {
 
 	void Init(OnaContext const * ona) {
 		Allocator * allocator = ona->defaultAllocator();
-		this->graphicsQueue = ona->graphicsQueueAcquire();
+		this->graphicsServer = ona->localGraphicsServer();
+		this->graphicsQueue = ona->acquireGraphicsQueue(graphicsServer);
 
 		for (size_t i = 0; i < ActorsMax; i += 1) {
 			this->actors[i] = Vector2{
@@ -26,10 +29,15 @@ struct SceneController {
 
 		Image actorImage = {};
 
-		if (ona->imageSolid(allocator, Point2{32, 32}, Color{255, 255, 255, 255}, &actorImage) == 0) {
-			this->actorMaterial = ona->materialNew(&actorImage);
+		if (ona->loadImageSolid(
+			allocator,
+			Point2{32, 32},
+			Color{255, 255, 255, 255},
+			&actorImage
+		)) {
+			this->actorMaterial = ona->loadMaterialImage(graphicsServer, &actorImage);
 
-			ona->imageFree(&actorImage);
+			ona->freeImage(&actorImage);
 		}
 	}
 
@@ -57,7 +65,7 @@ struct SceneController {
 	}
 
 	void Exit(OnaContext const * ona) {
-		ona->materialFree(&this->actorMaterial);
+		ona->freeMaterial(this->graphicsServer, &this->actorMaterial);
 	}
 };
 
@@ -94,44 +102,44 @@ struct PlayerController {
 	}
 };
 
-extern "C" void OnaInit(OnaContext const * ona) {
-	SystemInfo const sceneControllerInfo = {
+extern "C" void OnaInit(OnaContext const * ona, void * module) {
+	OnaSystemInfo const sceneControllerInfo = {
 		.size = sizeof(SceneController),
 
-		.init = [](void * system, OnaContext const * ona) {
+		.initializer = [](void * system, OnaContext const * ona) {
 			reinterpret_cast<SceneController *>(system)->Init(ona);
 		},
 
-		.process = [](void * system, OnaContext const * ona, OnaEvents const * events) {
+		.processor = [](void * system, OnaContext const * ona, OnaEvents const * events) {
 			reinterpret_cast<SceneController *>(system)->Process(ona, events);
 		},
 
-		.exit = [](void * system, OnaContext const * ona) {
+		.finalizer = [](void * system, OnaContext const * ona) {
 			reinterpret_cast<SceneController *>(system)->Exit(ona);
 		},
 	};
 
-	SystemInfo const playerControllerInfo = {
+	OnaSystemInfo const playerControllerInfo = {
 		.size = sizeof(PlayerController),
 
-		.init = [](void * system, OnaContext const * ona) {
+		.initializer = [](void * system, OnaContext const * ona) {
 			reinterpret_cast<PlayerController *>(system)->Init(ona);
 		},
 
-		.process = [](void * system, OnaContext const * ona, OnaEvents const * events) {
+		.processor = [](void * system, OnaContext const * ona, OnaEvents const * events) {
 			reinterpret_cast<PlayerController *>(system)->Process(ona, events);
 		},
 
-		.exit = [](void * system, OnaContext const * ona) {
+		.finalizer = [](void * system, OnaContext const * ona) {
 			reinterpret_cast<PlayerController *>(system)->Exit(ona);
 		},
 	};
 
-	playerPositionChannel = ona->channelOpen(sizeof(Vector2));
-	ona->spawnSystem(&sceneControllerInfo);
-	ona->spawnSystem(&playerControllerInfo);
+	playerPositionChannel = ona->openChannel(sizeof(Vector2));
+	ona->spawnSystem(module, &sceneControllerInfo);
+	ona->spawnSystem(module, &playerControllerInfo);
 }
 
 extern "C" void OnaExit(OnaContext const * ona) {
-	ona->channelClose(&playerPositionChannel);
+	ona->freeChannel(&playerPositionChannel);
 }

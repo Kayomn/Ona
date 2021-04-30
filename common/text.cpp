@@ -1,222 +1,12 @@
 #include "common.hpp"
 
 namespace Ona {
-	String::String(char const * data) : size{0}, length{0} {
-		for (char const * c = (data + this->size); (*c) != 0; c += 1) {
-			this->size += 1;
-			this->length += (((*c) & 0xC0) != 0x80);
-		}
-
-		if (this->size > StaticBufferSize) {
-			this->buffer.dynamic = new uint8_t[sizeof(AtomicU32) + this->size];
-
-			if (this->buffer.dynamic) {
-				reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->Store(1);
-
-				CopyMemory(Slice<uint8_t>{
-					.length = this->size,
-					.pointer = (this->buffer.dynamic + sizeof(AtomicU32)),
-				}, Slice<uint8_t const>{
-					.length = this->size,
-					.pointer = reinterpret_cast<uint8_t const *>(data)
-				});
-			}
-		} else {
-			CopyMemory(Slice<uint8_t>{
-				.length = this->size,
-				.pointer = this->buffer.static_,
-			}, Slice<uint8_t const>{
-				.length = this->size,
-				.pointer = reinterpret_cast<uint8_t const *>(data)
-			});
-		}
+	String Format(String const & string, std::initializer_list<String> const & values) {
+		// TODO: Implement.
+		return string;
 	}
 
-	String::String(Ona::Chars const & chars) {
-		if (chars.length > StaticBufferSize) {
-			this->buffer.dynamic = new uint8_t[sizeof(AtomicU32) + chars.length];
-
-			if (this->buffer.dynamic) {
-				reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->Store(1);
-				this->size = chars.length;
-				this->length = 0;
-
-				for (size_t i = 0; (i < chars.length); i += 1) {
-					this->length += ((chars.At(i) & 0xC0) != 0x80);
-				}
-
-				CopyMemory(Slice<uint8_t>{
-					.length = this->size,
-					.pointer = (this->buffer.dynamic + sizeof(AtomicU32)),
-				}, chars.Bytes());
-			}
-		} else {
-			this->size = chars.length;
-			this->length = 0;
-
-			for (size_t i = 0; (i < chars.length); i += 1) {
-				this->length += ((chars.At(i) & 0xC0) != 0x80);
-			}
-
-			CopyMemory(Slice<uint8_t>{
-				.length = this->size,
-				.pointer = this->buffer.static_,
-			}, chars.Bytes());
-		}
-	}
-
-	String::String(char const c, uint32_t const count) {
-		if (count > StaticBufferSize) {
-			this->buffer.dynamic = new uint8_t[sizeof(AtomicU32) + count];
-
-			if (this->buffer.dynamic) {
-				reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->Store(1);
-				this->size = count;
-				this->length = count;
-
-				WriteMemory(Slice<uint8_t>{
-					.length = this->size,
-					.pointer = (this->buffer.dynamic + sizeof(AtomicU32)),
-				}, c);
-			}
-		} else {
-			this->size = count;
-			this->length = count;
-
-			WriteMemory(Slice<uint8_t>{
-				.length = this->size,
-				.pointer = this->buffer.static_,
-			}, c);
-		}
-	}
-
-	String::String(String const & that) {
-		this->length = that.length;
-		this->size = that.size;
-		this->buffer = that.buffer;
-
-		if (this->IsDynamic()) {
-			reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->FetchAdd(1);
-		}
-	}
-
-	String::~String() {
-		if (this->IsDynamic()) {
-			if (reinterpret_cast<AtomicU32 *>(this->buffer.dynamic)->FetchSub(1) == 0) {
-				delete[] this->buffer.dynamic;
-			}
-		}
-	}
-
-	Slice<uint8_t const> String::Bytes() const {
-		return Slice<uint8_t const>{
-			.length = this->size,
-
-			.pointer = (
-				this->IsDynamic() ?
-				(this->buffer.dynamic + sizeof(AtomicU32)) :
-				this->buffer.static_
-			)
-		};
-	}
-
-	Chars String::Chars() const {
-		return Ona::Chars{
-			.length = this->size,
-
-			.pointer = reinterpret_cast<char const *>(
-				this->IsDynamic() ?
-				(this->buffer.dynamic + sizeof(AtomicU32)) :
-				this->buffer.static_
-			)
-		};
-	}
-
-	String String::Concat(std::initializer_list<String> const & args) {
-		uint32_t length = 0;
-		uint32_t offset = 0;
-
-		for (String const & arg : args) length += arg.Bytes().length;
-
-		String str = {'\0', length};
-
-		if (str.IsDynamic()) {
-			for (String const & arg : args) {
-				uint32_t const argLength = arg.Length();
-
-				CopyMemory(Slice<uint8_t>{
-					.length = argLength,
-					.pointer = (str.buffer.dynamic + offset)
-				}, arg.Bytes());
-
-				offset += argLength;
-			}
-		} else {
-			for (String const & arg : args) {
-				uint32_t const argLength = arg.Length();
-
-				CopyMemory(Slice<uint8_t>{
-					.length = argLength,
-					.pointer = (str.buffer.static_ + offset)
-				}, arg.Bytes());
-
-				offset += argLength;
-			}
-		}
-
-		return str;
-	}
-
-	bool String::Equals(String const & that) const {
-		return this->Bytes().Equals(that.Bytes());
-	}
-
-	uint64_t String::ToHash() const {
-		uint64_t hash = 5381;
-
-		for (auto c : this->Chars()) hash = (((hash << 5) + hash) ^ c);
-
-		return hash;
-	}
-
-	String String::ToString() const {
-		return *this;
-	}
-
-	String String::ZeroSentineled() const {
-		Ona::Chars chars = this->Chars();
-
-		if (chars.length) {
-			if (chars.At(chars.length - 1) != 0) {
-				// String is not zero-sentineled, so make a copy that is.
-				String sentineledString = {'\0', (this->size + 1)};
-
-				if (sentineledString.size) {
-					sentineledString.length = this->length;
-
-					if (this->IsDynamic()) {
-						CopyMemory(Slice<uint8_t>{
-							.length = sentineledString.length,
-							.pointer = (sentineledString.buffer.dynamic + sizeof(AtomicU32))
-						}, this->Bytes());
-					} else {
-						CopyMemory(Slice<uint8_t>{
-							.length = sentineledString.length,
-							.pointer = sentineledString.buffer.static_
-						}, this->Bytes());
-					}
-				}
-
-				return sentineledString;
-			}
-
-			return *this;
-		}
-
-		return String{'0', 1};
-	}
-
-	String DecStringSigned(int64_t value) {
+	String StringSigned(int64_t value) {
 		if (value) {
 			enum {
 				Base = 10,
@@ -253,7 +43,7 @@ namespace Ona {
 		return String{"0"};
 	}
 
-	String DecStringUnsigned(uint64_t value) {
+	String StringUnsigned(uint64_t value) {
 		if (value) {
 			enum {
 				Base = 10,
@@ -283,7 +73,7 @@ namespace Ona {
 		return String{"0"};
 	}
 
-	bool ParseSigned(String const & string, int64_t & output) {
+	bool ParseSigned(String const & string, int64_t * output) {
 		if (string.Length()) {
 			Chars chars = string.Chars();
 			int64_t result = 0;
@@ -305,7 +95,7 @@ namespace Ona {
 					result += static_cast<int64_t>((c - '0') * Pow(10, i));
 				}
 
-				output = (result * fact);
+				if (output) (*output) = (result * fact);
 
 				return true;
 			}
@@ -314,7 +104,7 @@ namespace Ona {
 		return false;
 	}
 
-	bool ParseUnsigned(String const & string, uint64_t & output) {
+	bool ParseUnsigned(String const & string, uint64_t * output) {
 		if (string.Length()) {
 			Chars chars = string.Chars();
 			uint64_t result = 0;
@@ -329,7 +119,7 @@ namespace Ona {
 					result += static_cast<uint64_t>((c - '0') * Pow(10, i));
 				}
 
-				output = result;
+				if (output) (*output) = result;
 
 				return true;
 			}
@@ -338,7 +128,7 @@ namespace Ona {
 		return false;
 	}
 
-	bool ParseFloating(String const & string, double & output) {
+	bool ParseFloating(String const & string, double * output) {
 		if (string.Length()) {
 			double result = 0;
 			Chars chars = string.Chars();
@@ -379,11 +169,26 @@ namespace Ona {
 				}
 			}
 
-			output = (result * fact);
+			if (output) (*output) = (result * fact);
 
 			return true;
 		}
 
 		return false;
+	}
+
+	bool LoadText(Stream * stream, Allocator * allocator, String * text) {
+		DynamicArray<char> buffer{allocator};
+		uint64_t textSize;
+
+		while ((textSize = stream->AvailableBytes()) != 0) {
+			if (!buffer.Resize(textSize)) return false;
+
+			if (stream->ReadUtf8(buffer.Values()) != textSize) return false;
+		}
+
+		(*text) = String{buffer.Values()};
+
+		return true;
 	}
 }

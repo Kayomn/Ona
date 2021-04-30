@@ -339,9 +339,11 @@ namespace Ona {
 			) {
 				if (spriteMaterial) {
 					// Dispatch all of the queued sprite batches.
-					spriteBatches->ForEach([spriteMaterial, &resources](
-						SpriteBatch & spriteBatch
-					) {
+					uint32_t const spriteBatchCount = spriteBatches->Count();
+
+					for (uint32_t i = 0; i < spriteBatchCount; i += 1) {
+						SpriteBatch & spriteBatch = spriteBatches->At(i);
+
 						resources.shader->WriteRenderdata(AsBytes(spriteBatch.chunk));
 
 						resources.shader->DrawPolyInstanced(
@@ -351,7 +353,7 @@ namespace Ona {
 						);
 
 						spriteBatch.count = 0;
-					});
+					}
 
 					// Pop everything but the first sprite batch.
 					spriteBatches->Pop(spriteBatches->Count() - 1);
@@ -649,6 +651,7 @@ namespace Ona {
 								glViewport(0, 0, width, height);
 
 								graphicsServer.viewportSize = Point2{width, height};
+								localGraphicsServer = &graphicsServer;
 
 								return &graphicsServer;
 							}

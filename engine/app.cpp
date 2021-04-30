@@ -2,181 +2,61 @@
 
 using namespace Ona;
 
-using ModuleInitializer = bool(*)(OnaContext const * ona);
-
-struct System {
-	void * userdata;
-
-	SystemInitializer initializer;
-
-	SystemProcessor processor;
-
-	SystemFinalizer finalizer;
-};
-
-static PackedStack<Library> modules = {DefaultAllocator()};
-
-static PackedStack<System> systems = {DefaultAllocator()};
-
-static GraphicsServer * graphicsServer = nullptr;
-
-static OnaContext const context = {
-	.defaultAllocator = DefaultAllocator,
-
-	.channelClose = [](Channel * * channel) {
-		CloseChannel(*channel);
-	},
-
-	.channelOpen = OpenChannel,
-
-	.channelReceive = [](
-		Channel * channel,
-		size_t outputBufferLength,
-		void * outputBufferPointer
-	) -> uint32_t {
-		return ChannelReceive(channel, Slice<uint8_t>{
-			.length = outputBufferLength,
-			.pointer = reinterpret_cast<uint8_t *>(outputBufferPointer)
-		});
-	},
-
-	.channelSend = [](
-		Channel * channel,
-		size_t inputBufferLength,
-		void const * inputBufferPointer
-	) -> uint32_t {
-		return ChannelSend(channel, Slice<uint8_t const>{
-			.length = inputBufferLength,
-			.pointer = reinterpret_cast<uint8_t const *>(inputBufferPointer)
-		});
-	},
-
-	.graphicsQueueAcquire = []() -> GraphicsQueue * {
-		return graphicsServer->AcquireQueue();
-	},
-
-	.imageSolid = [](
-		Allocator * allocator,
-		Point2 dimensions,
-		Color color,
-		Image * result
-	) -> ImageError {
-		return Image::Solid(allocator, dimensions, color, *result);
-	},
-
-	.imageFree = [](Image * image) {
-		image->Free();
-	},
-
-	.imageLoad = [](
-		Allocator * allocator,
-		String const * fileName,
-		Image * result
-	) -> ImageLoadError {
-		return LoadImage(allocator, *fileName, result);
-	},
-
-	.materialFree = [](Material * * material) {
-		graphicsServer->DeleteMaterial(*material);
-	},
-
-	.materialNew = [](Image const * image) -> Material * {
-		return graphicsServer->CreateMaterial(*image);
-	},
-
-	.renderSprite = [](
-		GraphicsQueue * graphicsQueue,
-		Material * spriteMaterial,
-		Sprite const * sprite
-	) {
-		graphicsQueue->RenderSprite(spriteMaterial, *sprite);
-	},
-
-	.spawnSystem = [](SystemInfo const * info) -> bool {
-		void * userdata = DefaultAllocator()->Allocate(info->size);
-
-		if (userdata && systems.Push(System{
-			.userdata = userdata,
-			.initializer = info->init,
-			.processor = info->process,
-			.finalizer = info->exit,
-		})) {
-			return true;
-		}
-
-		return false;
-	},
-
-	.stringAssign = [](String * destinationString, char const * value) {
-		(*destinationString) = String{value};
-	},
-
-	.stringCopy = [](String * destinationString, String const * sourceString) {
-		(*destinationString) = (*sourceString);
-	},
-
-	.stringDestroy = [](String * string) {
-		string->~String();
-	},
-};
-
 int main(int argv, char const * const * argc) {
 	constexpr Vector2 DisplaySizeDefault = Vector2{640, 480};
 	String displayNameDefault = String{"Ona"};
 	Allocator * defaultAllocator = DefaultAllocator();
+	PackedStack<Module *> modules = {defaultAllocator};
+	String modulesPath = {"./modules/"};
 
 	RegisterImageLoader(String{"bmp"}, LoadBitmap);
-	RegisterGraphicsLoader(String{"opengl"}, LoadOpenGL);
 
-	EnumerateFiles(String{"modules"}, [](String const & fileName) {
-		Library moduleLibrary;
+	EnumeratePath(modulesPath, [&](String const & fileName) {
+		if (fileName.EndsWith(String{".so"})) {
+			modules.Push(new NativeModule{
+				defaultAllocator,
+				String::Concat({modulesPath, fileName})
+			});
 
-		if (OpenLibrary(String::Concat({String{"./modules/"}, fileName}), moduleLibrary)) {
-			auto initializer = reinterpret_cast<ModuleInitializer>(
-				moduleLibrary.FindSymbol(String{"OnaInit"})
-			);
-
-			if (initializer) {
-				initializer(&context);
-
-				modules.Push(moduleLibrary);
-			} else {
-				moduleLibrary.Free();
-			}
+			return;
 		}
 	});
 
+	GraphicsServer * graphicsServer = nullptr;
+
 	{
-		ConfigEnvironment configEnv = {defaultAllocator};
-		String const graphics = {"Graphics"};
-		Owned<FileContents> fileContents = {};
+		Config config = {defaultAllocator};
+		String graphics = {"Graphics"};
+		SystemStream stream = {};
 
-		if (LoadFile(
-			defaultAllocator,
-			String{"config.ona"},
-			fileContents.value
-		) == FileLoadError::None) {
-			String errorMessage = {};
+		if (stream.Open(String{"ona.cfg"}, Stream::OpenRead)) {
+			String configSource = {};
 
-			if (configEnv.Parse(
-				fileContents.value.ToString(),
-				&errorMessage
-			) != ScriptError::None) {
-				Print(errorMessage);
+			if (LoadText(&stream, defaultAllocator, &configSource)) {
+				String errorMessage = {};
+
+				if (!config.Parse(configSource, &errorMessage)) {
+					Print(errorMessage);
+				}
 			}
 		}
 
-		Vector2 const initialDisplaySize = configEnv.ReadVector2({
+		Vector2 initialDisplaySize = config.ReadVector2(
 			graphics,
-			String{"displaySize"}
-		}, 0, DisplaySizeDefault);
-
-		graphicsServer = LoadGraphics(
-			initialDisplaySize.x,
-			initialDisplaySize.y,
-			configEnv.ReadString({graphics, String{"displayTitle"}}, 0, displayNameDefault),
-			configEnv.ReadString({graphics, String{"server"}}, 0, String{"opengl"})
+			String{"displaySize"},
+			DisplaySizeDefault
 		);
+
+		String graphicsServerName = config.ReadString(graphics, String{"server"}, String{"opengl"});
+
+		if (graphicsServerName.Equals(String{"opengl"}))
+		{
+			graphicsServer = LoadOpenGL(
+				config.ReadString(graphics, String{"displayTitle"}, displayNameDefault),
+				initialDisplaySize.x,
+				initialDisplaySize.y
+			);
+		}
 	}
 
 	if (graphicsServer) {
@@ -184,31 +64,25 @@ int main(int argv, char const * const * argc) {
 
 		InitScheduler();
 
-		systems.ForEach([](System const & system) {
-			if (system.initializer) system.initializer(system.userdata, &context);
+		modules.ForEach([&](Module * module) {
+			module->Initialize();
 		});
 
 		while (graphicsServer->ReadEvents(&events)) {
 			graphicsServer->Clear();
 
-			systems.ForEach([&](System const & system) {
-				ScheduleTask([&]() {
-					system.processor(system.userdata, &context, &events);
-				});
+			modules.ForEach([&events](Module * module) {
+				module->Process(events);
 			});
 
 			WaitAllTasks();
 			graphicsServer->Update();
 		}
 
-		systems.ForEach([defaultAllocator](System const & system) {
-			if (system.finalizer) system.finalizer(system.userdata, &context);
+		modules.ForEach([](Module * module) {
+			module->Finalize();
 
-			defaultAllocator->Deallocate(system.userdata);
+			delete module;
 		});
 	}
-
-	modules.ForEach([](Library & moduleLibrary) {
-		moduleLibrary.Free();
-	});
 }

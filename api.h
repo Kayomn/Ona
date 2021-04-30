@@ -36,19 +36,6 @@ enum Key {
 	KeyZ = 0x1d,
 };
 
-enum ImageError {
-	ImageError_None = 0,
-	ImageError_UnsupportedFormat = 1,
-	ImageError_OutOfMemory = 2,
-};
-
-enum ImageLoadError {
-	ImageLoadError_None = 0,
-	ImageLoadError_FileError = 1,
-	ImageLoadError_UnsupportedFormat = 2,
-	ImageLoadError_OutOfMemory = 3,
-};
-
 struct Allocator;
 
 struct Channel;
@@ -105,6 +92,8 @@ struct Sprite {
 	struct Color tint;
 };
 
+struct GraphicsServer;
+
 #endif
 
 struct OnaContext;
@@ -115,32 +104,28 @@ struct OnaEvents {
 	bool keysHeld[512];
 };
 
-typedef void (*SystemInitializer)(void * userdata, struct OnaContext const * ona);
+typedef void (*OnaSystemInitializer)(void * userdata, struct OnaContext const * ona);
 
-typedef void (*SystemProcessor)(
+typedef void (*OnaSystemProcessor)(
 	void * userdata,
 	struct OnaContext const * ona,
 	struct OnaEvents const * events
 );
 
-typedef void (*SystemFinalizer)(void * userdata, struct OnaContext const * ona);
+typedef void (*OnaSystemFinalizer)(void * userdata, struct OnaContext const * ona);
 
-struct SystemInfo {
+struct OnaSystemInfo {
 	uint32_t size;
 
-	SystemInitializer init;
+	OnaSystemInitializer initializer;
 
-	SystemProcessor process;
+	OnaSystemProcessor processor;
 
-	SystemFinalizer exit;
+	OnaSystemFinalizer finalizer;
 };
 
 struct OnaContext {
-	struct Allocator * (*defaultAllocator)();
-
-	void (*channelClose)(struct Channel * * channel);
-
-	struct Channel * (*channelOpen)(uint32_t typeSize);
+	struct GraphicsQueue * (*acquireGraphicsQueue)(struct GraphicsServer * graphicsServer);
 
 	uint32_t (*channelReceive)(
 		struct Channel * channel,
@@ -154,26 +139,35 @@ struct OnaContext {
 		void const * inputBufferPointer
 	);
 
-	struct GraphicsQueue * (*graphicsQueueAcquire)();
+	struct Allocator * (*defaultAllocator)();
 
-	enum ImageError (*imageSolid)(
+	void (*freeChannel)(struct Channel * * channel);
+
+	void (*freeImage)(struct Image * imageResult);
+
+	void (*freeMaterial)(struct GraphicsServer * graphicsServer, struct Material * * material);
+
+	bool (*loadImageFile)(
+		struct Stream * stream,
+		struct Allocator * allocator,
+		struct Image * imageResult
+	);
+
+	bool (*loadImageSolid)(
 		struct Allocator * allocator,
 		struct Point2 dimensions,
 		struct Color fillColor,
 		struct Image * imageResult
 	);
 
-	void (*imageFree)(struct Image * imageResult);
-
-	enum ImageLoadError (*imageLoad)(
-		struct Allocator * imageAllocator,
-		struct String const * filePath,
-		struct Image * imageResult
+	struct Material * (*loadMaterialImage)(
+		struct GraphicsServer * graphicsServer,
+		struct Image const * image
 	);
 
-	void (*materialFree)(struct Material * * material);
+	struct GraphicsServer * (*localGraphicsServer)();
 
-	struct Material * (*materialNew)(struct Image const * materialImage);
+	struct Channel * (*openChannel)(uint32_t typeSize);
 
 	void (*renderSprite)(
 		struct GraphicsQueue * graphicsQueue,
@@ -181,7 +175,7 @@ struct OnaContext {
 		struct Sprite const * sprite
 	);
 
-	bool (*spawnSystem)(struct SystemInfo const * systemInfo);
+	bool (*spawnSystem)(void * module, struct OnaSystemInfo const * systemInfo);
 
 	void (*stringAssign)(String * destinationString, char const * value);
 

@@ -32,19 +32,6 @@ namespace Ona {
 		return Color{red, green, blue, 0xFF};
 	}
 
-	enum class ImageError {
-		None,
-		UnsupportedFormat,
-		OutOfMemory,
-	};
-
-	enum class ImageLoadError {
-		None,
-		FileError,
-		UnsupportedFormat,
-		OutOfMemory,
-	};
-
 	/**
 	 * Resource handle to a buffer of 32-bit RGBA pixel data.
 	 */
@@ -57,31 +44,29 @@ namespace Ona {
 
 		void Free();
 
-		static ImageError From(
-			Allocator * allocator,
-			Point2 dimensions,
-			Color * pixels,
-			Image & result
-		);
+		static bool From(Allocator * allocator, Point2 dimensions, Color * pixels, Image * result);
 
-		static ImageError Solid(
-			Allocator * allocator,
-			Point2 dimensions,
-			Color color,
-			Image & result
-		);
+		static bool Solid(Allocator * allocator, Point2 dimensions, Color color, Image * result);
 	};
 
-	ImageLoadError LoadBitmap(Allocator * imageAllocator, String filePath, Image * imageResult);
+	/**
+	 * Attempts to load bitmap-formatted image data from `stream` into `result` using `allocator`,
+	 * returning `true` if a bitmap was successfully loaded and `false` if it wasn't.
+	 */
+	bool LoadBitmap(Stream * stream, Allocator * allocator, Image * result);
 
-	using ImageLoader = ImageLoadError(*)(
-		Allocator * allocator,
-		String filePath,
-		Image * imageResult
-	);
+	using ImageLoader = bool(*)(Stream * stream, Allocator * allocator, Image * result);
 
-	ImageLoadError LoadImage(Allocator * allocator, String const & filePath, Image * imageResult);
+	/**
+	 * Attempts to load image data from `stream`, as identified by the path extension on
+	 * `SystemStream::ID`, into `result` using `allocator`.
+	 */
+	bool LoadImage(Stream * stream, Allocator * allocator, Image * result);
 
+	/**
+	 * Registers `imageLoader` as the image loader used by `LoadImage` when loading streams that can
+	 * be identified with `fileFormat` as their path extension.
+	 */
 	void RegisterImageLoader(String const & fileFormat, ImageLoader imageLoader);
 
 	struct Sprite {
@@ -147,154 +132,73 @@ namespace Ona {
 
 	GraphicsServer * LoadOpenGL(String title, int32_t width, int32_t height);
 
-	using GraphicsLoader = GraphicsServer * (*)(
-		String displayTitle,
-		int32_t displayWidth,
-		int32_t displayHeight
-	);
+	extern GraphicsServer * localGraphicsServer;
 
-	GraphicsServer * LoadGraphics(
-		int32_t displayWidth,
-		int32_t displayHeight,
-		String const & displayTitle,
-		String const & server
-	);
+	class Module : public Object {
+		public:
+		virtual void Finalize() = 0;
 
-	/**
-	 * Registers `graphicsLoader` as the loader assigned for servers that identify as `server`.
-	 */
-	void RegisterGraphicsLoader(String const & server, GraphicsLoader graphicsLoader);
+		virtual void Initialize() = 0;
 
-	enum class ScriptError {
-		None,
-		ParsingSyntax,
-		OutOfMemory,
+		virtual void Process(OnaEvents const & events) = 0;
 	};
 
-	class ConfigEnvironment final : public Object {
+	class Config final : public Object {
 		private:
 		struct Value;
 
-		HashTable<String, Value> globals;
+		HashTable<String, HashTable<String, Value> *> sections;
 
 		public:
-		ConfigEnvironment(Allocator * allocator);
+		Config(Allocator * allocator);
 
-		~ConfigEnvironment() override;
-
-		/**
-		 * Counts the number of elements in the value at `path`, returning `0` if no value exists at
-		 * the specified. Ona objects and arrays are considered "countable" types, while all other
-		 * types are regarded as having a count of `1`.
-		 */
-		uint32_t Count(std::initializer_list<String> const & path);
+		~Config() override;
 
 		/**
-		 * Parses and executes `source` as an Ona configuration file.
+		 * Parses and executes `source` as an Ona configuration file, returning `true` if parsing
+		 * was successful, otherwise `false`.
 		 *
-		 * A `ScriptError` is returned, indicating the result of parsing `source`.
-		 *
-		 * If `errorMessage` is not null and the returned value is not equal to `ScriptError::None`,
-		 * a human-readable error message may have been written to `errorMessage`.
+		 * If `errorMessage` is not null and the returned value is `false`, a human-readable error
+		 * message may have been written to `errorMessage`.
 		 */
-		ScriptError Parse(String const & source, String * errorMessage);
+		bool Parse(String const & source, String * errorMessage);
 
-		/**
-		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
-		 * the resulting boolean value at index `index`, otherwise `fallback` if the specified path
-		 * does not exist.
-		 *
-		 * For accessing single values, specify an array `index` of `0`. Attempting to index into a
-		 * non-array type at a non-zero index will fail to read the value.
-		 */
-		bool ReadBoolean(std::initializer_list<String> const & path, int32_t index, bool fallback);
-
-		/**
-		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
-		 * the resulting integer value at index `index`, otherwise `fallback` if the specified path
-		 * does not exist.
-		 *
-		 * For accessing single values, specify an array `index` of `0`. Attempting to index into a
-		 * non-array type at a non-zero index will fail to read the value.
-		 */
-		int64_t ReadInteger(
-			std::initializer_list<String> const & path,
-			int32_t index,
-			int64_t fallback
-		);
-
-		/**
-		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
-		 * the resulting floating point value at index `index`, otherwise `fallback` if the
-		 * specified path does not exist.
-		 *
-		 * For accessing single values, specify an array `index` of `0`. Attempting to index into a
-		 * non-array type at a non-zero index will fail to read the value.
-		 */
-		double ReadFloating(
-			std::initializer_list<String> const & path,
-			int32_t index,
-			double fallback
-		);
-
-		/**
-		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
-		 * the resulting `Ona::String` value at index `index`, otherwise `fallback` if the specified
-		 * path does not exist.
-		 *
-		 * For accessing single values, specify an array `index` of `0`. Attempting to index into a
-		 * non-array type at a non-zero index will fail to read the value.
-		 */
 		String ReadString(
-			std::initializer_list<String> const & path,
-			int32_t index,
+			String const & section,
+			String const & key,
 			String const & fallback
-		);
+		) const;
 
-		/**
-		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
-		 * the resulting `Ona::Vector2` value at index `index`, otherwise `fallback` if the
-		 * specified path does not exist.
-		 *
-		 * For accessing single values, specify an array `index` of `0`. Attempting to index into a
-		 * non-array type at a non-zero index will fail to read the value.
-		 */
-		Vector2 ReadVector2(
-			std::initializer_list<String> const & path,
-			int32_t index,
-			Vector2 fallback
-		);
-
-		/**
-		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
-		 * the resulting `Ona::Vector3` value at index `index`, otherwise `fallback` if the
-		 * specified path does not exist.
-		 *
-		 * For accessing single values, specify an array `index` of `0`. Attempting to index into a
-		 * non-array type at a non-zero index will fail to read the value.
-		 */
-		Vector3 ReadVector3(
-			std::initializer_list<String> const & path,
-			int32_t index,
-			Vector3 const & fallback
-		);
-
-		/**
-		 * Searches the `ConfigEnvironment` along the path node names denoted by `path`, returning
-		 * the resulting `Ona::Vector4` value at index `index`, otherwise `fallback` if the
-		 * specified path does not exist.
-		 *
-		 * For accessing single values, specify an array `index` of `0`. Attempting to index into a
-		 * non-array type at a non-zero index will fail to read the value.
-		 */
-		Vector4 ReadVector4(
-			std::initializer_list<String> const & path,
-			int32_t index,
-			Vector4 const & fallback
-		);
+		Vector2 ReadVector2(String const & section, String const & key, Vector2 fallback) const;
 	};
 
 	#include "api.h"
+
+	class NativeModule : public Module {
+		private:
+		struct System;
+
+		PackedStack<System> systems;
+
+		void * handle;
+
+		void(*initializer)(OnaContext const * context);
+
+		void(*finalizer)(OnaContext const * context);
+
+		public:
+		NativeModule(Allocator * allocator, String const & libraryPath);
+
+		~NativeModule() override;
+
+		void Finalize() override;
+
+		void Initialize() override;
+
+		void Process(OnaEvents const & events) override;
+
+		bool SpawnSystem(OnaSystemInfo const & systemInfo);
+	};
 }
 
 #endif

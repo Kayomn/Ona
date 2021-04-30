@@ -21,12 +21,7 @@ namespace Ona {
 		}
 	}
 
-	ImageError Image::From(
-		Allocator * allocator,
-		Point2 dimensions,
-		Color * pixels,
-		Image & result
-	) {
+	bool Image::From(Allocator * allocator, Point2 dimensions, Color * pixels, Image * result) {
 		if (pixels && (dimensions.x > 0) && (dimensions.y > 0)) {
 			DynamicArray<uint8_t> pixelBuffer = {allocator, (Area(dimensions) * sizeof(Color))};
 
@@ -36,27 +31,20 @@ namespace Ona {
 					.pointer = reinterpret_cast<uint8_t *>(pixels),
 				});
 
-				result = Image{
+				(*result) = Image{
 					.allocator = allocator,
 					.pixels = reinterpret_cast<Color* >(pixelBuffer.Release().pointer),
 					.dimensions = dimensions,
 				};
 
-				return ImageError::None;
+				return true;
 			}
-
-			return ImageError::OutOfMemory;
 		}
 
-		return ImageError::UnsupportedFormat;
+		return false;
 	}
 
-	ImageError Image::Solid(
-		Allocator * allocator,
-		Point2 dimensions,
-		Color color,
-		Image & result
-	) {
+	bool Image::Solid(Allocator * allocator, Point2 dimensions, Color color, Image * result) {
 		if ((dimensions.x > 0) && (dimensions.y > 0)) {
 			int64_t const pixelArea = Area(dimensions);
 			DynamicArray<uint8_t> pixelBuffer = {allocator, (pixelArea * sizeof(Color))};
@@ -70,32 +58,30 @@ namespace Ona {
 					);
 				}
 
-				result = Image{
+				(*result) = Image{
 					.allocator = allocator,
 					.pixels = reinterpret_cast<Color *>(pixelBuffer.Release().pointer),
 					.dimensions = dimensions,
 				};
 
-				return ImageError::None;
+				return true;
 			}
-
-			return ImageError::OutOfMemory;
 		}
 
-		return ImageError::UnsupportedFormat;
+		return false;
 	}
 
 	void RegisterImageLoader(String const & fileFormat, ImageLoader imageLoader) {
 		imageLoaders.Insert(fileFormat, imageLoader);
 	}
 
-	ImageLoadError LoadImage(Allocator * allocator, String const & filePath, Image * imageResult) {
-		ImageLoader * imageLoader = imageLoaders.Lookup(PathExtension(filePath));
+	bool LoadImage(Stream * stream, Allocator * allocator, Image * imageResult) {
+		ImageLoader * imageLoader = imageLoaders.Lookup(PathExtension(stream->ID()));
 
 		if (imageLoader) {
-			return (*imageLoader)(allocator, filePath, imageResult);
+			return (*imageLoader)(stream, allocator, imageResult);
 		}
 
-		return ImageLoadError::UnsupportedFormat;
+		return false;
 	}
 }

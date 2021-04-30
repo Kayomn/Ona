@@ -126,21 +126,6 @@ namespace Ona {
 			return this->count;
 		}
 
-		void ForEach(Callable<void(KeyType &, ValueType &)> const & action) {
-			uint32_t count = this->count;
-
-			for (uint32_t i = 0; count != 0; i += 1) {
-				Bucket * bucket = this->buckets.At(i);
-
-				while (bucket) {
-					action.Invoke(bucket->item.key, bucket->item.value);
-
-					count -= 1;
-					bucket = bucket->next;
-				}
-			}
-		}
-
 		void ForEach(Callable<void(KeyType const &, ValueType const &)> const & action) const {
 			uint32_t count = this->count;
 
@@ -387,10 +372,6 @@ namespace Ona {
 			return this->count;
 		}
 
-		void ForEach(Callable<void(ValueType &)> const & action) {
-			for (uint32_t i = 0; i < this->count; i += 1) action.Invoke(this->values.At(i));
-		}
-
 		void ForEach(Callable<void(ValueType const &)> const & action) const {
 			for (uint32_t i = 0; i < this->count; i += 1) action.Invoke(this->values.At(i));
 		}
@@ -494,10 +475,6 @@ namespace Ona {
 			this->count += 1;
 
 			return bufferTail;
-		}
-
-		void ForEach(Callable<void(ValueType &)> const & action) {
-			for (uint32_t i = this->head; i < this->tail; i += 1) action.Invoke(this->values.At(i));
 		}
 
 		void ForEach(Callable<void(ValueType const &)> const & action) const {
