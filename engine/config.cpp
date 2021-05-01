@@ -16,8 +16,8 @@ namespace Ona {
 
 		Type type;
 
-		static HashTable<String, Value> * MakeSection(Allocator * allocator) {
-			uint8_t * allocation = allocator->Allocate(sizeof(HashTable<String, Value>));
+		static HashTable<String, Value> * MakeSection(Allocator allocator) {
+			uint8_t * allocation = Allocate(allocator, sizeof(HashTable<String, Value>));
 
 			return (allocation ? new (allocation) HashTable<String, Value>{allocator} : nullptr);
 		}
@@ -50,7 +50,7 @@ namespace Ona {
 		}
 	};
 
-	Config::Config(Allocator * allocator) : sections{allocator} {
+	Config::Config(Allocator allocator) : sections{allocator} {
 
 	}
 
@@ -284,7 +284,7 @@ namespace Ona {
 		};
 
 		// Create the default section.
-		Allocator * allocator = this->sections.AllocatorOf();
+		Allocator allocator = this->sections.AllocatorOf();
 		HashTable<String, Value> * defaultSection = Value::MakeSection(allocator);
 
 		HashTable<String, Value> * * currentSection = this->sections.Insert(

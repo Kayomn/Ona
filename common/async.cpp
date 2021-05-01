@@ -7,8 +7,6 @@
 #include <unistd.h>
 
 namespace Ona {
-	static Allocator * allocator = DefaultAllocator();
-
 	static marl::Scheduler scheduler = {marl::Scheduler::Config{}.setWorkerThreadCount(2)};
 
 	static marl::WaitGroup waitGroup = {0};
@@ -33,7 +31,7 @@ namespace Ona {
 	};
 
 	void CloseChannel(Channel * & channel) {
-		allocator->Deallocate(channel);
+		Deallocate(Allocator::Default, channel);
 
 		channel = nullptr;
 	}
@@ -77,7 +75,7 @@ namespace Ona {
 	}
 
 	Channel * OpenChannel(uint32_t typeSize) {
-		uint8_t * channelBuffer = allocator->Allocate(sizeof(Channel) + typeSize);
+		uint8_t * channelBuffer = Allocate(Allocator::Default, sizeof(Channel) + typeSize);
 
 		return (channelBuffer ? new (channelBuffer) Channel{typeSize} : nullptr);
 	}

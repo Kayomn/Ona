@@ -16,7 +16,7 @@ namespace Ona {
 
 		static constexpr uint32_t defaultHashSize = 256;
 
-		Allocator * allocator;
+		Allocator allocator;
 
 		uint32_t count;
 
@@ -35,7 +35,7 @@ namespace Ona {
 				return bucket;
 			} else {
 				Bucket * bucket = reinterpret_cast<Bucket *>(
-					this->allocator->Allocate(sizeof(Bucket))
+					Allocate(this->allocator, sizeof(Bucket))
 				);
 
 				if (bucket) {
@@ -49,7 +49,7 @@ namespace Ona {
 		}
 
 		public:
-		HashTable(Allocator * allocator) :
+		HashTable(Allocator allocator) :
 			allocator{allocator},
 			count{},
 			buckets{},
@@ -63,7 +63,7 @@ namespace Ona {
 
 					bucket->item.key.~KeyType();
 					bucket->item.value.~ValueType();
-					this->allocator->Deallocate(bucket);
+					Deallocate(this->allocator, bucket);
 
 					bucket = nextBucket;
 				}
@@ -83,10 +83,10 @@ namespace Ona {
 				}
 			}
 
-			this->allocator->Deallocate(this->buckets.pointer);
+			Deallocate(this->allocator, this->buckets.pointer);
 		}
 
-		Allocator * AllocatorOf() {
+		Allocator AllocatorOf() {
 			return this->allocator;
 		}
 
@@ -217,7 +217,8 @@ namespace Ona {
 		bool Rehash(uint32_t tableSize) {
 			Slice<Bucket *> oldBuckets = this->buckets;
 
-			this->buckets.pointer = reinterpret_cast<Bucket * *>(this->allocator->Allocate(
+			this->buckets.pointer = reinterpret_cast<Bucket * *>(Allocate(
+				this->allocator,
 				tableSize * sizeof(Bucket * *)
 			));
 
@@ -237,7 +238,7 @@ namespace Ona {
 						}
 					}
 
-					this->allocator->Deallocate(oldBuckets.pointer);
+					Deallocate(this->allocator, oldBuckets.pointer);
 				}
 
 				return true;
@@ -314,22 +315,22 @@ namespace Ona {
 
 	template<typename ValueType> class PackedStack final : public Object {
 		private:
-		Allocator * allocator;
+		Allocator allocator;
 
 		uint32_t count;
 
 		Slice<ValueType> values;
 
 		public:
-		PackedStack(Allocator * allocator) : allocator{allocator}, values{}, count{} { }
+		PackedStack(Allocator allocator) : allocator{allocator}, values{}, count{} { }
 
 		~PackedStack() override {
 			for (uint32_t i = 0; i < this->count; i += 1) this->values.At(i).~ValueType();
 
-			this->allocator->Deallocate(this->values.pointer);
+			Deallocate(this->allocator, this->values.pointer);
 		}
 
-		Allocator * AllocatorOf() {
+		Allocator AllocatorOf() {
 			return this->allocator;
 		}
 
@@ -407,7 +408,8 @@ namespace Ona {
 		bool Reserve(uint32_t capacity) {
 			uint32_t const newLength = (this->values.length + capacity);
 
-			this->values.pointer = reinterpret_cast<ValueType *>(this->allocator->Reallocate(
+			this->values.pointer = reinterpret_cast<ValueType *>(Reallocate(
+				this->allocator,
 				this->values.pointer,
 				(newLength * sizeof(ValueType))
 			));
@@ -421,7 +423,7 @@ namespace Ona {
 	};
 
 	template<typename ValueType> class PackedQueue final : public Object {
-		Allocator * allocator;
+		Allocator allocator;
 
 		uint32_t count;
 
@@ -433,7 +435,7 @@ namespace Ona {
 
 		public:
 		PackedQueue(
-			Allocator * allocator
+			Allocator allocator
 		) : allocator{allocator}, count{}, buffer{}, tail{}, head{} {
 
 		}

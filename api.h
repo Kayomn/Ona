@@ -36,7 +36,9 @@ enum Key {
 	KeyZ = 0x1d,
 };
 
-struct Allocator;
+enum Allocator {
+	Allocator_Default,
+};
 
 struct Channel;
 
@@ -79,7 +81,7 @@ struct Vector3 {
 };
 
 struct Image {
-	Allocator * allocator;
+	Allocator allocator;
 
 	Color * pixels;
 
@@ -139,22 +141,16 @@ struct OnaContext {
 		void const * inputBufferPointer
 	);
 
-	struct Allocator * (*defaultAllocator)();
-
 	void (*freeChannel)(struct Channel * * channel);
 
 	void (*freeImage)(struct Image * imageResult);
 
 	void (*freeMaterial)(struct GraphicsServer * graphicsServer, struct Material * * material);
 
-	bool (*loadImageFile)(
-		struct Stream * stream,
-		struct Allocator * allocator,
-		struct Image * imageResult
-	);
+	bool (*loadImageFile)(struct Stream * stream, Allocator allocator, struct Image * imageResult);
 
 	bool (*loadImageSolid)(
-		struct Allocator * allocator,
+		Allocator allocator,
 		struct Point2 dimensions,
 		struct Color fillColor,
 		struct Image * imageResult

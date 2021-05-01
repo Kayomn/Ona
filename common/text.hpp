@@ -59,5 +59,5 @@ namespace Ona {
 	 */
 	bool ParseFloating(String const & string, double * output);
 
-	bool LoadText(Stream * stream, Allocator * allocator, String * text);
+	bool LoadText(Stream * stream, Allocator allocator, String * text);
 }

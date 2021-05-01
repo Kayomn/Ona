@@ -258,15 +258,6 @@ namespace Ona {
 		Object & operator=(Object const &) = delete;
 	};
 
-	class Allocator : public Object {
-		public:
-		virtual uint8_t * Allocate(size_t size) = 0;
-
-		virtual void Deallocate(void * allocation) = 0;
-
-		virtual uint8_t * Reallocate(void * allocation, size_t size) = 0;
-	};
-
 	/**
 	 * Reference-counted, UTF-8-encoded character sequence.
 	 *
@@ -487,5 +478,12 @@ namespace Ona {
 		uint32_t Load() const;
 
 		void Store(uint32_t value);
+	};
+
+	/**
+	 * Identifier for memory allocation strategies.
+	 */
+	enum class Allocator {
+		Default,
 	};
 }

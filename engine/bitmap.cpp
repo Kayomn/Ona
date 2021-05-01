@@ -1,7 +1,7 @@
 #include "engine.hpp"
 
 namespace Ona {
-	bool LoadBitmap(Stream * stream, Allocator * allocator, Image * imageResult) {
+	bool LoadBitmap(Stream * stream, Allocator allocator, Image * imageResult) {
 		struct $packed FileHeader {
 			uint16_t signature;
 

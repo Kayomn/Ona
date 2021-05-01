@@ -36,7 +36,7 @@ namespace Ona {
 	 * Resource handle to a buffer of 32-bit RGBA pixel data.
 	 */
 	struct Image {
-		Allocator * allocator;
+		Allocator allocator;
 
 		Color * pixels;
 
@@ -44,24 +44,24 @@ namespace Ona {
 
 		void Free();
 
-		static bool From(Allocator * allocator, Point2 dimensions, Color * pixels, Image * result);
+		static bool From(Allocator allocator, Point2 dimensions, Color * pixels, Image * result);
 
-		static bool Solid(Allocator * allocator, Point2 dimensions, Color color, Image * result);
+		static bool Solid(Allocator allocator, Point2 dimensions, Color color, Image * result);
 	};
 
 	/**
 	 * Attempts to load bitmap-formatted image data from `stream` into `result` using `allocator`,
 	 * returning `true` if a bitmap was successfully loaded and `false` if it wasn't.
 	 */
-	bool LoadBitmap(Stream * stream, Allocator * allocator, Image * result);
+	bool LoadBitmap(Stream * stream, Allocator allocator, Image * result);
 
-	using ImageLoader = bool(*)(Stream * stream, Allocator * allocator, Image * result);
+	using ImageLoader = bool(*)(Stream * stream, Allocator allocator, Image * result);
 
 	/**
 	 * Attempts to load image data from `stream`, as identified by the path extension on
 	 * `SystemStream::ID`, into `result` using `allocator`.
 	 */
-	bool LoadImage(Stream * stream, Allocator * allocator, Image * result);
+	bool LoadImage(Stream * stream, Allocator allocator, Image * result);
 
 	/**
 	 * Registers `imageLoader` as the image loader used by `LoadImage` when loading streams that can
@@ -150,7 +150,7 @@ namespace Ona {
 		HashTable<String, HashTable<String, Value> *> sections;
 
 		public:
-		Config(Allocator * allocator);
+		Config(Allocator allocator);
 
 		~Config() override;
 
@@ -187,7 +187,7 @@ namespace Ona {
 		void(*finalizer)(OnaContext const * context);
 
 		public:
-		NativeModule(Allocator * allocator, String const & libraryPath);
+		NativeModule(Allocator allocator, String const & libraryPath);
 
 		~NativeModule() override;
 

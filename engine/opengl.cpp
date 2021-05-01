@@ -314,7 +314,7 @@ namespace Ona {
 
 		HashTable<Material *, PackedStack<SpriteBatch> *> spriteBatchSets;
 
-		OpenGLGraphicsQueue(Allocator * allocator) : spriteBatchSets{allocator}, depthSort{} {
+		OpenGLGraphicsQueue(Allocator allocator) : spriteBatchSets{allocator}, depthSort{} {
 
 		}
 
@@ -368,7 +368,7 @@ namespace Ona {
 				material,
 
 				[]() -> PackedStack<SpriteBatch> * {
-					auto spriteBatches = new PackedStack<SpriteBatch>{DefaultAllocator()};
+					auto spriteBatches = new PackedStack<SpriteBatch>{Allocator::Default};
 
 					spriteBatches->Push(SpriteBatch{});
 
@@ -436,7 +436,7 @@ namespace Ona {
 
 		SDL_Event sdlEvent;
 
-		OpenGlGraphicsServer(Allocator * allocator) : queues{allocator} {
+		OpenGlGraphicsServer(Allocator allocator) : queues{allocator} {
 
 		}
 
@@ -582,7 +582,7 @@ namespace Ona {
 				WindowFlags = (SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL)
 			};
 
-			static OpenGlGraphicsServer graphicsServer = {DefaultAllocator()};
+			static OpenGlGraphicsServer graphicsServer = {Allocator::Default};
 
 			// Fixes a bug on KDE desktops where launching the process disables the default
 			// compositor.

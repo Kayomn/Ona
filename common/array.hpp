@@ -94,7 +94,7 @@ namespace Ona {
 	 * change the number of elements at runtime.
 	 */
 	template<typename Type> class DynamicArray final : public Array<Type> {
-		Allocator * allocator;
+		Allocator allocator;
 
 		Slice<Type> buffer;
 
@@ -102,7 +102,7 @@ namespace Ona {
 		/**
 		 * Assigns `allocator` to a zero-length array of `Type` for use when resizing.
 		 */
-		DynamicArray(Allocator * allocator) : allocator{allocator}, buffer{} {
+		DynamicArray(Allocator allocator) : allocator{allocator}, buffer{} {
 
 		}
 
@@ -110,9 +110,9 @@ namespace Ona {
 		 * Allocates a buffer using `allocator` of `length` elements and initializes it with the
 		 * default contents of `Type`.
 		 */
-		DynamicArray(Allocator * allocator, size_t length) : allocator{allocator} {
+		DynamicArray(Allocator allocator, size_t length) : allocator{allocator} {
 			this->buffer = Slice<Type>{.pointer = reinterpret_cast<Type *>(
-				this->allocator->Allocate(sizeof(Type) * length)
+				Allocate(this->allocator, sizeof(Type) * length)
 			)};
 
 			if (this->buffer.pointer != nullptr) {
@@ -125,7 +125,7 @@ namespace Ona {
 
 		~DynamicArray() override {
 			if (this->buffer.pointer) {
-				this->allocator->Deallocate(this->buffer.pointer);
+				Deallocate(this->allocator, this->buffer.pointer);
 
 				// Destruct array contents.
 				for (size_t i = 0; i < this->buffer.length; i += 1) this->buffer.At(i).~Type();
@@ -176,7 +176,7 @@ namespace Ona {
 		 */
 		bool Resize(size_t length) {
 			this->buffer.pointer = reinterpret_cast<Type *>(
-				this->allocator->Reallocate(this->buffer.pointer, sizeof(Type) * length)
+				Reallocate(this->allocator, this->buffer.pointer, sizeof(Type) * length)
 			);
 
 			bool const allocationSucceeded = (this->buffer.pointer != nullptr);
@@ -211,7 +211,7 @@ namespace Ona {
 	 * the buffer is re-allocated dynamically using the `Ona::Allocator` if any.
 	 */
 	template<typename Type, size_t Len> class InlineArray final : public Array<Type> {
-		Allocator * allocator;
+		Allocator allocator;
 
 		union {
 			Slice<Type> dynamic;
@@ -223,7 +223,7 @@ namespace Ona {
 		/**
 		 * Assigns `allocator` to a zero-length array of `Type` for use when resizing.
 		 */
-		InlineArray(Allocator * allocator) : allocator{allocator}, buffer{} {
+		InlineArray(Allocator allocator) : allocator{allocator}, buffer{} {
 			// TODO(Kayomn): Implement.
 		}
 
@@ -231,7 +231,7 @@ namespace Ona {
 		 * Allocates a buffer using `allocator` of `length` elements and initializes it with the
 		 * default contents of `Type`.
 		 */
-		InlineArray(Allocator * allocator, size_t length) : allocator{allocator} {
+		InlineArray(Allocator allocator, size_t length) : allocator{allocator} {
 			// TODO(Kayomn): Implement.
 		}
 

@@ -177,7 +177,7 @@ namespace Ona {
 		return false;
 	}
 
-	bool LoadText(Stream * stream, Allocator * allocator, String * text) {
+	bool LoadText(Stream * stream, Allocator allocator, String * text) {
 		DynamicArray<char> buffer{allocator};
 		uint64_t textSize;
 

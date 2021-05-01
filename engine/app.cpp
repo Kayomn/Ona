@@ -5,8 +5,7 @@ using namespace Ona;
 int main(int argv, char const * const * argc) {
 	constexpr Vector2 DisplaySizeDefault = Vector2{640, 480};
 	String displayNameDefault = String{"Ona"};
-	Allocator * defaultAllocator = DefaultAllocator();
-	PackedStack<Module *> modules = {defaultAllocator};
+	PackedStack<Module *> modules = {Allocator::Default};
 	String modulesPath = {"./modules/"};
 
 	RegisterImageLoader(String{"bmp"}, LoadBitmap);
@@ -14,7 +13,7 @@ int main(int argv, char const * const * argc) {
 	EnumeratePath(modulesPath, [&](String const & fileName) {
 		if (fileName.EndsWith(String{".so"})) {
 			modules.Push(new NativeModule{
-				defaultAllocator,
+				Allocator::Default,
 				String::Concat({modulesPath, fileName})
 			});
 
@@ -25,14 +24,14 @@ int main(int argv, char const * const * argc) {
 	GraphicsServer * graphicsServer = nullptr;
 
 	{
-		Config config = {defaultAllocator};
+		Config config = {Allocator::Default};
 		String graphics = {"Graphics"};
 		SystemStream stream = {};
 
 		if (stream.Open(String{"ona.cfg"}, Stream::OpenRead)) {
 			String configSource = {};
 
-			if (LoadText(&stream, defaultAllocator, &configSource)) {
+			if (LoadText(&stream, Allocator::Default, &configSource)) {
 				String errorMessage = {};
 
 				if (!config.Parse(configSource, &errorMessage)) {

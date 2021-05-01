@@ -16,7 +16,6 @@ struct SceneController {
 	Vector2 actors[ActorsMax];
 
 	void Init(OnaContext const * ona) {
-		Allocator * allocator = ona->defaultAllocator();
 		this->graphicsServer = ona->localGraphicsServer();
 		this->graphicsQueue = ona->acquireGraphicsQueue(graphicsServer);
 
@@ -30,7 +29,7 @@ struct SceneController {
 		Image actorImage = {};
 
 		if (ona->loadImageSolid(
-			allocator,
+			Allocator_Default,
 			Point2{32, 32},
 			Color{255, 255, 255, 255},
 			&actorImage

@@ -187,24 +187,21 @@ namespace Ona {
 		return destination;
 	}
 
-	Allocator * DefaultAllocator() {
-		class Mallocator final : public Allocator {
-			public:
-			uint8_t * Allocate(size_t size) override {
-				return reinterpret_cast<uint8_t *>(malloc(size));
-			}
+	uint8_t * Allocate(Allocator allocator, size_t size) {
+		switch (allocator) {
+			case Allocator::Default: return reinterpret_cast<uint8_t *>(malloc(size));
+		}
+	}
 
-			void Deallocate(void * allocation) override {
-				free(allocation);
-			}
+	uint8_t * Reallocate(Allocator allocator, void * allocation, size_t size) {
+		switch (allocator) {
+			case Allocator::Default: return reinterpret_cast<uint8_t *>(realloc(allocation, size));
+		}
+	}
 
-			uint8_t * Reallocate(void * allocation, size_t size) override {
-				return reinterpret_cast<uint8_t *>(realloc(allocation, size));
-			}
-		};
-
-		static Mallocator allocator = {};
-
-		return &allocator;
+	void Deallocate(Allocator allocator, void * allocation) {
+		switch (allocator) {
+			case Allocator::Default: free(allocation);
+		}
 	}
 }

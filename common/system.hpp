@@ -115,7 +115,28 @@ namespace Ona {
 	Slice<uint8_t> ZeroMemory(Slice<uint8_t> destination);
 
 	/**
-	 * Retrieves the default dynamic memory allocation strategy used by the system.
+	 * Attempts to allocate `size` bytes of memory using `allocator` as the allocation strategy,
+	 * returning the address of the allocated bytes or `nullptr` if there is no more memory
+	 * available.
 	 */
-	Allocator * DefaultAllocator();
+	uint8_t * Allocate(Allocator allocator, size_t size);
+
+	/**
+	 * Attempts to re-allocate `size` bytes of existing memory in `allocation` using `allocator` as
+	 * the allocation strategy, returning the address of the allocated bytes or `nullptr` if there
+	 * is no more memory available.
+	 *
+	 * `Ona::Reallocate` may attempt to re-use the address referenced by `allocation` in the new
+	 * allocation if it is not `nullptr`. The address referenced should always be considered invalid
+	 * after the function returns, as the runtime will write `nullptr` to it regardless.
+	 *
+	 * If `allocation` is `nullptr`, `Ona::Reallocate` works identically to `Ona::Allocate`.
+	 */
+	uint8_t * Reallocate(Allocator allocator, void * allocation, size_t size);
+
+	/**
+	 * Attempts to the deallocate the memory in `allocation` using `allocator`. If `allocation` was
+	 * not allocated by `allocator`, undefined behavior will occur.
+	 */
+	void Deallocate(Allocator allocator, void * allocation);
 }

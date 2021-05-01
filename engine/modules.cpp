@@ -30,8 +30,6 @@ namespace Ona {
 			});
 		},
 
-		.defaultAllocator = DefaultAllocator,
-
 		.freeChannel = [](Channel * * channel) {
 			CloseChannel(*channel);
 		},
@@ -87,7 +85,7 @@ namespace Ona {
 	};
 
 	NativeModule::NativeModule(
-		Allocator * allocator,
+		Allocator allocator,
 		String const & libraryPath
 	) : systems{allocator} {
 		this->handle = dlopen(libraryPath.ZeroSentineled().Chars().pointer, RTLD_LAZY);
@@ -112,7 +110,7 @@ namespace Ona {
 
 	NativeModule::~NativeModule() {
 		this->systems.ForEach([allocator = this->systems.AllocatorOf()](System const & system) {
-			allocator->Deallocate(system.userdata.pointer);
+			Deallocate(allocator, system.userdata.pointer);
 		});
 
 		dlclose(this->handle);
@@ -143,7 +141,7 @@ namespace Ona {
 	}
 
 	bool NativeModule::SpawnSystem(OnaSystemInfo const & systemInfo) {
-		uint8_t * systemData = this->systems.AllocatorOf()->Allocate(systemInfo.size);
+		uint8_t * systemData = Allocate(this->systems.AllocatorOf(), systemInfo.size);
 
 		if (systemData) {
 			System * system = this->systems.Push(System{
