@@ -369,6 +369,74 @@ namespace Ona {
 		String ZeroSentineled() const;
 	};
 
+	template<typename Type> class Array : public Object {
+		public:
+		/**
+		 * Retrieves the value by reference at `index`.
+		 *
+		 * Specifying an invalid `index` will result in a runtime error.
+		 */
+		virtual Type & At(size_t index) = 0;
+
+		/**
+		 * Retrieves the value by reference at `index`.
+		 *
+		 * Specifying an invalid `index` will result in a runtime error.
+		 */
+		virtual Type const & At(size_t index) const = 0;
+
+		/**
+		 * Gets the number of elements in the `Array`.
+		 */
+		virtual size_t Length() const = 0;
+
+		/**
+		 * Gets a pointer to the head of the `Array`.
+		 */
+		virtual Type * Pointer() = 0;
+
+		/**
+		 * Gets a pointer to the head of the `Array`.
+		 */
+		virtual Type const * Pointer() const = 0;
+
+		/**
+		 * Creates a `Slice` of the `Array` from element `a` of `b` elements long.
+		 *
+		 * Once the `Array` exits scope then the `Slice` should be considered invalid.
+		 *
+		 * Specifying an invalid range with `a` and `b` will result in a runtime error.
+		 */
+		virtual Slice<Type> Sliced(size_t a, size_t b) = 0;
+
+		/**
+		 * Creates a `Slice` of the `Array` from element `a` of `b` elements long.
+		 *
+		 * Once the `Array` exits scope then the `Slice` should be considered invalid.
+		 *
+		 * Specifying an invalid range with `a` and `b` will result in a runtime error.
+		 */
+		virtual Slice<Type const> Sliced(size_t a, size_t b) const = 0;
+
+		/**
+		 * Creates a `Slice` of all elements in the `Array`.
+		 *
+		 * Once the `Array` exits scope then the `Slice` should be considered invalid.
+		 *
+		 * Specifying an invalid range with `a` and `b` will result in a runtime error.
+		 */
+		virtual Slice<Type> Values() = 0;
+
+		/**
+		 * Creates a `Slice` of all elements in the `Array`.
+		 *
+		 * Once the `Array` exits scope then the `Slice` should be considered invalid.
+		 *
+		 * Specifying an invalid range with `a` and `b` will result in a runtime error.
+		 */
+		virtual Slice<Type const> Values() const = 0;
+	};
+
 	/**
 	 * Common interface for interfacing with "stream-like" APIs like the filesystem and file
 	 * servers.
