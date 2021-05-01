@@ -3,72 +3,9 @@
 
 #include "common.hpp"
 
+#include "engine/image.hpp"
+
 namespace Ona {
-	/**
-	 * 32-bit RGBA color value.
-	 */
-	struct Color {
-		uint8_t r, g, b, a;
-
-		/**
-		 * Creates a `Vector4` containing each RGBA color channel of the `Color` normalized to a
-		 * value between `0` and `1`.
-		 */
-		Vector4 Normalized() const;
-	};
-
-	/**
-	 * Creates an opaque greyscale `Color` from `value`, where `0` is absolute black and `0xFF` is
-	 * absolute white.
-	 */
-	constexpr Color Greyscale(uint8_t const value) {
-		return Color{value, value, value, 0xFF};
-	}
-
-	/**
-	 * Creates an opaque RGB `Color` from `red`, `green`, and `blue.
-	 */
-	constexpr Color RGB(uint8_t const red, uint8_t const green, uint8_t const blue) {
-		return Color{red, green, blue, 0xFF};
-	}
-
-	/**
-	 * Resource handle to a buffer of 32-bit RGBA pixel data.
-	 */
-	struct Image {
-		Allocator allocator;
-
-		Color * pixels;
-
-		Point2 dimensions;
-
-		void Free();
-
-		static bool From(Allocator allocator, Point2 dimensions, Color * pixels, Image * result);
-
-		static bool Solid(Allocator allocator, Point2 dimensions, Color color, Image * result);
-	};
-
-	/**
-	 * Attempts to load bitmap-formatted image data from `stream` into `result` using `allocator`,
-	 * returning `true` if a bitmap was successfully loaded and `false` if it wasn't.
-	 */
-	bool LoadBitmap(Stream * stream, Allocator allocator, Image * result);
-
-	using ImageLoader = bool(*)(Stream * stream, Allocator allocator, Image * result);
-
-	/**
-	 * Attempts to load image data from `stream`, as identified by the path extension on
-	 * `SystemStream::ID`, into `result` using `allocator`.
-	 */
-	bool LoadImage(Stream * stream, Allocator allocator, Image * result);
-
-	/**
-	 * Registers `imageLoader` as the image loader used by `LoadImage` when loading streams that can
-	 * be identified with `fileFormat` as their path extension.
-	 */
-	void RegisterImageLoader(String const & fileFormat, ImageLoader imageLoader);
-
 	struct Sprite {
 		Vector3 origin;
 

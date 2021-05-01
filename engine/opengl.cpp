@@ -467,7 +467,9 @@ namespace Ona {
 		}
 
 		Material * CreateMaterial(Image const & image) override {
-			if ((image.dimensions.x > 0) && (image.dimensions.y > 0)) {
+			Point2 imageDimensions = image.Dimensions();
+
+			if ((imageDimensions.x > 0) && (imageDimensions.y > 0)) {
 				GLuint textureHandle;
 
 				glCreateTextures(GL_TEXTURE_2D, 1, (&textureHandle));
@@ -476,8 +478,8 @@ namespace Ona {
 					textureHandle,
 					1,
 					GL_RGBA8,
-					image.dimensions.x,
-					image.dimensions.y
+					imageDimensions.x,
+					imageDimensions.y
 				);
 
 				// Was the texture allocated and initialized?
@@ -487,11 +489,11 @@ namespace Ona {
 						0,
 						0,
 						0,
-						image.dimensions.x,
-						image.dimensions.y,
+						imageDimensions.x,
+						imageDimensions.y,
 						GL_RGBA,
 						GL_UNSIGNED_BYTE,
-						image.pixels
+						image.Pixels().pointer
 					);
 
 					// Was the texture pixel data assigned?
@@ -503,7 +505,7 @@ namespace Ona {
 						glTextureParameteri(textureHandle, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 						return new Material{
-							.dimensions = image.dimensions,
+							.dimensions = imageDimensions,
 							.textureHandle = textureHandle,
 						};
 					}

@@ -4,7 +4,7 @@ static Channel * playerPositionChannel;
 
 struct SceneController {
 	enum {
-		ActorsMax = 32,
+		ActorsMax = 1024,
 	};
 
 	GraphicsServer * graphicsServer;
@@ -21,22 +21,25 @@ struct SceneController {
 
 		for (size_t i = 0; i < ActorsMax; i += 1) {
 			this->actors[i] = Vector2{
-				static_cast<float>(32 * i),
-				static_cast<float>(32 * i)
+				.x = static_cast<float>(32 * i),
+				.y = static_cast<float>(32 * i)
 			};
 		}
 
-		Image actorImage = {};
+		String systemPath;
 
-		if (ona->loadImageSolid(
-			Allocator_Default,
-			Point2{32, 32},
-			Color{255, 255, 255, 255},
-			&actorImage
-		)) {
-			this->actorMaterial = ona->loadMaterialImage(graphicsServer, &actorImage);
+		ona->stringAssign(&systemPath, "./Texture.bmp");
 
-			ona->freeImage(&actorImage);
+		Stream * stream = ona->openSystemStream(&systemPath, StreamAccess_Read);
+		Image * actorImage = ona->loadImageBitmap(stream, Allocator_Default);
+
+		ona->stringDestroy(&systemPath);
+		ona->freeStream(&stream);
+
+		if (actorImage) {
+			this->actorMaterial = ona->loadMaterialImage(this->graphicsServer, actorImage);
+
+			ona->freeImage(actorImage);
 		}
 	}
 

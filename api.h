@@ -5,7 +5,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifndef ONA_ENGINE_H
+#ifdef ONA_ENGINE_H
+
+using StreamAccess = Ona::Stream::AccessFlags;
+
+#else
 
 enum Key {
 	KeyA = 0x04,
@@ -40,7 +44,15 @@ enum Allocator {
 	Allocator_Default,
 };
 
+enum StreamAccess {
+	StreamAccess_Unknown = 0,
+	StreamAccess_Read = 1,
+	StreamAccess_Write = 2,
+};
+
 struct Channel;
+
+struct Stream;
 
 struct GraphicsQueue;
 
@@ -147,13 +159,14 @@ struct OnaContext {
 
 	void (*freeMaterial)(struct GraphicsServer * graphicsServer, struct Material * * material);
 
-	bool (*loadImageFile)(struct Stream * stream, Allocator allocator, struct Image * imageResult);
+	void (*freeStream)(struct Stream * * stream);
 
-	bool (*loadImageSolid)(
-		Allocator allocator,
-		struct Point2 dimensions,
+	struct Image * (*loadImageBitmap)(struct Stream * stream, Allocator allocator);
+
+	struct Image * (*loadImageSolid)(
 		struct Color fillColor,
-		struct Image * imageResult
+		struct Point2 dimensions,
+		Allocator allocator
 	);
 
 	struct Material * (*loadMaterialImage)(
@@ -164,6 +177,8 @@ struct OnaContext {
 	struct GraphicsServer * (*localGraphicsServer)();
 
 	struct Channel * (*openChannel)(uint32_t typeSize);
+
+	struct Stream * (*openSystemStream)(String const * systemPath, StreamAccess accessFlags);
 
 	void (*renderSprite)(
 		struct GraphicsQueue * graphicsQueue,

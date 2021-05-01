@@ -35,16 +35,42 @@ namespace Ona {
 		},
 
 		.freeImage = [](Image * image) {
-			image->Free();
+			delete image;
 		},
 
 		.freeMaterial = [](GraphicsServer * graphicsServer, Material * * material) {
 			graphicsServer->DeleteMaterial(*material);
 		},
 
-		.loadImageFile = LoadImage,
+		.freeStream = [](Stream * * stream) {
+			delete (*stream);
 
-		.loadImageSolid = Image::Solid,
+			(*stream) = nullptr;
+		},
+
+		.loadImageBitmap = [](Stream * stream, Allocator allocator) -> Image * {
+			auto image = new Image{};
+
+			if (image->LoadBitmap(stream, allocator)) {
+				return image;
+			}
+
+			delete image;
+
+			return nullptr;
+		},
+
+		.loadImageSolid = [](Color fillColor, Point2 dimensions, Allocator allocator) -> Image * {
+			auto image = new Image{};
+
+			if (image->LoadSolid(fillColor, dimensions, allocator)) {
+				return image;
+			}
+
+			delete image;
+
+			return nullptr;
+		},
 
 		.loadMaterialImage = [](
 			GraphicsServer * graphicsServer,
@@ -58,6 +84,18 @@ namespace Ona {
 		},
 
 		.openChannel = OpenChannel,
+
+		.openSystemStream = [](String const * filePath, Stream::AccessFlags openFlags) -> Stream * {
+			auto stream = new SystemStream{};
+
+			if (stream->Open(*filePath, openFlags)) {
+				return stream;
+			}
+
+			delete stream;
+
+			return nullptr;
+		},
 
 		.renderSprite = [](
 			GraphicsQueue * graphicsQueue,

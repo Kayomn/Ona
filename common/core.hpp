@@ -437,13 +437,15 @@ namespace Ona {
 		/**
 		 * Bitflags used for indicating the access state of a `Stream`.
 		 */
-		enum OpenFlags {
-			OpenUnknown = 0,
-			OpenRead = 0x1,
-			OpenWrite = 0x2
+		enum AccessFlags {
+			AccessUnknown = 0,
+			AccessRead = 1,
+			AccessWrite = 2
 		};
 
 		virtual uint64_t AvailableBytes() = 0;
+
+		virtual void Close() = 0;
 
 		virtual String ID() = 0;
 

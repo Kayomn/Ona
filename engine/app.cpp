@@ -8,8 +8,6 @@ int main(int argv, char const * const * argc) {
 	PackedStack<Module *> modules = {Allocator::Default};
 	String modulesPath = {"./modules/"};
 
-	RegisterImageLoader(String{"bmp"}, LoadBitmap);
-
 	EnumeratePath(modulesPath, [&](String const & fileName) {
 		if (fileName.EndsWith(String{".so"})) {
 			modules.Push(new NativeModule{
@@ -28,7 +26,7 @@ int main(int argv, char const * const * argc) {
 		String graphics = {"Graphics"};
 		SystemStream stream = {};
 
-		if (stream.Open(String{"ona.cfg"}, Stream::OpenRead)) {
+		if (stream.Open(String{"ona.cfg"}, Stream::AccessRead)) {
 			String configSource = {};
 
 			if (LoadText(&stream, Allocator::Default, &configSource)) {

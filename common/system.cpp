@@ -29,12 +29,12 @@ namespace Ona {
 		return this->systemPath;
 	}
 
-	bool SystemStream::Open(String const & systemPath, Stream::OpenFlags openFlags) {
+	bool SystemStream::Open(String const & systemPath, Stream::AccessFlags accessFlags) {
 		int unixAccessFlags = 0;
 
-		if (openFlags & Stream::OpenRead) unixAccessFlags |= O_RDONLY;
+		if (accessFlags & Stream::AccessRead) unixAccessFlags |= O_RDONLY;
 
-		if (openFlags & Stream::OpenWrite) unixAccessFlags |= (O_WRONLY | O_CREAT);
+		if (accessFlags & Stream::AccessWrite) unixAccessFlags |= (O_WRONLY | O_CREAT);
 
 		/**
 		*         Read Write Execute

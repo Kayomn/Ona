@@ -25,7 +25,7 @@ namespace Ona {
 		/**
 		 * Attempts to close the stream, silently failing if there is nothing to close.
 		 */
-		void Close();
+		void Close() override;
 
 		/**
 		 * Retrieves the system path representing the stream.
@@ -33,10 +33,10 @@ namespace Ona {
 		String ID() override;
 
 		/**
-		 * Attempts to open a stream on `systemPath` with the access rules defined by `openFlags`,
+		 * Attempts to open a stream on `systemPath` with the access rules defined by `accessFlags`,
 		 * returning `true` if the stream was successful opened and `false` if it was not.
 		 */
-		bool Open(String const & systemPath, Stream::OpenFlags openFlags);
+		bool Open(String const & systemPath, Stream::AccessFlags accessFlags);
 
 		/**
 		 * Attempts to read as many bytes as will fit in `input` from the stream, returning the
