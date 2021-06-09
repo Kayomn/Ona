@@ -13,6 +13,7 @@
 	"configurations": [
 		{
 			"name": "SDL2 & GL4",
+			"targetType": "executable",
 			"sourceFiles": ["./output/sdlgl4.o"],
 			"libs": ["SDL2", "GL", "GLEW"],
 
