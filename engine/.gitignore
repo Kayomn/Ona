@@ -1,0 +1,6 @@
+# Dub-generated files
+.dub
+docs/*
+output/
+assets/
+dub.selections.json

@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "./docs",
+			"name": "Documentation"
+		},
+		{
+			"path": "./engine",
+			"name": "Engine"
+		}
+	]
+}

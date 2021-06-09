@@ -1,0 +1,44 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build application",
+			"type": "shell",
+			"command": "dub build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": "$dub-build",
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"revealProblems": "onProblem",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true,
+				"clear": true
+			}
+		},
+		{
+			"label": "Build unit tests",
+			"type": "shell",
+			"command": "dub test",
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"problemMatcher": "$dub-test",
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"revealProblems": "onProblem",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true,
+				"clear": true
+			},
+			"dependsOn": ["Build application"]
+		}
+	]
+}
