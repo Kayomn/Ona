@@ -3,7 +3,7 @@
 #include <SDL2/SDL.h>
 
 enum {
-	Batch2DVertexMax = 256,
+	Batch2DVertexMax = 512,
 };
 
 typedef struct {
@@ -158,45 +158,30 @@ void graphicsRenderSprites(GLuint textureHandle, GLuint instanceCount, Rect cons
 	};
 
 	Vector4 batchBuffer[Batch2DVertexMax] = {};
-	GLuint verticesBatched = 0;
 	GLuint instancesBatched = 0;
+	GLuint verticesBatched = 0;
 
 	while (instancesBatched < instanceCount) {
-		if ((verticesBatched + QuadVertCount) > Batch2DVertexMax) {
-			glNamedBufferSubData(
-				graphicsStore.batch2DVbo,
-				0,
-				sizeof(Vector4) * verticesBatched,
-				batchBuffer
-			);
+		GLuint const newVerticesBatched = (verticesBatched + QuadVertCount);
 
-			glBindTextureUnit(0, textureHandle);
-			glBindBuffer(GL_ARRAY_BUFFER, graphicsStore.batch2DVbo);
-			glBindVertexArray(graphicsStore.batch2DVao);
-			glUseProgram(graphicsStore.batch2DShader);
-			glDrawArrays(GL_TRIANGLES, 0, verticesBatched);
+		while ((newVerticesBatched <= Batch2DVertexMax) && (instancesBatched < instanceCount)) {
+			Rect const rect = instanceRects[instancesBatched];
 
-			verticesBatched = 0;
+			Vector2 const rectEnd = {
+				rect.origin.x + instanceRects->extent.x,
+				rect.origin.y + instanceRects->extent.y
+			};
+
+			batchBuffer[verticesBatched] = (Vector4){rectEnd.x, rectEnd.y, 1.f, 1.f};
+			batchBuffer[verticesBatched + 1] = (Vector4){rectEnd.x, rect.origin.y, 1.f, 0.f};
+			batchBuffer[verticesBatched + 2] = (Vector4){rect.origin.x, rectEnd.y, 0.f, 1.f};
+			batchBuffer[verticesBatched + 3] = (Vector4){rectEnd.x, rect.origin.y, 1.f, 0.f};
+			batchBuffer[verticesBatched + 4] = (Vector4){rect.origin.x, rect.origin.y, 0.f, 0.f};
+			batchBuffer[verticesBatched + 5] = (Vector4){rect.origin.x, rectEnd.y, 0.f, 1.f};
+			instancesBatched += 1;
+			verticesBatched = newVerticesBatched;
 		}
 
-		Rect const instanceRect = instanceRects[instancesBatched];
-
-		Vector2 const instanceRectEnd = {
-			instanceRect.origin.x + instanceRects->extent.x,
-			instanceRect.origin.y + instanceRects->extent.y
-		};
-
-		batchBuffer[instancesBatched] = (Vector4){instanceRectEnd.x, instanceRectEnd.y, 1.f, 1.f};
-		batchBuffer[instancesBatched + 1] = (Vector4){instanceRectEnd.x, instanceRect.origin.y, 1.f, 0.f};
-		batchBuffer[instancesBatched + 2] = (Vector4){instanceRect.origin.x, instanceRectEnd.y, 0.f, 1.f};
-		batchBuffer[instancesBatched + 3] = (Vector4){instanceRectEnd.x, instanceRect.origin.y, 1.f, 0.f};
-		batchBuffer[instancesBatched + 4] = (Vector4){instanceRect.origin.x, instanceRect.origin.y, 0.f, 0.f};
-		batchBuffer[instancesBatched + 5] = (Vector4){instanceRect.origin.x, instanceRectEnd.y, 0.f, 1.f};
-		verticesBatched += QuadVertCount;
-		instancesBatched += 1;
-	}
-
-	if (verticesBatched) {
 		glNamedBufferSubData(
 			graphicsStore.batch2DVbo,
 			0,
