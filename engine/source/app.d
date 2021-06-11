@@ -7,6 +7,7 @@ private import
 	ona.image,
 	ona.math,
 	ona.string,
+	std.random,
 	ona.system;
 
 public void main() {
@@ -21,16 +22,22 @@ public void main() {
 
 		if (loadedGraphics.hasValue()) {
 			auto graphics = loadedGraphics.value();
-			auto test = Image.loadBmp(SystemStream.load("./actor/default.bmp").or([]));
+			auto test = Image.loadBmp(SystemStream.load("./actor/actor.bmp").or([]));
 
 			if (test.hasValue()) {
 				auto noshirt = graphics.loadTexture(test.value());
-				scope canvas = new Canvas();
+
+				auto sprites = new Sprite[1024];
+
+				foreach (ref value; sprites) {
+					value.destinationRect.origin = Vector2(uniform(0, 1280), uniform(0, 720));
+					value.destinationRect.extent = Vector2(noshirt.dimensions);
+				}
 
 				while (graphics.poll()) {
 					graphics.clear(Color.black);
-					canvas.drawSprite(noshirt, Vector2.zero);
-					graphics.render(canvas);
+					graphics.drawSprites(noshirt, sprites);
+					graphics.render();
 				}
 
 				noshirt.close();

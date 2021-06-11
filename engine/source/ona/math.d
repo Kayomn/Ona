@@ -221,6 +221,24 @@ public struct Vector2 {
 	float x, y;
 
 	/**
+	 * Initializes the x and y components to be equal to the values in `point`.
+	 */
+	@safe @nogc
+	this(in Point2 point) pure {
+		this.x = (cast(float)point.x);
+		this.y = (cast(float)point.y);
+	}
+
+	/**
+	 * Initializes the x and y components to `x` and `y` respectively.
+	 */
+	@safe @nogc
+	this(in float x, in float y) pure {
+		this.x = x;
+		this.y = y;
+	}
+
+	/**
 	 * Linearly interpolates between the current value and `to` by `step`, returning the product.
 	 */
 	@safe @nogc

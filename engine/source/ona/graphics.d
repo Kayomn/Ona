@@ -1,21 +1,39 @@
 module ona.graphics;
 
-private import ona.functional, ona.image, ona.math, ona.stream, ona.system, std.string;
+private import
+	ona.collections.sequence,
+	ona.functional,
+	ona.image,
+	ona.math,
+	ona.system,
+	std.string;
 
-public final class Canvas {
-	private struct Sprite {
-		uint textureHandle;
+public struct Sprite {
+	Rect destinationRect;
+}
+
+public struct Texture {
+	private uint handle;
+
+	private Point2 texelDimensions;
+
+	@disable
+	this();
+
+	@safe @nogc
+	private this(in uint handle, in Point2 dimensions) pure {
+		this.handle = handle;
+		this.texelDimensions = dimensions;
 	}
 
-	private Sprite[] sprites = [];
+	@system @nogc
+	public void close() {
+		graphicsUnloadTexture(this.handle);
+	}
 
-	private Matrix[] transforms = [];
-
-	public void drawSprite(in Texture texture, in Vector2 position) {
-		auto rect = Rect(position, Vector2(texture.dimensions.x, texture.dimensions.y));
-
-		graphicsRenderSprites(texture.handle, 1, &rect);
-
+	@safe @nogc
+	public Point2 dimensions() const {
+		return this.texelDimensions;
 	}
 }
 
@@ -29,7 +47,7 @@ public final class Graphics {
 
 	@system @nogc
 	public ~this() {
-		graphicsDispose();
+		graphicsExit();
 	}
 
 	/**
@@ -38,6 +56,11 @@ public final class Graphics {
 	@system @nogc
 	public void clear(in Color clearColor) {
 		graphicsClear(clearColor.value());
+	}
+
+	@system @nogc
+	public void drawSprites(in Texture spriteTexture, scope Sprite[] sprites...) {
+		graphicsRenderSprites(spriteTexture.handle, sprites.length, sprites.ptr);
 	}
 
 	/**
@@ -50,7 +73,7 @@ public final class Graphics {
 		static Graphics graphics = null;
 
 		if (graphics is null) {
-			const (char)* vendor = graphicsLoad(toStringz(title), width, height);
+			const (char)* vendor = graphicsInit(toStringz(title), width, height);
 
 			if (vendor) {
 				immutable defaultPixel = Color.white;
@@ -92,28 +115,8 @@ public final class Graphics {
 	}
 
 	@system @nogc
-	public void render(in Canvas canvas) {
+	public void render() {
 		graphicsPresent();
-	}
-}
-
-public struct Texture {
-	private uint handle;
-
-	private Point2 dimensions;
-
-	@disable
-	this();
-
-	@safe @nogc
-	private this(in uint handle, in Point2 dimensions) pure {
-		this.handle = handle;
-		this.dimensions = dimensions;
-	}
-
-	@system @nogc
-	public void close() {
-		graphicsUnloadTexture(this.handle);
 	}
 }
 
@@ -121,10 +124,10 @@ public struct Texture {
 private extern (C) void graphicsClear(uint color);
 
 @system @nogc
-private extern (C) void graphicsDispose();
+private extern (C) void graphicsExit();
 
 @system @nogc
-private extern (C) const (char)* graphicsLoad(const (char)* title, int width, int height);
+private extern (C) const (char)* graphicsInit(const (char)* title, int width, int height);
 
 @system @nogc
 private extern (C) uint graphicsLoadTexture(
@@ -141,9 +144,9 @@ private extern (C) void graphicsPresent();
 
 @system @nogc
 private extern (C) void graphicsRenderSprites(
-	uint textureHandle,
-	uint instanceCount,
-	const (Rect)* instanceRects
+	uint textrueHandle,
+	ulong spriteCount,
+	const (Sprite)* spriteInstances
 );
 
 @system @nogc

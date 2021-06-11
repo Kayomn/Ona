@@ -4,6 +4,7 @@
 
 enum {
 	Batch2DVertexMax = 512,
+	QuadVertexCount = 6,
 };
 
 typedef struct {
@@ -11,8 +12,10 @@ typedef struct {
 } Vector2;
 
 typedef struct {
-	float x, y, z, w;
-} Vector4;
+	Vector2 xy;
+
+	Vector2 uv;
+} Vertex2D;
 
 typedef struct {
 	Vector2 origin;
@@ -20,34 +23,39 @@ typedef struct {
 	Vector2 extent;
 } Rect;
 
-static char const * batch2DVS =
-	"#version 330\n"
+typedef struct {
+	Rect destinationRect;
+} Sprite;
 
-	"in vec4 vert;\n"
+static char const * batch2DVS =
+	"#version 440\n"
+
+	"in vec2 vertXY;\n"
+	"in vec2 vertUV;\n"
 
 	"out vec2 uv;\n"
 
 	"void main() {\n"
-	"	uv = vert.zw;"
+	"	uv = vertUV;\n"
 	"	gl_Position = vec4(\n"
-	"		(vert.x / 640.0) - 1.0,\n"
-	"		1.0 - (vert.y / 360.0),\n"
+	"		(vertXY.x / 640.0) - 1.0,\n"
+	"		1.0 - (vertXY.y / 360.0),\n"
 	"		0.0,\n"
 	"		1.0\n"
 	"	);\n"
 	"}\n";
 
 static char const * batch2DFS =
-	"#version 330\n"
+	"#version 440\n"
 
 	"in vec2 uv;\n"
 
 	"out vec4 color;\n"
 
-	"uniform sampler2D tex;\n"
+	"uniform sampler2D albedo;\n"
 
 	"void main() {\n"
-		"color = texture(tex, uv);\n"
+		"color = texture(albedo, uv);\n"
 	"}\n";
 
 static struct {
@@ -62,6 +70,12 @@ static struct {
 	GLuint batch2DVao;
 
 	GLuint batch2DVbo;
+
+	GLuint batch2DAlbedoTextureHandle;
+
+	GLuint batch2DVertexCount;
+
+	Vertex2D batch2DVertices[Batch2DVertexMax];
 } graphicsStore = {0};
 
 static GLuint compileShader(const GLchar *source, GLuint shaderType) {
@@ -146,58 +160,72 @@ void graphicsClear(SDL_Color clearColor) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void graphicsDispose() {
+void graphicsExit() {
 	SDL_GL_DeleteContext(graphicsStore.glContext);
 	SDL_DestroyWindow(graphicsStore.window);
 	SDL_Quit();
 }
 
-void graphicsRenderSprites(GLuint textureHandle, GLuint instanceCount, Rect const * instanceRects) {
-	enum {
-		QuadVertCount = 6,
-	};
+void graphicsRenderSprites(
+	GLuint textureHandle,
+	GLuint64 spriteCount,
+	Sprite const * spriteInstances
+) {
+	// Second check is a sanity check that will likely be optimized out since they're both compile-
+	// time constants.
+	if (spriteCount && (QuadVertexCount <= Batch2DVertexMax)) {
+		Vertex2D vertices[Batch2DVertexMax] = {};
+		GLuint spritesDispatched = 0;
+		GLuint verticesBatched = 0;
 
-	Vector4 batchBuffer[Batch2DVertexMax] = {};
-	GLuint instancesBatched = 0;
-	GLuint verticesBatched = 0;
-
-	while (instancesBatched < instanceCount) {
-		GLuint const newVerticesBatched = (verticesBatched + QuadVertCount);
-
-		while ((newVerticesBatched <= Batch2DVertexMax) && (instancesBatched < instanceCount)) {
-			Rect const rect = instanceRects[instancesBatched];
-
-			Vector2 const rectEnd = {
-				rect.origin.x + instanceRects->extent.x,
-				rect.origin.y + instanceRects->extent.y
-			};
-
-			batchBuffer[verticesBatched] = (Vector4){rectEnd.x, rectEnd.y, 1.f, 1.f};
-			batchBuffer[verticesBatched + 1] = (Vector4){rectEnd.x, rect.origin.y, 1.f, 0.f};
-			batchBuffer[verticesBatched + 2] = (Vector4){rect.origin.x, rectEnd.y, 0.f, 1.f};
-			batchBuffer[verticesBatched + 3] = (Vector4){rectEnd.x, rect.origin.y, 1.f, 0.f};
-			batchBuffer[verticesBatched + 4] = (Vector4){rect.origin.x, rect.origin.y, 0.f, 0.f};
-			batchBuffer[verticesBatched + 5] = (Vector4){rect.origin.x, rectEnd.y, 0.f, 1.f};
-			instancesBatched += 1;
-			verticesBatched = newVerticesBatched;
-		}
-
-		glNamedBufferSubData(
-			graphicsStore.batch2DVbo,
-			0,
-			sizeof(Vector4) * verticesBatched,
-			batchBuffer
-		);
-
+		// Common resources shared between each batch.
 		glBindTextureUnit(0, textureHandle);
 		glBindBuffer(GL_ARRAY_BUFFER, graphicsStore.batch2DVbo);
 		glBindVertexArray(graphicsStore.batch2DVao);
 		glUseProgram(graphicsStore.batch2DShader);
-		glDrawArrays(GL_TRIANGLES, 0, verticesBatched);
+
+		do {
+			// Batch, batch, batch...
+			while (
+				(verticesBatched + QuadVertexCount <= Batch2DVertexMax) &&
+				(spritesDispatched < spriteCount)
+			) {
+				Rect const rect = spriteInstances[spritesDispatched].destinationRect;
+
+				Vector2 const rectEnd = {
+					rect.origin.x + rect.extent.x,
+					rect.origin.y + rect.extent.y
+				};
+
+				Vertex2D * quadVertices = (vertices + verticesBatched);
+				quadVertices[0] = (Vertex2D){{rectEnd.x, rectEnd.y}, {1.f, 1.f}};
+				quadVertices[1] = (Vertex2D){{rectEnd.x, rect.origin.y}, {1.f, 0.f}};
+				quadVertices[2] = (Vertex2D){{rect.origin.x, rectEnd.y}, {0.f, 1.f}};
+				quadVertices[3] = (Vertex2D){{rectEnd.x, rect.origin.y}, {1.f, 0.f}};
+				quadVertices[4] = (Vertex2D){{rect.origin.x, rect.origin.y}, {0.f, 0.f}};
+				quadVertices[5] = (Vertex2D){{rect.origin.x, rectEnd.y}, {0.f, 1.f}};
+				spritesDispatched += 1;
+				verticesBatched += QuadVertexCount;
+			}
+
+			// Either everything has been batched in that one batch buffer or its space was
+			// exhausted - either way, time to render.
+			glNamedBufferSubData(
+				graphicsStore.batch2DVbo,
+				0,
+				sizeof(Vertex2D) * verticesBatched,
+				vertices
+			);
+
+			glDrawArrays(GL_TRIANGLES, 0, verticesBatched);
+
+			// Now to find out if there's anything left to render.
+			verticesBatched = 0;
+		} while (spritesDispatched < spriteCount);
 	}
 }
 
-char const * graphicsLoad(char const * title, GLint width, GLint height) {
+char const * graphicsInit(char const * title, GLint width, GLint height) {
 	if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
 		enum {
 			WindowPosition = SDL_WINDOWPOS_CENTERED,
@@ -217,7 +245,7 @@ char const * graphicsLoad(char const * title, GLint width, GLint height) {
 
 		if (graphicsStore.window) {
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
 			SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 			SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
@@ -226,7 +254,6 @@ char const * graphicsLoad(char const * title, GLint width, GLint height) {
 
 			if (graphicsStore.glContext && glewInit() == GLEW_OK) {
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-				// glEnable(GL_CULL_FACE);
 				glEnable(GL_BLEND);
 				glDisable(GL_DEPTH_TEST);
 				glDisable(GL_SCISSOR_TEST);
@@ -238,11 +265,29 @@ char const * graphicsLoad(char const * title, GLint width, GLint height) {
 
 				// TODO: Tidy up.
 				glCreateBuffers(1, &graphicsStore.batch2DVbo);
-				glNamedBufferData(graphicsStore.batch2DVbo, sizeof(Vector4) * Batch2DVertexMax, NULL, GL_DYNAMIC_DRAW);
-				glVertexArrayVertexBuffer(graphicsStore.batch2DVao, 0, graphicsStore.batch2DVbo, 0, sizeof(Vector4));
-				glVertexArrayAttribFormat(graphicsStore.batch2DVao, 0, 4, GL_FLOAT, GL_FALSE, 0);
+
+				glNamedBufferData(
+					graphicsStore.batch2DVbo,
+					sizeof(Vertex2D) * Batch2DVertexMax,
+					NULL,
+					GL_DYNAMIC_DRAW
+				);
+
+				glVertexArrayVertexBuffer(
+					graphicsStore.batch2DVao,
+					0,
+					graphicsStore.batch2DVbo,
+					0,
+					sizeof(Vertex2D)
+				);
+
+				glVertexArrayAttribFormat(graphicsStore.batch2DVao, 0, 2, GL_FLOAT, GL_FALSE, 0);
+				glVertexArrayAttribFormat(graphicsStore.batch2DVao, 1, 2, GL_FLOAT, GL_FALSE, sizeof(Vector2));
+
 				glVertexArrayAttribBinding(graphicsStore.batch2DVao, 0, 0);
+				glVertexArrayAttribBinding(graphicsStore.batch2DVao, 1, 0);
 				glEnableVertexArrayAttrib(graphicsStore.batch2DVao, 0);
+				glEnableVertexArrayAttrib(graphicsStore.batch2DVao, 1);
 
 				graphicsStore.batch2DShader = getShaderProgramId(batch2DVS, batch2DFS);
 
