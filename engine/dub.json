@@ -12,13 +12,14 @@
 
 	"configurations": [
 		{
-			"name": "SDL2 & GL4",
+			"name": "GL4",
 			"targetType": "executable",
-			"sourceFiles": ["./output/sdlgl4.o"],
+			"sourceFiles": ["./output/gl4.o"],
 			"libs": ["SDL2", "GL", "GLEW"],
 
 			"preGenerateCommands": [
-				"mkdir -p ./output; cc ./source/ona/graphics/sdlgl4.c -c -o ./output/sdlgl4.o -g"
+				"mkdir -p ./output;",
+				"cc ./source/gl4.c -c -o ./output/gl4.o -g"
 			]
 		}
 	]
