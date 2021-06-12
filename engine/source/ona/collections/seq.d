@@ -1,4 +1,4 @@
-module ona.collections.sequence;
+module ona.collections.seq;
 
 private import core.memory, ona.functional, std.traits;
 
@@ -15,12 +15,18 @@ public final class PackedStack(ValueType) {
 
 	private uint valueCount;
 
-	@safe @nogc
+	/**
+	 * Initializes with a capacity of `0` and performs no internal allocations.
+	 */
+	@nogc
 	public this() {
 
 	}
 
-	@trusted @nogc
+	/**
+	 * Initializes with a capacity of `initialCapacity` with internal allocation.
+	 */
+	@nogc
 	public this(in uint initialCapacity) {
 		this.valuePointer = (cast(ValueType*)pureMalloc(ValueType.sizeof * initialCapacity));
 		assert(this.valuePointer, typeof(this).stringof ~ " construction out of memory");
@@ -31,6 +37,7 @@ public final class PackedStack(ValueType) {
 		}
 	}
 
+	@nogc
 	public ~this() {
 		static if (is(ValueType == struct) && hasElaborateDestructor!ValueType) {
 			foreach (ref value; this.valueBuffer[0 .. this.valueCount]) {
@@ -48,7 +55,7 @@ public final class PackedStack(ValueType) {
 	/**
 	 * Returns the pre-allocated capacity for more values.
 	 */
-	@safe @nogc
+	@nogc
 	public uint capacity() const pure {
 		return this.valueCapacity;
 	}
@@ -56,7 +63,7 @@ public final class PackedStack(ValueType) {
 	/**
 	 * Returns the number of values contained.
 	 */
-	@safe @nogc
+	@nogc
 	public uint count() const pure {
 		return this.valueCount;
 	}
@@ -64,7 +71,7 @@ public final class PackedStack(ValueType) {
 	/**
 	 * Clears all values, calling the elaborate destructors of any contained values in the process.
 	 */
-	@trusted @nogc
+	@nogc
 	public void clear() pure {
 		static if (is(ValueType == struct) && hasElaborateDestructor!ValueType) {
 			foreach (ref value; this.valuePointer[0 .. this.valueCount]) {
@@ -78,7 +85,7 @@ public final class PackedStack(ValueType) {
 	/**
 	 * Returns the value at `index`, asserting if `index` is not less than [PackedStack.count].
 	 */
-	@system @nogc
+	@nogc
 	public ref inout (ValueType) opIndex(in uint index) inout pure {
 		assert(index < this.valueCount, typeof(this).stringof ~ " index out of bounds");
 
@@ -89,11 +96,11 @@ public final class PackedStack(ValueType) {
 	 * Returns a non-owning view of the internal contents.
 	 *
 	 * Any subsequent mutable function called on the [PackedStack] instance should be considered to
-	 * render any current views into its contents invalid. Because of this, it is highly advised
+	 * render any existing views into its contents invalid. Because of this, it is highly advised
 	 * that a handle into its memory contents not be saved anywhere but temporary storage.
 	 */
-	@system @nogc
-	public const (ValueType)[] opSlice() inout {
+	@nogc
+	public inout (ValueType)[] opSlice() inout {
 		return this.valuePointer[0 .. this.valueCount];
 	}
 
@@ -102,10 +109,10 @@ public final class PackedStack(ValueType) {
 	 * if `a .. b` is an invalid range.
 	 *
 	 * Any subsequent mutable function called on the [PackedStack] instance should be considered to
-	 * render any current views into its contents invalid. Because of this, it is highly advised
+	 * render any existing views into its contents invalid. Because of this, it is highly advised
 	 * that a handle into its memory contents not be saved anywhere but temporary storage.
 	 */
-	@system @nogc
+	@nogc
 	public const (ValueType)[] opSlice(in uint a, in uint b) inout {
 		assert(
 			(a < this.valueCount) && (b <= this.valueCount),
@@ -118,6 +125,7 @@ public final class PackedStack(ValueType) {
 	/**
 	 * Attempts to pop the top-most value, returning it or [none] if [PackedStack.count] is `0`.
 	 */
+	@nogc
 	public Optional!ValueType pop() {
 		if (this.valueCount != 0) {
 			this.valueCount -= 1;
@@ -135,6 +143,7 @@ public final class PackedStack(ValueType) {
 	 * If the current capacity is reached, an implicit call to [PackedStack.reserve] is made,
 	 * growing by a factor of `2`.
 	 */
+	@nogc
 	public ref ValueType push(ValueType value) {
 		assert(this.valueCount < uint.max, typeof(this).stringof ~ " push overflow");
 
@@ -153,7 +162,7 @@ public final class PackedStack(ValueType) {
 	 * Grows the value capacity for more elements by `additionalCapacity`, asserting if the request
 	 * for more memory failed.
 	 */
-	@trusted @nogc
+	@nogc
 	public void reserve(in uint additionalCapacity) {
 		static if (hasIndirections!ValueType) {
 			GC.removeRange(this.valuePointer);

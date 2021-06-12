@@ -77,7 +77,6 @@ public struct Optional(Type) {
 	 * Unlike [Optional.value], this function will always return some sort of value, meaning that it
 	 * is not required to call [Optional.hasValue].
 	 */
-	@safe
 	public ref inout (Type) or(ref inout (Type) fallback) inout {
 		if (this.hasValue()) {
 			return this.payload;

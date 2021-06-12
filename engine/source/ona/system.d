@@ -29,19 +29,19 @@ public final class SystemStream : Stream {
 	/**
 	 * Initializes a stream that holds no file.
 	 */
-	@safe @nogc
+	@nogc
 	public this() {
 
 	}
 
-	@safe @nogc
+	@nogc
 	private this(in int handle, in string systemPath, in StreamAccess accessFlags) {
 		this.handle = handle;
 		this.systemPath = systemPath;
 		this.accessFlags = accessFlags;
 	}
 
-	@trusted @nogc
+	@nogc
 	public ~this() {
 		this.close();
 	}
@@ -52,7 +52,7 @@ public final class SystemStream : Stream {
 	 * Reading from and writing to the file may modify the result, so it is advised that this
 	 * function be called to update the available bytes with every stream mutation.
 	 */
-	@trusted @nogc
+	@nogc
 	public ulong availableBytes() {
 		immutable (long) cursor = this.skip(0);
 		immutable (long) length = (this.seekTail(0) - cursor);
@@ -65,7 +65,7 @@ public final class SystemStream : Stream {
 	/**
 	 * Attempts to close the stream, silently failing if there is nothing to close.
 	 */
-	@trusted @nogc
+	@nogc
 	public void close() {
 		this.flush();
 		sys.close(this.handle);
@@ -74,7 +74,7 @@ public final class SystemStream : Stream {
 	/**
 	 * Flushes any buffered write operations to the file.
 	 */
-	@trusted @nogc
+	@nogc
 	public void flush() {
 
 	}
@@ -84,7 +84,6 @@ public final class SystemStream : Stream {
 	 * buffer, returning it if all available data was successfully read, otherwise nothing, wrapped
 	 * in an [Optional].
 	 */
-	@trusted
 	public static Optional!(ubyte[]) load(in string systemPath) {
 		scope stream = new SystemStream();
 
@@ -115,7 +114,6 @@ public final class SystemStream : Stream {
 	 * by `accessFlags`, returning it if the operation was successful, otherwise nothing, wrapped in
 	 * an [Optional].
 	 */
-	@trusted
 	public bool open(in string systemPath, in StreamAccess accessFlags) {
 		int unixAccessFlags = 0;
 
@@ -141,7 +139,7 @@ public final class SystemStream : Stream {
 	/**
 	 * Returns the standard output [SystemStream].
 	 */
-	@safe @nogc
+	@nogc
 	public static SystemStream output() {
 		return outputStream;
 	}
@@ -150,7 +148,7 @@ public final class SystemStream : Stream {
 	 * Attempts to read as many bytes as will fit in `input` from the file, returning the number of
 	 * bytes actually read.
 	 */
-	@trusted @nogc
+	@nogc
 	public ulong readBytes(ubyte[] input) {
 		immutable (sys.ssize_t) bytesRead = sys.read(this.handle, input.ptr, input.length);
 
@@ -161,7 +159,7 @@ public final class SystemStream : Stream {
 	 * Repositions the file cursor to `offset` bytes relative to the beginning of the stream,
 	 * returning the number of bytes that the cursor has moved by relative to its previous position.
 	 */
-	@trusted @nogc
+	@nogc
 	public long seekHead(in long offset) {
 		immutable (sys.off_t) bytesSought = sys.lseek(this.handle, cast(sys.off_t)offset, 0);
 
@@ -172,7 +170,7 @@ public final class SystemStream : Stream {
 	 * Repositions the file cursor to `offset` bytes relative to the end of the stream, returning
 	 * the number of bytes that the cursor has moved by relative to its previous position.
 	 */
-	@trusted @nogc
+	@nogc
 	public long seekTail(in long offset) {
 		immutable (sys.off_t) bytesSought = sys.lseek(this.handle, cast(sys.off_t)offset, 2);
 
@@ -183,14 +181,14 @@ public final class SystemStream : Stream {
 	 * Repositions the file cursor to `offset` bytes relative to its current position, returning the
 	 * number of bytes that the cursor has moved by relative to its previous position.
 	 */
-	@trusted @nogc
+	@nogc
 	public long skip(in long offset) {
 		immutable (sys.off_t) bytesSought = sys.lseek(this.handle, cast(sys.off_t)offset, 1);
 
 		return ((bytesSought > -1) ? bytesSought : 0);
 	}
 
-	@safe @nogc
+	@nogc
 	public override string toString() const {
 		return this.systemPath;
 	}
@@ -199,7 +197,7 @@ public final class SystemStream : Stream {
 	 * Attempts to write as many bytes to the file as there are in `output`, returning the number of
 	 * bytes actually written.
 	 */
-	@trusted @nogc
+	@nogc
 	public ulong writeBytes(in ubyte[] output) {
 		immutable (sys.ssize_t) bytesWritten =
 			sys.write(this.handle, output.ptr, output.length);
@@ -211,7 +209,7 @@ public final class SystemStream : Stream {
 /**
  * Prints `message` to the system standard output.
  */
-@trusted @nogc
+@nogc
 public void print(in char[] message) {
 	auto outputStream = SystemStream.output();
 	ubyte[1] endline = ['\n'];

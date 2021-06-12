@@ -6,7 +6,6 @@ module ona.string;
 /**
  * Creates and returns a `string` representation of `value`.
  */
-@safe
 public string unsignedString(long value) {
 	if (value) {
 		enum base = 10;

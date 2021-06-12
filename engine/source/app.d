@@ -30,17 +30,15 @@ public void main() {
 				auto sprites = new Sprite[1024];
 
 				foreach (ref value; sprites) {
-					value.destinationRect.origin = Vector2(uniform(0, 1280), uniform(0, 720));
+					value.destinationRect.origin = Vector2(uniform(0, 1280) - 32, uniform(0, 720) - 32);
 					value.destinationRect.extent = Vector2(noshirt.dimensions);
 				}
 
 				while (graphics.poll()) {
-					graphics.clear(Color.black);
-					graphics.drawSprites(noshirt, sprites);
-					graphics.render();
+					graphics.renderClear(Color.black);
+					graphics.renderSprites(noshirt, sprites);
+					graphics.present();
 				}
-
-				noshirt.close();
 			}
 		}
 	}

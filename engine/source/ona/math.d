@@ -30,7 +30,7 @@ public struct Matrix {
 	 *
 	 * In the case of multiplication, order matters.
 	 */
-	@safe @nogc
+	@nogc
 	Matrix opBinary(string op)(in Matrix that) const pure if (op == "*") {
 		immutable (Vector4) lhs0 = this.columns[0];
 		immutable (Vector4) lhs1 = this.columns[1];
@@ -77,7 +77,7 @@ public struct Matrix {
 	 * Returns an identity [Matrix] with a 3D scale transform of `x`, `y`, and `z` along its x, y,
 	 * and z axes respectively.
 	 */
-	@safe @nogc
+	@nogc
 	static Matrix scale(in float x, in float y, in float z) pure {
 		return Matrix([
 			Vector4(x, 0, 0, 0),
@@ -90,7 +90,7 @@ public struct Matrix {
 	/**
 	 * Returns an identity [Matrix] with a 3D scale transform of `xyz` along its x, y, and z axes.
 	 */
-	@safe @nogc
+	@nogc
 	static Matrix scaleXyz(in float xyz) pure {
 		return scale(xyz, xyz, xyz);
 	}
@@ -99,7 +99,7 @@ public struct Matrix {
 	 * Returns an identity [Matrix] with a 3D translation transform of `x`, `y`, and `z` along its
 	 * x, y, and z axes respectively.
 	 */
-	@safe @nogc
+	@nogc
 	static Matrix translation(in float x, in float y, in float z) pure {
 		return Matrix([
 			Vector4(1, 0, 0, x),
@@ -145,7 +145,7 @@ public struct Quaternion {
 	/**
 	 * Creates and returns a rotation [Matrix] from the current data.
 	 */
-	@safe @nogc
+	@nogc
 	Matrix matrix() const {
 		immutable (float) a2 = (this.x * this.x);
 		immutable (float) b2 = (this.y * this.y);
@@ -186,7 +186,7 @@ public struct Rect {
 	/**
 	 * Assigns `origin` as the origin point and `extent` as the extent size.
 	 */
-	@safe @nogc
+	@nogc
 	this(in Vector2 origin, in Vector2 extent) {
 		this.origin = origin;
 		this.extent = extent;
@@ -196,7 +196,7 @@ public struct Rect {
 	 * Assigns `x` and `y` as the origin point components, with `width` and `height` as the extent
 	 * size components.
 	 */
-	@safe @nogc
+	@nogc
 	this(in float x, in float y, in float width, in float height) {
 		this.origin = Vector2(x, y);
 		this.extent = Vector2(width, height);
@@ -223,7 +223,7 @@ public struct Vector2 {
 	/**
 	 * Initializes the x and y components to be equal to the values in `point`.
 	 */
-	@safe @nogc
+	@nogc
 	this(in Point2 point) pure {
 		this.x = (cast(float)point.x);
 		this.y = (cast(float)point.y);
@@ -232,7 +232,7 @@ public struct Vector2 {
 	/**
 	 * Initializes the x and y components to `x` and `y` respectively.
 	 */
-	@safe @nogc
+	@nogc
 	this(in float x, in float y) pure {
 		this.x = x;
 		this.y = y;
@@ -241,7 +241,7 @@ public struct Vector2 {
 	/**
 	 * Linearly interpolates between the current value and `to` by `step`, returning the product.
 	 */
-	@safe @nogc
+	@nogc
 	Vector2 lerp(in Vector2 to, in float step) const pure {
 		return Vector2(
 			this.x + ((to.x - this.x) * step),
@@ -252,7 +252,7 @@ public struct Vector2 {
 	/**
 	 * Computes the arithmetic product of the current value by `that`, returning the product.
 	 */
-	@safe @nogc
+	@nogc
 	Vector2 opBinary(string op)(in float that) const pure {
 		mixin("return Vector2(this.x " ~ op ~ " that, this.y " ~ op ~ " that);");
 	}
@@ -260,7 +260,7 @@ public struct Vector2 {
 	/**
 	 * Computes the arithmetic product of the current value by `that`, returning the product.
 	 */
-	@safe @nogc
+	@nogc
 	Vector2 opBinary(string op)(in Vector2 that) const pure {
 		mixin("return Vector2(this.x " ~ op ~ " that.x, this.y " ~ op ~ " that.y);");
 	}
@@ -268,7 +268,7 @@ public struct Vector2 {
 	/**
 	 * Decomposes and returns the vector components in an array ordered `x`, `y`.
 	 */
-	@safe @nogc
+	@nogc
 	float[2] values() const pure {
 		return [this.x, this.y];
 	}
@@ -300,7 +300,7 @@ public struct Vector3 {
 	/**
 	 * Linearly interpolates between the current value and `to` by `step`, returning the product.
 	 */
-	@safe @nogc
+	@nogc
 	Vector3 lerp(in Vector3 to, in float step) const pure {
 		return Vector3(
 			this.x + ((to.x - this.x) * step),
@@ -312,7 +312,7 @@ public struct Vector3 {
 	/**
 	 * Returns a [Vector3] with `value` assigned to all components.
 	 */
-	@safe @nogc
+	@nogc
 	static Vector3 of(in float value) pure {
 		return Vector3(value, value, value);
 	}
@@ -320,7 +320,7 @@ public struct Vector3 {
 	/**
 	 * Computes the arithmetic product of the current value by `that`, returning the product.
 	 */
-	@safe @nogc
+	@nogc
 	Vector3 opBinary(string op)(in float that) const pure {
 		mixin("return Vector3(this.x " ~
 			op ~ " that, this.y " ~ op ~ " that, this.z " ~ op ~ " that);");
@@ -329,7 +329,7 @@ public struct Vector3 {
 	/**
 	 * Computes the arithmetic product of the current value by `that`, returning the product.
 	 */
-	@safe @nogc
+	@nogc
 	Vector3 opBinary(string op)(in Vector3 that) const pure {
 		mixin("return Vector3(this.x " ~
 			op ~ " that.x, this.y " ~ op ~ " that.y, this.z " ~ op ~ " that.z);");
@@ -338,7 +338,7 @@ public struct Vector3 {
 	/**
 	 * Decomposes and returns the vector components in an array ordered `x`, `y`, `z`.
 	 */
-	@safe @nogc
+	@nogc
 	float[3] values() const pure {
 		return [this.x, this.y, this.z];
 	}
@@ -369,7 +369,7 @@ public struct Vector4 {
 	/**
 	 * Linearly interpolates between the current value and `to` by `step`, returning the product.
 	 */
-	@safe @nogc
+	@nogc
 	Vector4 lerp(in Vector4 to, in float step) const pure {
 		return Vector4(
 			this.x + ((to.x - this.x) * step),
@@ -382,7 +382,7 @@ public struct Vector4 {
 	/**
 	 * Returns a [Vector4] with `value` assigned to all components.
 	 */
-	@safe @nogc
+	@nogc
 	static Vector4 of(in float value) pure {
 		return Vector4(value, value, value, value);
 	}
@@ -390,7 +390,7 @@ public struct Vector4 {
 	/**
 	 * Computes the arithmetic product of the current value by `that`, returning the product.
 	 */
-	@safe @nogc
+	@nogc
 	Vector4 opBinary(string op)(in float that) const pure {
 		mixin("return Vector3(this.x " ~ op ~ " that, this.y " ~
 				op ~ " that, this.z " ~ op ~ " that, this.w " ~ op ~ " that);");
@@ -399,7 +399,7 @@ public struct Vector4 {
 	/**
 	 * Computes the arithmetic product of the current value by `that`, returning the product.
 	 */
-	@safe @nogc
+	@nogc
 	Vector4 opBinary(string op)(in Vector4 that) const pure {
 		mixin("return Vector3(this.x " ~ op ~ " that.x, this.y " ~
 				op ~ " that.y, this.z " ~ op ~ " that.z, this.w " ~ op ~ " that.w);");
@@ -408,7 +408,7 @@ public struct Vector4 {
 	/**
 	 * Decomposes and returns the vector components in an array ordered `x`, `y`, `z`, `w`.
 	 */
-	@safe @nogc
+	@nogc
 	float[4] values() const pure {
 		return [this.x, this.y, this.z, this.w];
 	}

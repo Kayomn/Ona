@@ -35,11 +35,13 @@ static char const * batch2DVS =
 
 	"out vec2 uv;\n"
 
+	"uniform vec2 displaySize;\n"
+
 	"void main() {\n"
 	"	uv = vertUV;\n"
 	"	gl_Position = vec4(\n"
-	"		(vertXY.x / 640.0) - 1.0,\n"
-	"		1.0 - (vertXY.y / 360.0),\n"
+	"		(vertXY.x / (displaySize.x / 2)) - 1.0,\n"
+	"		1.0 - (vertXY.y / (displaySize.y / 2)),\n"
 	"		0.0,\n"
 	"		1.0\n"
 	"	);\n"
@@ -77,6 +79,13 @@ static struct {
 
 	Vertex2D batch2DVertices[Batch2DVertexMax];
 } graphicsStore = {0};
+
+static void updateDisplaySize(int width, int height) {
+	GLfloat const displaySize[2] = {(GLfloat)width, (GLfloat)height};
+
+	glUseProgram(graphicsStore.batch2DShader);
+	glUniform2fv(0, 1, displaySize);
+}
 
 static GLuint compileShader(const GLchar *source, GLuint shaderType) {
     GLuint shaderHandler;
@@ -151,7 +160,7 @@ static void logGL(
 	}
 }
 
-void graphicsClear(SDL_Color clearColor) {
+void graphicsRenderClear(SDL_Color clearColor) {
 	GLclampf const r = (clearColor.r / ((GLclampf)0xFF));
 	GLclampf const g = (clearColor.g / ((GLclampf)0xFF));
 	GLclampf const b = (clearColor.b / ((GLclampf)0xFF));
@@ -282,8 +291,7 @@ char const * graphicsInit(char const * title, GLint width, GLint height) {
 				);
 
 				glVertexArrayAttribFormat(graphicsStore.batch2DVao, 0, 2, GL_FLOAT, GL_FALSE, 0);
-				glVertexArrayAttribFormat(graphicsStore.batch2DVao, 1, 2, GL_FLOAT, GL_FALSE, sizeof(Vector2));
-
+				glVertexArrayAttribFormat(graphicsStore.batch2DVao, 1, 2, GL_FLOAT, GL_FALSE, 8);
 				glVertexArrayAttribBinding(graphicsStore.batch2DVao, 0, 0);
 				glVertexArrayAttribBinding(graphicsStore.batch2DVao, 1, 0);
 				glEnableVertexArrayAttrib(graphicsStore.batch2DVao, 0);
@@ -291,7 +299,9 @@ char const * graphicsInit(char const * title, GLint width, GLint height) {
 
 				graphicsStore.batch2DShader = getShaderProgramId(batch2DVS, batch2DFS);
 
-				return "SDL2 & OpenGL 4";
+				updateDisplaySize(width, height);
+
+				return "OpenGL 4";
 			}
 		}
 	}
@@ -345,6 +355,22 @@ GLuint graphicsLoadTexture(SDL_Color const * pixels, GLint imageWidth, GLint ima
 GLboolean graphicsPoll() {
 	while (SDL_PollEvent(&graphicsStore.eventCache)) {
 		switch (graphicsStore.eventCache.type) {
+			case SDL_WINDOWEVENT: {
+				if (
+					graphicsStore.eventCache.window.windowID ==
+					SDL_GetWindowID(graphicsStore.window)
+				) {
+					switch (graphicsStore.eventCache.window.event)  {
+						case SDL_WINDOWEVENT_SIZE_CHANGED: {
+							updateDisplaySize(
+								graphicsStore.eventCache.window.data1,
+								graphicsStore.eventCache.window.data2
+							);
+						} break;
+					}
+				}
+			} break;
+
 			case SDL_QUIT: return GL_FALSE;
 
 			default: break;

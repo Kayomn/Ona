@@ -3,7 +3,7 @@
  */
 module ona.image;
 
-import ona.functional, ona.math, ona.stream;
+import core.memory, ona.functional, ona.math, ona.stream;
 
 /**
  * 32-bit 16,581,375 color encoding with alpha channel.
@@ -60,7 +60,7 @@ public struct Color {
 	 * Assigns `red`, `green`, and `blue` as the red, green, and blue color values with an opaque
 	 * alpha.
 	 */
-	@safe @nogc
+	@nogc
 	this(in ubyte red, in ubyte green, in ubyte blue) pure {
 		this(red, green, blue, ubyte.max);
 	}
@@ -69,7 +69,7 @@ public struct Color {
 	 * Assigns `red`, `green`, `blue`, and `alpha` as the red, green, blue, and alpha values
 	 * respectively.
 	 */
-	@safe @nogc
+	@nogc
 	this(in ubyte red, in ubyte green, in ubyte blue, in ubyte alpha) pure {
 		this.r = red;
 		this.g = green;
@@ -80,7 +80,7 @@ public struct Color {
 	/**
 	 * Returns a darkened version of the r, g, b color values.
 	 */
-	@safe @nogc
+	@nogc
 	Color darkened(in float value) const pure {
 		return Color(
 			cast(ubyte)((cast(float)this.r) - (this.r * value)),
@@ -93,7 +93,7 @@ public struct Color {
 	/**
 	 * Returns a lightened version of the r, g, b color values.
 	 */
-	@safe @nogc
+	@nogc
 	Color lightened(in float value) const pure {
 		return Color(
 			cast(ubyte)(this.r * value),
@@ -107,7 +107,7 @@ public struct Color {
 	 * Returns the red, green, blue, and alpha channels as a `Vector4` of values ranging between `0`
 	 * and `1`.
 	 */
-	@safe @nogc
+	@nogc
 	Vector4 normalized() const pure {
 		immutable channelMax = (cast(float)ubyte.max);
 
@@ -122,7 +122,7 @@ public struct Color {
 	/**
 	 * Returns the raw, unique identity for the currently contained color value.
 	 */
-	@trusted @nogc
+	@nogc
 	uint value() const pure {
 		return (*cast(uint*)&this);
 	}
@@ -131,21 +131,24 @@ public struct Color {
 /**
  * CPU-bound 2D view of pixel data depicted as individual [Color] values.
  */
-public struct Image {
-	private Color[] pixelBuffer = [];
+public final class Image {
+	private Color* pixelBuffer = null;
 
 	private Point2 pixelDimensions;
 
-	@safe
+	@nogc
 	private this(in Point2 dimensions) {
+		this.pixelBuffer = (cast(Color*)pureMalloc(Color.sizeof * dimensions.x * dimensions.y));
+
+		assert(this.pixelBuffer, typeof(this).stringof ~ " construction out of memory");
+
 		this.pixelDimensions = dimensions;
-		this.pixelBuffer = new Color[dimensions.x * dimensions.y];
 	}
 
 	/**
 	 * Returns the x and y pixel dimensions of the image data.
 	 */
-	@safe @nogc
+	@nogc
 	public Point2 dimensions() const {
 		return this.pixelDimensions;
 	}
@@ -245,8 +248,8 @@ public struct Image {
 					cast(int)infoHeader.imageHeight
 				);
 
-				auto image = Image(dimensions);
-				auto pixelBuffer = (cast(ubyte[])image.pixelBuffer);
+				auto image = new Image(dimensions);
+				auto pixelBuffer = (cast(ubyte[])image[]);
 
 				// Bitmaps are formatted as BGRA and are also upside down. As I understand it, this
 				// is due to some early decisions made by mathematicians at IBM that Y increases as
@@ -331,10 +334,14 @@ public struct Image {
 	}
 
 	/**
-	 * Returns the associated pixel data in [Color] array format.
+	 * Returns a non-owning view of the internal pixel data.
+	 *
+	 * Any subsequent mutable function called on the [Image] instance should be considered to
+	 * render any existing views into its contents invalid. Because of this, it is highly advised
+	 * that a handle into its memory contents not be saved anywhere but temporary storage.
 	 */
-	@safe @nogc
-	public inout (Color)[] pixels() inout {
-		return this.pixelBuffer;
+	@nogc
+	public inout (Color)[] opIndex() inout {
+		return this.pixelBuffer[0 .. (this.pixelDimensions.x * this.pixelDimensions.y)];
 	}
 }

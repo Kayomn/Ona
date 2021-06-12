@@ -1,12 +1,15 @@
 module ona.collections.map;
 
-private import ona.functional, std.traits;
+private import core.memory, ona.functional, std.traits;
 
-public interface Map(KeyType, ValueType) {
-
-}
-
-public final class HashTable(KeyType, ValueType) : Map!(KeyType, ValueType) {
+/**
+ * Hashing map structure for indexing `ValueType` values under unique `KeyType` keys, creating
+ * "item" associations between them.
+ *
+ * `toHash` and `opEquals` member functions may be defined on `KeyType` for fine-tuned indexing
+ * behavior.
+ */
+public final class HashTable(KeyType, ValueType) {
 	private enum defaultHashSize = 256;
 
 	private struct Item {
@@ -18,32 +21,24 @@ public final class HashTable(KeyType, ValueType) : Map!(KeyType, ValueType) {
 	private struct Bucket {
 		Item item;
 
-		Bucket * next;
+		Bucket* next;
 	}
 
 	private uint itemCount = 0;
 
-	private Bucket*[] buckets = [];
+	private Bucket*[] buckets = null;
 
 	private Bucket* freeBuckets = null;
 
 	private float loadMaximum = 0;
 
-	private Bucket* createBucket(in KeyType key, ValueType value) {
-		if (this.freeBuckets) {
-			Bucket* bucket = this.freeBuckets;
-			this.freeBuckets = this.freeBuckets.next;
-			(*bucket) = Bucket(Item(key, value), null);
-
-			return bucket;
-		}
-
-		return new Bucket(Item(key, value), null);
-	}
-
+	/**
+	 * Clears all items from the contents, calling the destructors of any contained `struct` types.
+	 */
+	@nogc
 	public void clear() {
 		if (this.itemCount) {
-			for (uint i = 0; i < this.buckets.length; i += 1) {
+			foreach (i; 0 .. this.buckets.length) {
 				Bucket* rootBucket = this.buckets[i];
 
 				if (rootBucket) {
@@ -79,42 +74,34 @@ public final class HashTable(KeyType, ValueType) : Map!(KeyType, ValueType) {
 		}
 	}
 
+	/**
+	 * Returns the number of items currently held.
+	 */
+	@nogc
 	public uint count() const {
 		return this.itemCount;
 	}
 
-	public void forEach(scope void delegate(in KeyType, in ValueType) action) const {
-		uint count = this.itemCount;
-
-		for (uint i = 0; count != 0; i += 1) {
-			const (Bucket)* bucket = this.buckets[i];
-
-			while (bucket) {
-				action(bucket.item.key, bucket.item.value);
-
-				count -= 1;
-				bucket = bucket.next;
-			}
-		}
-	}
-
-	public void forValues(scope void delegate(in ValueType) action) const {
-		uint count = this.itemCount;
-
-		for (uint i = 0; count != 0; i += 1) {
-			const (Bucket)* bucket = this.buckets[i];
-
-			while (bucket) {
-				action(bucket.item.value);
-
-				count -= 1;
-				bucket = bucket.next;
-			}
-		}
-	}
-
-	@safe
+	/**
+	 * Assigns `value` to `key`, returning a reference to the inserted value.
+	 */
+	@nogc
 	public ref ValueType assign(in KeyType key, ValueType value) {
+		Bucket* createBucket(in KeyType key, ValueType value) {
+			if (this.freeBuckets) {
+				Bucket* bucket = this.freeBuckets;
+				this.freeBuckets = this.freeBuckets.next;
+				(*bucket) = Bucket(Item(key, value), null);
+
+				return bucket;
+			}
+
+			auto bucket = cast(Bucket*)pureMalloc(Bucket.sizeof);
+			(*bucket) = Bucket(Item(key, value), null);
+
+			return bucket;
+		}
+
 		if (!(this.buckets.length)) this.rehash(defaultHashSize);
 
 		immutable (uint) hash = (cast(uint)(hashOf(key) % this.buckets.length));
@@ -143,27 +130,31 @@ public final class HashTable(KeyType, ValueType) : Map!(KeyType, ValueType) {
 				}
 			}
 
-			bucket.next = this.createBucket(key, value);
+			bucket.next = createBucket(key, value);
 
 			return bucket.next.item.value;
 		}
 
-		bucket = this.createBucket(key, value);
+		bucket = createBucket(key, value);
 		this.buckets[hash] = bucket;
 		this.itemCount += 1;
 
 		return bucket.item.value;
 	}
 
-	public bool erase(in KeyType key) {
-		// TODO: Implement.
-		return false;
-	}
-
+	/**
+	 * Returns the table saturation of the items contained as a value between `0` and `1`, where `0`
+	 * is empty and `1` is complete saturation.
+	 */
+	@nogc
 	public float loadFactor() const {
 		return (this.itemCount / this.buckets.length);
 	}
 
+	/**
+	 * Looks for a value indexed by `key`, returning it, if found, or nothing wrapped in a
+	 * [Optional].
+	 */
 	public inout (Optional!ValueType) lookup(in KeyType key) inout {
 		inout (ValueType*) value = this.lookupImplementation(key);
 
@@ -174,7 +165,7 @@ public final class HashTable(KeyType, ValueType) : Map!(KeyType, ValueType) {
 		return Optional!ValueType();
 	}
 
-	@safe
+	@nogc
 	private inout (ValueType)* lookupImplementation(in KeyType key) inout {
 		if (this.buckets.length && this.itemCount) {
 			inout (Bucket)* bucket = this.buckets[hashOf(key) % this.buckets.length];
@@ -189,9 +180,15 @@ public final class HashTable(KeyType, ValueType) : Map!(KeyType, ValueType) {
 		return null;
 	}
 
+	/**
+	 * Re-generates the table for indexing items to be equal in size to `tableSize`, with lower
+	 * numbers using less memory but experiencing slower lookup speeds, and higher numbers using
+	 * more memory and faster lookup speeds.
+	 */
+	@nogc
 	public void rehash(in uint tableSize) {
 		Bucket*[] oldBuckets = this.buckets;
-		this.buckets = new Bucket*[tableSize];
+		this.buckets = (cast(Bucket**)pureMalloc((Bucket*).sizeof * tableSize))[0 .. tableSize];
 
 		if (oldBuckets.length && this.itemCount) {
 			foreach (i; 0 .. this.buckets.length)  {
@@ -204,22 +201,7 @@ public final class HashTable(KeyType, ValueType) : Map!(KeyType, ValueType) {
 				}
 			}
 		}
-	}
 
-	@safe
-	public ref ValueType require(in KeyType key, ValueType fallback) {
-		ValueType* lookupValue = this.lookupImplementation(key);
-
-		if (lookupValue) return (*lookupValue);
-
-		return this.assign(key, fallback);
-	}
-
-	public ref ValueType require(in KeyType key, scope ValueType delegate() fallbackProducer) {
-		ValueType* lookupValue = this.lookupImplementation(key);
-
-		if (lookupValue) return (*lookupValue);
-
-		return this.assign(key, fallbackProducer());
+		pureFree(oldBuckets.ptr);
 	}
 }

@@ -38,7 +38,7 @@ public struct ConfigValue {
 	/**
 	 * Stores `bool` as the held value.
 	 */
-	@trusted @nogc
+	@nogc
 	public this(in bool boolean) inout {
 		this.type = ConfigType.boolean;
 		this.store.boolean = boolean;
@@ -47,7 +47,7 @@ public struct ConfigValue {
 	/**
 	 * Stores `int` as the held value.
 	 */
-	@trusted @nogc
+	@nogc
 	public this(in int integral) inout {
 		this.type = ConfigType.integral;
 		this.store.integral = integral;
@@ -56,7 +56,7 @@ public struct ConfigValue {
 	/**
 	 * Stores `floating` as the held value.
 	 */
-	@trusted @nogc
+	@nogc
 	public this(in double floating) inout {
 		this.type = ConfigType.floating;
 		this.store.floating = floating;
@@ -65,7 +65,7 @@ public struct ConfigValue {
 	/**
 	 * Stores `str` as the held value.
 	 */
-	@trusted @nogc
+	@nogc
 	public this(in string str) inout {
 		this.type = ConfigType.string_;
 		this.store.string_ = str;
@@ -75,7 +75,7 @@ public struct ConfigValue {
 	 * Attempts to access the held value as an `int`, returning it or nothing wrapped in an
 	 * `Optional`.
 	 */
-	@trusted @nogc
+	@nogc
 	public Optional!int integerValue() const {
 		if (this.type == ConfigType.integral) {
 			return Optional!int(this.store.integral);
@@ -88,7 +88,7 @@ public struct ConfigValue {
 	 * Attempts to access the held value as a `string`, returning it or nothing wrapped in an
 	 * `Optional`.
 	 */
-	@trusted @nogc
+	@nogc
 	public Optional!string stringValue() const {
 		if (this.type == ConfigType.string_) {
 			return Optional!string(this.store.string_);
@@ -115,7 +115,7 @@ public final class Config {
 	 *
 	 * To look up values under the default section, pass an empty `string` to `sectionName`.
 	 */
-	@trusted @nogc
+	@nogc
 	public ConfigValue find(in string sectionName, in string keyName) const {
 		const (Optional!Section) lookedUpSection = this.sections.lookup(sectionName);
 
@@ -136,7 +136,6 @@ public final class Config {
 	 *
 	 * Syntax error messages are printed to standard output.
 	 */
-	@trusted
 	public bool parse(in char[] source) {
 		import std.ascii : isAlpha, isDigit;
 
@@ -296,8 +295,22 @@ public final class Config {
 			return Token("", TokenType.eof);
 		}
 
+		Section requireSection(in string sectionName) {
+			Optional!Section lookedUpSection = this.sections.lookup(sectionName);
+
+			if (lookedUpSection.hasValue()) {
+				return lookedUpSection.value();
+			}
+
+			auto section = new Section();
+
+			this.sections.assign(sectionName, section);
+
+			return section;
+		}
+
 		// Create the default section.
-		Section defaultSection = this.sections.require("", () => new Section());
+		Section defaultSection = requireSection("");
 		Section currentSection = defaultSection;
 
 		for (;;) {
@@ -330,10 +343,7 @@ public final class Config {
 							return false;
 						}
 
-						currentSection = this.sections.require(
-							idup(token.text),
-							() => new Section()
-						);
+						currentSection = requireSection(idup(token.text));
 					}
 
 					immutable (TokenType) endlTokenType = eatToken().type;
@@ -374,7 +384,10 @@ public final class Config {
 						} break valueParse;
 
 						case TokenType.stringLiteral: {
-							currentSection.assign(idup(token.text), ConfigValue(idup(valueToken.text)));
+							currentSection.assign(
+								idup(token.text),
+								ConfigValue(idup(valueToken.text))
+							);
 						} break valueParse;
 
 						case TokenType.numberLiteral: {
@@ -397,7 +410,10 @@ public final class Config {
 							immutable (Optional!double) parsedFloat = parseFloat(valueToken.text);
 
 							if (parsedFloat.hasValue()) {
-								currentSection.assign(idup(token.text), ConfigValue(parsedFloat.value()));
+								currentSection.assign(
+									idup(token.text),
+									ConfigValue(parsedFloat.value())
+								);
 
 								break valueParse;
 							}
