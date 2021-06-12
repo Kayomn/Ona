@@ -26,7 +26,9 @@ public final class HashTable(KeyType, ValueType) {
 
 	private uint itemCount = 0;
 
-	private Bucket*[] buckets = null;
+	private uint bucketCapacity = 0;
+
+	private Bucket** buckets = null;
 
 	private Bucket* freeBuckets = null;
 
@@ -38,7 +40,7 @@ public final class HashTable(KeyType, ValueType) {
 	@nogc
 	public void clear() {
 		if (this.itemCount) {
-			foreach (i; 0 .. this.buckets.length) {
+			foreach (i; 0 .. this.bucketCapacity) {
 				Bucket* rootBucket = this.buckets[i];
 
 				if (rootBucket) {
@@ -97,19 +99,22 @@ public final class HashTable(KeyType, ValueType) {
 			}
 
 			auto bucket = cast(Bucket*)pureMalloc(Bucket.sizeof);
+
+			assert(bucket, typeof(this).stringof ~ " assignment bucket creation out of memory");
+
 			(*bucket) = Bucket(Item(key, value), null);
 
 			return bucket;
 		}
 
-		if (!(this.buckets.length)) this.rehash(defaultHashSize);
+		if (!(this.bucketCapacity)) this.rehash(defaultHashSize);
 
-		immutable (uint) hash = (cast(uint)(hashOf(key) % this.buckets.length));
+		immutable (uint) hash = (cast(uint)(hashOf(key) % this.bucketCapacity));
 		Bucket* bucket = this.buckets[hash];
 
 		scope (exit) {
 			if (this.loadMaximum && (this.loadFactor() > this.loadMaximum)) {
-				this.rehash((cast(uint)this.buckets.length) * 2);
+				this.rehash((cast(uint)this.bucketCapacity) * 2);
 			}
 		}
 
@@ -148,7 +153,7 @@ public final class HashTable(KeyType, ValueType) {
 	 */
 	@nogc
 	public float loadFactor() const {
-		return (this.itemCount / this.buckets.length);
+		return (this.itemCount / this.bucketCapacity);
 	}
 
 	/**
@@ -167,8 +172,8 @@ public final class HashTable(KeyType, ValueType) {
 
 	@nogc
 	private inout (ValueType)* lookupImplementation(in KeyType key) inout {
-		if (this.buckets.length && this.itemCount) {
-			inout (Bucket)* bucket = this.buckets[hashOf(key) % this.buckets.length];
+		if (this.buckets && this.itemCount) {
+			inout (Bucket)* bucket = this.buckets[hashOf(key) % this.bucketCapacity];
 
 			if (bucket) {
 				while (!(bucket.item.key == key)) bucket = bucket.next;
@@ -187,11 +192,16 @@ public final class HashTable(KeyType, ValueType) {
 	 */
 	@nogc
 	public void rehash(in uint tableSize) {
-		Bucket*[] oldBuckets = this.buckets;
-		this.buckets = (cast(Bucket**)pureMalloc((Bucket*).sizeof * tableSize))[0 .. tableSize];
+		Bucket** oldBuckets = this.buckets;
+		immutable (uint) oldCapacity = this.bucketCapacity;
+		this.buckets = (cast(Bucket**)pureMalloc((Bucket*).sizeof * tableSize));
 
-		if (oldBuckets.length && this.itemCount) {
-			foreach (i; 0 .. this.buckets.length)  {
+		assert(this.buckets, typeof(this).stringof ~ " Rehashing out of memory");
+
+		this.bucketCapacity = tableSize;
+
+		if (oldBuckets && this.itemCount) {
+			foreach (i; 0 .. oldCapacity)  {
 				Bucket* bucket = oldBuckets[i];
 
 				while (bucket) {
@@ -202,6 +212,6 @@ public final class HashTable(KeyType, ValueType) {
 			}
 		}
 
-		pureFree(oldBuckets.ptr);
+		pureFree(oldBuckets);
 	}
 }
