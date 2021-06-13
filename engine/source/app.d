@@ -22,21 +22,20 @@ public void main() {
 
 		if (loadedGraphics.hasValue()) {
 			auto graphics = loadedGraphics.value();
-			auto test = Image.loadBmp(SystemStream.load("./actor/actor.bmp").or([]));
+			auto testImage = Image.loadBmp(SystemStream.load("./actor/actor.bmp").or([]));
 
-			if (test.hasValue()) {
-				auto noshirt = graphics.loadTexture(test.value());
-
+			if (testImage.hasValue()) {
+				auto testTexture = graphics.loadTexture(testImage.value());
 				auto sprites = new Sprite[1024];
 
 				foreach (ref value; sprites) {
 					value.destinationRect.origin = Vector2(uniform(0, 1280) - 32, uniform(0, 720) - 32);
-					value.destinationRect.extent = Vector2(noshirt.dimensions);
+					value.destinationRect.extent = testTexture.dimensions.asVector2();
 				}
 
 				while (graphics.poll()) {
 					graphics.renderClear(Color.black);
-					graphics.renderSprites(noshirt, sprites);
+					graphics.renderSprites(testTexture, sprites);
 					graphics.present();
 				}
 			}

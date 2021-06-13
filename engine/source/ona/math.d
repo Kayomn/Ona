@@ -123,6 +123,13 @@ public struct Point2 {
 	 * Point components.
 	 */
 	int x, y;
+
+	/**
+	 * Casts the x and y components to a [Vector2] and returns it.
+	 */
+	Vector2 asVector2() const {
+		return Vector2(this.x, this.y);
+	}
 }
 
 /**
@@ -219,24 +226,6 @@ public struct Vector2 {
 	 * Vector components.
 	 */
 	float x, y;
-
-	/**
-	 * Initializes the x and y components to be equal to the values in `point`.
-	 */
-	@nogc
-	this(in Point2 point) pure {
-		this.x = (cast(float)point.x);
-		this.y = (cast(float)point.y);
-	}
-
-	/**
-	 * Initializes the x and y components to `x` and `y` respectively.
-	 */
-	@nogc
-	this(in float x, in float y) pure {
-		this.x = x;
-		this.y = y;
-	}
 
 	/**
 	 * Linearly interpolates between the current value and `to` by `step`, returning the product.
