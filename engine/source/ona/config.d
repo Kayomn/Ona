@@ -3,7 +3,13 @@
  */
 module ona.config;
 
-private import ona.collections.map, ona.functional, ona.math, ona.string, ona.system, ona.unicode;
+private import
+	ona.collections.map,
+	ona.functional,
+	ona.math,
+	ona.string,
+	ona.system,
+	ona.unicode;
 
 /**
  * All possible type states that a `ConfigValue` may exist in.
@@ -163,90 +169,90 @@ public final class Config {
 			TokenType type = TokenType.eof;
 		}
 
-		size_t i = 0;
+		size_t iterations = 0;
 
 		Token eatToken() {
-			while (i < source.length) {
-				switch (source[i]) {
+			while (iterations < source.length) {
+				switch (source[iterations]) {
 					case '\n': {
-						i += 1;
+						iterations += 1;
 
 						return Token("\n", TokenType.newline);
 					}
 
 					case ' ', '\t', '\r', '\f', '\v': {
-						i += 1;
+						iterations += 1;
 
 						break;
 					}
 
 					case '[': {
-						i += 1;
+						iterations += 1;
 
 						return Token("[", TokenType.bracketLeft);
 					}
 
 					case ']': {
-						i += 1;
+						iterations += 1;
 
 						return Token("]", TokenType.bracketRight);
 					}
 
 					case '{': {
-						i += 1;
+						iterations += 1;
 
 						return Token("{", TokenType.braceLeft);
 					}
 
 					case '}': {
-						i += 1;
+						iterations += 1;
 
 						return Token("}", TokenType.braceRight);
 					}
 
 					case '(': {
-						i += 1;
+						iterations += 1;
 
 						return Token("(", TokenType.parenLeft);
 					}
 
 					case ')': {
-						i += 1;
+						iterations += 1;
 
 						return Token(")", TokenType.parenRight);
 					}
 
 					case '.': {
-						i += 1;
+						iterations += 1;
 
 						return Token(".", TokenType.period);
 					}
 
 					case ',': {
-						i += 1;
+						iterations += 1;
 
 						return Token(",", TokenType.comma);
 					}
 
 					case '=': {
-						i += 1;
+						iterations += 1;
 
 						return Token("=", TokenType.equals);
 					}
 
 					case '"': {
-						immutable (size_t) iNext = (i + 1);
-						size_t j = iNext;
+						immutable (size_t) nextIteration = (iterations + 1);
+						size_t j = nextIteration;
 
 						while ((j < source.length) && source[j] != '"') j += 1;
 
 						if (source[j] == '"') {
-							i = (j + 1);
+							iterations = (j + 1);
 
-							return Token(source[iNext .. j], TokenType.stringLiteral);
+							return Token(source[nextIteration .. j], TokenType.stringLiteral);
 						}
 
-						i = j;
+						iterations = j;
 
 						return Token(
 							"Unexpected end of file before end of string literal",
@@ -255,39 +261,51 @@ public final class Config {
 					}
 
 					case '0': .. case '9': {
-						size_t j = (i + 1);
+						size_t subIterations = (iterations + 1);
 
-						while ((j < source.length) && isDigit(source[j])) j += 1;
+						while ((subIterations < source.length) && isDigit(source[subIterations])) {
+							subIterations += 1;
+						}
 
-						if ((j < source.length) && (source[j] == '.')) {
-							j += 1;
+						if ((subIterations < source.length) && (source[subIterations] == '.')) {
+							subIterations += 1;
 
-							if ((j < source.length) && isDigit(source[j])) {
+							if ((subIterations < source.length) && isDigit(source[subIterations])) {
 								// Handle decimal places.
-								j += 1;
+								subIterations += 1;
 
-								while ((j < source.length) && isDigit(source[j])) j += 1;
+								while (
+									(subIterations < source.length) &&
+									isDigit(source[subIterations])
+								) {
+									subIterations += 1;
+								}
 							} else {
 								// Just a regular period, go back.
-								j -= 2;
+								subIterations -= 2;
 							}
 						}
 
-						immutable (size_t) iOld = i;
-						i = j;
+						immutable (size_t) oldIterations = iterations;
+						iterations = subIterations;
 
-						return Token(source[iOld .. j], TokenType.numberLiteral);
+						return Token(
+							source[oldIterations .. subIterations],
+							TokenType.numberLiteral
+						);
 					}
 
 					default: {
-						size_t j = (i + 1);
+						size_t subIterations = (iterations + 1);
 
-						while ((j < source.length) && isAlpha(source[j])) j += 1;
+						while ((subIterations < source.length) && isAlpha(source[subIterations])) {
+							subIterations += 1;
+						}
 
-						immutable (size_t) iOld = i;
-						i = j;
+						immutable (size_t) oldIterations = iterations;
+						iterations = subIterations;
 
-						return Token(source[iOld .. j], TokenType.identifier);
+						return Token(source[oldIterations .. subIterations], TokenType.identifier);
 					}
 				}
 			}
