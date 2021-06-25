@@ -20,6 +20,13 @@ public struct Sprite {
 	 * [Texture] for pixel perfectness.
 	 */
 	Rect destinationRect;
+
+	/**
+	 * Returns a `Sprite` centered around `dimensions` size at `position`.
+	 */
+	static Sprite centered(in Vector2 dimensions, in Vector2 position) {
+		return Sprite(Rect(position - (dimensions / 2), dimensions));
+	}
 }
 
 /**

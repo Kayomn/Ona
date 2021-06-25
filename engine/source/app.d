@@ -26,11 +26,13 @@ public void main() {
 
 			if (testImage.hasValue()) {
 				auto testTexture = graphics.loadTexture(testImage.value());
-				auto sprites = new Sprite[1024];
+				Sprite[1024] sprites = void;
 
 				foreach (ref value; sprites) {
-					value.destinationRect.origin = Vector2(uniform(0, 1280) - 32, uniform(0, 720) - 32);
-					value.destinationRect.extent = testTexture.dimensions.asVector2();
+					value = Sprite.centered(
+						testTexture.dimensions().asVector2(),
+						Vector2(uniform(0, 1280), uniform(0, 720))
+					);
 				}
 
 				while (graphics.poll()) {
