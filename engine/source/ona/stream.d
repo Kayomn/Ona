@@ -24,39 +24,33 @@ public interface Stream {
 	 * Reading from and writing to the stream may modify the result, so it is advised that it be
 	 * used in a loop in case any further bytes become available after any initial reads.
 	 */
-	@nogc
 	ulong availableBytes();
 
 	/**
 	 * Attempts to read as many bytes as will fit in `input` from the stream, returning the number
 	 * of bytes actually read.
 	 */
-	@system
 	ulong readBytes(ubyte[] input);
 
 	/**
 	 * Repositions the stream cursor to `offset` bytes relative to the beginning of the stream.
 	 */
-	@system
 	long seekHead(in long offset);
 
 	/**
 	 * Repositions the stream cursor to `offset` bytes relative to the end of the stream.
 	 */
-	@system
 	long seekTail(in long offset);
 
 	/**
 	 * Moves the cursor `offset` bytes from its current position.
 	 */
-	@system
 	long skip(in long offset);
 
 	/**
 	 * Attempts to write as many bytes to the stream as there are in `output`, returning the number
 	 * of bytes actually written.
 	 */
-	@system
 	ulong writeBytes(in ubyte[] output);
 }
 
@@ -71,7 +65,6 @@ public final class MemoryStream : Stream {
 	/**
 	 * Assigns `buffer` as the memory to be read from and written to by the stream operations.
 	 */
-	@nogc
 	public this(ubyte[] buffer) {
 		this.buffer = buffer;
 	}
@@ -82,7 +75,6 @@ public final class MemoryStream : Stream {
 	 * Reading from and writing to the memory **will** modify the result, so it is advised that it
 	 * be used in a loop in case any further bytes become available after any initial reads.
 	 */
-	@nogc
 	public ulong availableBytes() {
 		return (this.buffer.length - this.cursor);
 	}
@@ -91,7 +83,6 @@ public final class MemoryStream : Stream {
 	 * Attempts to read as many bytes as will fit in `input` from the memory, returning the number
 	 * of bytes actually read.
 	 */
-	@nogc
 	public ulong readBytes(ubyte[] input) {
 		size_t bytesRead = 0;
 
@@ -108,7 +99,6 @@ public final class MemoryStream : Stream {
 	 * Repositions the stream cursor to `offset` bytes relative to the beginning of the memory,
 	 * returning `0` if `offset` is an invalid location in the memory buffer.
 	 */
-	@nogc
 	public long seekHead(in long offset) {
 		if ((offset < 0) || (offset > this.buffer.length)) {
 			this.cursor = 0;
@@ -123,7 +113,6 @@ public final class MemoryStream : Stream {
 	 * Repositions the stream cursor to `offset` bytes relative to the end of the memory, returning
 	 * `0` if `offset` is an invalid location in the memory buffer.
 	 */
-	@nogc
 	public long seekTail(in long offset) {
 		if ((offset > 0) || (offset < (-this.buffer.length))) {
 			this.cursor = 0;
@@ -137,7 +126,6 @@ public final class MemoryStream : Stream {
 	/**
 	 * Moves the cursor `offset` bytes from its current position.
 	 */
-	@nogc
 	public long skip(in long offset) {
 		this.cursor = clamp(this.cursor + offset, 0, this.cursor);
 
@@ -148,7 +136,6 @@ public final class MemoryStream : Stream {
 	 * Attempts to write as many bytes to the memory as there are in `output`, returning the number
 	 * of bytes actually written.
 	 */
-	@nogc
 	public ulong writeBytes(in ubyte[] output) {
 		size_t bytesWritten = 0;
 

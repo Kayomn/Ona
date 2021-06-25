@@ -37,7 +37,6 @@ public final class HashTable(KeyType, ValueType) {
 	/**
 	 * Clears all items from the contents, calling the destructors of any contained `struct` types.
 	 */
-	@nogc
 	public void clear() {
 		if (this.itemCount) {
 			foreach (i; 0 .. this.bucketCapacity) {
@@ -79,7 +78,6 @@ public final class HashTable(KeyType, ValueType) {
 	/**
 	 * Returns the number of items currently held.
 	 */
-	@nogc
 	public uint count() const {
 		return this.itemCount;
 	}
@@ -87,7 +85,6 @@ public final class HashTable(KeyType, ValueType) {
 	/**
 	 * Assigns `value` to `key`, returning a reference to the inserted value.
 	 */
-	@nogc
 	public ref ValueType assign(in KeyType key, ValueType value) {
 		Bucket* createBucket(in KeyType key, ValueType value) {
 			if (this.freeBuckets) {
@@ -151,7 +148,6 @@ public final class HashTable(KeyType, ValueType) {
 	 * Returns the table saturation of the items contained as a value between `0` and `1`, where `0`
 	 * is empty and `1` is complete saturation.
 	 */
-	@nogc
 	public float loadFactor() const {
 		return (this.itemCount / this.bucketCapacity);
 	}
@@ -170,7 +166,6 @@ public final class HashTable(KeyType, ValueType) {
 		return Optional!ValueType();
 	}
 
-	@nogc
 	private inout (ValueType)* lookupImplementation(in KeyType key) inout {
 		if (this.buckets && this.itemCount) {
 			inout (Bucket)* bucket = this.buckets[hashOf(key) % this.bucketCapacity];
@@ -190,7 +185,6 @@ public final class HashTable(KeyType, ValueType) {
 	 * numbers using less memory but experiencing slower lookup speeds, and higher numbers using
 	 * more memory and faster lookup speeds.
 	 */
-	@nogc
 	public void rehash(in uint tableSize) {
 		Bucket** oldBuckets = this.buckets;
 		immutable (uint) oldCapacity = this.bucketCapacity;

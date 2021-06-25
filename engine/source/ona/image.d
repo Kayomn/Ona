@@ -60,7 +60,6 @@ public struct Color {
 	 * Assigns `red`, `green`, and `blue` as the red, green, and blue color values with an opaque
 	 * alpha.
 	 */
-	@nogc
 	this(in ubyte red, in ubyte green, in ubyte blue) pure {
 		this(red, green, blue, ubyte.max);
 	}
@@ -69,7 +68,6 @@ public struct Color {
 	 * Assigns `red`, `green`, `blue`, and `alpha` as the red, green, blue, and alpha values
 	 * respectively.
 	 */
-	@nogc
 	this(in ubyte red, in ubyte green, in ubyte blue, in ubyte alpha) pure {
 		this.r = red;
 		this.g = green;
@@ -80,7 +78,6 @@ public struct Color {
 	/**
 	 * Returns a darkened version of the r, g, b color values.
 	 */
-	@nogc
 	Color darkened(in float value) const pure {
 		return Color(
 			cast(ubyte)((cast(float)this.r) - (this.r * value)),
@@ -93,7 +90,6 @@ public struct Color {
 	/**
 	 * Returns a lightened version of the r, g, b color values.
 	 */
-	@nogc
 	Color lightened(in float value) const pure {
 		return Color(
 			cast(ubyte)(this.r * value),
@@ -107,7 +103,6 @@ public struct Color {
 	 * Returns the red, green, blue, and alpha channels as a `Vector4` of values ranging between `0`
 	 * and `1`.
 	 */
-	@nogc
 	Vector4 normalized() const pure {
 		immutable channelMax = (cast(float)ubyte.max);
 
@@ -122,7 +117,6 @@ public struct Color {
 	/**
 	 * Returns the raw, unique identity for the currently contained color value.
 	 */
-	@nogc
 	uint value() const pure {
 		return (*cast(uint*)&this);
 	}
@@ -136,7 +130,6 @@ public final class Image {
 
 	private Point2 pixelDimensions;
 
-	@nogc
 	private this(in Point2 dimensions) {
 		this.pixelBuffer = (cast(Color*)pureMalloc(Color.sizeof * dimensions.x * dimensions.y));
 
@@ -148,7 +141,6 @@ public final class Image {
 	/**
 	 * Returns the x and y pixel dimensions of the image data.
 	 */
-	@nogc
 	public Point2 dimensions() const {
 		return this.pixelDimensions;
 	}
@@ -340,7 +332,6 @@ public final class Image {
 	 * render any existing views into its contents invalid. Because of this, it is highly advised
 	 * that a handle into its memory contents not be saved anywhere but temporary storage.
 	 */
-	@nogc
 	public inout (Color)[] opIndex() inout {
 		return this.pixelBuffer[0 .. (this.pixelDimensions.x * this.pixelDimensions.y)];
 	}

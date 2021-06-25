@@ -9,7 +9,6 @@ private import ona.functional, std.ascii, std.math;
  * Attempts to parse and return the result as a `double` if one could be parsed from `source`,
  * otherwise nothing if the operation failed.
  */
-@nogc
 public Optional!double parseFloat(const (char)[] source) {
 	if (source.length) {
 		double result = 0;
@@ -51,7 +50,6 @@ public Optional!double parseFloat(const (char)[] source) {
  * Attempts to parse and return the result as a `long` if one could be parsed from `source`,
  * otherwise nothing if the operation failed.
  */
-@nogc
 public Optional!long parseInteger(const (char)[] source) {
 	if (source.length) {
 		long result = 0;

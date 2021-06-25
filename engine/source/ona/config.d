@@ -44,7 +44,6 @@ public struct ConfigValue {
 	/**
 	 * Stores `bool` as the held value.
 	 */
-	@nogc
 	public this(in bool boolean) inout {
 		this.type = ConfigType.boolean;
 		this.store.boolean = boolean;
@@ -53,7 +52,6 @@ public struct ConfigValue {
 	/**
 	 * Stores `int` as the held value.
 	 */
-	@nogc
 	public this(in int integral) inout {
 		this.type = ConfigType.integral;
 		this.store.integral = integral;
@@ -62,7 +60,6 @@ public struct ConfigValue {
 	/**
 	 * Stores `floating` as the held value.
 	 */
-	@nogc
 	public this(in double floating) inout {
 		this.type = ConfigType.floating;
 		this.store.floating = floating;
@@ -71,7 +68,6 @@ public struct ConfigValue {
 	/**
 	 * Stores `str` as the held value.
 	 */
-	@nogc
 	public this(in string str) inout {
 		this.type = ConfigType.string_;
 		this.store.string_ = str;
@@ -81,7 +77,6 @@ public struct ConfigValue {
 	 * Attempts to access the held value as an `int`, returning it or nothing wrapped in an
 	 * `Optional`.
 	 */
-	@nogc
 	public Optional!int integerValue() const {
 		if (this.type == ConfigType.integral) {
 			return Optional!int(this.store.integral);
@@ -94,7 +89,6 @@ public struct ConfigValue {
 	 * Attempts to access the held value as a `string`, returning it or nothing wrapped in an
 	 * `Optional`.
 	 */
-	@nogc
 	public Optional!string stringValue() const {
 		if (this.type == ConfigType.string_) {
 			return Optional!string(this.store.string_);
@@ -121,7 +115,6 @@ public final class Config {
 	 *
 	 * To look up values under the default section, pass an empty `string` to `sectionName`.
 	 */
-	@nogc
 	public ConfigValue find(in string sectionName, in string keyName) const {
 		const (Optional!Section) lookedUpSection = this.sections.lookup(sectionName);
 
