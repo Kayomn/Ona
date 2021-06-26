@@ -10,7 +10,7 @@ private import
 	std.random,
 	ona.system;
 
-public void main() {
+private void main() {
 	scope config = new Config();
 
 	if (config.parse(cast(char[])SystemStream.load("./ona.cfg").or([]))) {

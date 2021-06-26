@@ -29,14 +29,16 @@ public Optional!double parseFloat(const (char)[] source) {
 				}
 
 				hasDecimal = true;
-			} else if (isDigit(c)) {
-				immutable (int) d = (c - '0');
+			} else if (!isDigit(c)) {
+				return Optional!double();
+			}
 
-				if ((d >= 0) && (d <= 9)) {
-					if (hasDecimal) fact /= 10.0f;
+			immutable (int) d = (c - '0');
 
-					result = ((result * 10.0f) + (cast(double)d));
-				}
+			if ((d >= 0) && (d <= 9)) {
+				if (hasDecimal) fact /= 10.0f;
+
+				result = ((result * 10.0f) + (cast(double)d));
 			}
 		}
 
@@ -44,6 +46,21 @@ public Optional!double parseFloat(const (char)[] source) {
 	}
 
 	return Optional!double();
+}
+
+unittest {
+	import std.math : isClose;
+
+	foreach (invalid; ["de.8", "e8", "8z", "xc", "89.j", "99.0i"]) {
+		assert(!parseFloat("de.8").hasValue(), invalid ~ " is valid when it shouldn't be");
+	}
+
+	{
+		Optional!double parsedFloat = parseFloat("3.14");
+
+		assert(parsedFloat.hasValue());
+		assert(isClose(parsedFloat.value(), 3.14));
+	}
 }
 
 /**
@@ -58,7 +75,7 @@ public Optional!long parseInteger(const (char)[] source) {
 		if (source[0] == '-') {
 			// Ignore the sign in the string for now, we'll come back to it tho.
 			source = source[1 .. source.length];
-			fact = -1;
+			fact = (-1);
 		}
 
 		// Length may have changed if a sign was removed.
@@ -68,7 +85,7 @@ public Optional!long parseInteger(const (char)[] source) {
 
 				if (!isDigit(c)) return Optional!long();
 
-				result += cast(long)((c - '0') * pow(10, i));
+				result += (cast(long)((c - '0') * pow(10, i)));
 			}
 
 			return Optional!long(result * fact);
@@ -76,4 +93,17 @@ public Optional!long parseInteger(const (char)[] source) {
 	}
 
 	return Optional!long();
+}
+
+unittest {
+	foreach (invalid; ["de.8", "e8", "8z", "xc", "89.j", "99.0i"]) {
+		assert(!parseFloat(invalid).hasValue());
+	}
+
+	{
+		Optional!double parsedFloat = parseFloat("3.14");
+
+		assert(parsedFloat.hasValue());
+		assert(isClose(parsedFloat.value(), 3.14));
+	}
 }

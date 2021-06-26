@@ -21,7 +21,7 @@
 			}
 		},
 		{
-			"label": "Build unit tests",
+			"label": "Unit test application",
 			"type": "shell",
 			"command": "dub test",
 			"group": {

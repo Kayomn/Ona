@@ -8,6 +8,14 @@
 			"target": "${workspaceRoot}/output/ona",
 			"cwd": "${workspaceRoot}/assets",
 			"valuesFormatting": "parseText"
+		},
+		{
+			"name": "Debug unit tests",
+			"type": "gdb",
+			"request": "launch",
+			"target": "${workspaceRoot}/output/ona-test-GL4",
+			"cwd": "${workspaceRoot}/assets/",
+			"valuesFormatting": "parseText"
 		}
 	]
 }
